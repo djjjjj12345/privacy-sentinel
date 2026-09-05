@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>隐私哨兵 - 敏感信息检测</title>
+    <style>
+        /* ========== Reset & Base (与原样一致) ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #3b7cff;
+            --primary-light: #e8eeff;
+            --danger: #f44336;
+            --danger-light: #ffebee;
+            --warning: #ff9800;
+            --warning-light: #fff3e0;
+            --success: #4caf50;
+            --success-light: #e8f5e9;
+            --gray: #9e9e9e;
+            --gray-light: #f5f5f5;
+            --gray-border: #e0e0e0;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        html, body {
+            font-family: var(--font);
+            background: #f0f2f5;
+            height: 100%;
+            overflow: hidden;
+            color: #1a1a2e;
+        }
+        button { font-family: inherit; cursor: pointer; border: none; outline: none; background: none; }
+        input, textarea { font-family: inherit; outline: none; border: none; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+        #app {
+            max-width: 430px;
+            margin: 0 auto;
+            height: 100vh;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.05);
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 20px 4px;
+            font-size: 12px;
+            color: #888;
+            background: #fff;
+            flex-shrink: 0;
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px 10px 20px;
+            border-bottom: 1px solid var(--gray-border);
+            background: #fff;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+        .chat-header .title {
+            font-size: 17px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chat-header .title .badge {
+            font-size: 10px;
+            background: var(--primary);
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: 400;
+        }
+        .chat-header .actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .chat-header .actions button {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--gray-light);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            color: #444;
+        }
+        .chat-header .actions button:active { transform: scale(0.92); }
+        .chat-header .actions button.active {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 16px 8px;
+            background: #f8f9fc;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .messages .msg {
+            max-width: 88%;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            font-size: 15px;
+            line-height: 1.6;
+            word-break: break-word;
+            animation: msgIn 0.25s ease;
+            position: relative;
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .messages .msg.user {
+            align-self: flex-end;
+            background: var(--primary);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .messages .msg.bot {
+            align-self: flex-start;
+            background: #fff;
+            color: #1a1a2e;
+            border-bottom-left-radius: 4px;
+            box-shadow: var(--shadow);
+        }
+        .messages .msg.bot .label {
+            font-size: 11px;
+            color: var(--gray);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .messages .msg.bot .label .dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .messages .msg .sensitive-highlight {
+            background: rgba(255, 152, 0, 0.25);
+            padding: 1px 4px;
+            border-radius: 4px;
+            border-bottom: 2px solid var(--warning);
+        }
+        .messages .msg .sensitive-highlight.danger {
+            background: rgba(244, 67, 54, 0.2);
+            border-bottom-color: var(--danger);
+        }
+        .messages .msg .sensitive-highlight.info {
+            background: rgba(59, 124, 255, 0.15);
+            border-bottom-color: var(--primary);
+        }
+        .messages .msg .file-preview {
+            margin-top: 8px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: #f0f2f5;
+            max-width: 200px;
+        }
+        .messages .msg .file-preview img, .messages .msg .file-preview video {
+            width: 100%;
+            display: block;
+        }
+        .messages .msg .file-preview .file-icon {
+            padding: 20px;
+            text-align: center;
+            font-size: 40px;
+            color: var(--gray);
+        }
+        .messages .msg .file-preview .file-name {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #666;
+            background: #fff;
+            border-top: 1px solid var(--gray-border);
+        }
+        .messages .time {
+            font-size: 10px;
+            color: var(--gray);
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+        .msg.bot .time { text-align: left; }
+        .msg.user .time { text-align: right; }
+
+        .risk-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-top: 6px;
+        }
+        .risk-badge.L1 { background: var(--success-light); color: var(--success); }
+        .risk-badge.L2 { background: var(--warning-light); color: var(--warning); }
+        .risk-badge.L3 { background: #fff3e0; color: #e65100; }
+        .risk-badge.L4 { background: var(--danger-light); color: var(--danger); }
+
+        .input-area {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            padding: 10px 12px 14px;
+            background: #fff;
+            border-top: 1px solid var(--gray-border);
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+        .input-area .attach-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gray-light);
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            flex-shrink: 0;
+            transition: 0.2s;
+            position: relative;
+        }
+        .input-area .attach-btn:active { transform: scale(0.9); }
+        .input-area .attach-btn .badge-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 10px;
+            height: 10px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+        .input-area .input-wrap {
+            flex: 1;
+            background: var(--gray-light);
+            border-radius: 24px;
+            padding: 6px 16px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            transition: 0.2s;
+            border: 2px solid transparent;
+            cursor: text;
+        }
+        .input-area .input-wrap:focus-within {
+            border-color: var(--primary);
+            background: #fff;
+        }
+        .input-area .input-wrap textarea {
+            width: 100%;
+            background: transparent;
+            resize: none;
+            font-size: 15px;
+            line-height: 1.5;
+            padding: 6px 0;
+            min-height: 28px;
+            max-height: 100px;
+            color: #1a1a2e;
+            -webkit-user-select: text !important;
+            user-select: text !important;
+            touch-action: manipulation !important;
+        }
+        .input-area .input-wrap textarea::placeholder { color: #aaa; }
+        .input-area .send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(59, 124, 255, 0.3);
+        }
+        .input-area .send-btn:active { transform: scale(0.9); }
+        .input-area .send-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+        .attach-popup {
+            position: absolute;
+            bottom: 74px;
+            left: 12px;
+            background: #fff;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+            padding: 12px 0;
+            min-width: 180px;
+            display: none;
+            z-index: 20;
+            animation: slideUp 0.2s ease;
+        }
+        .attach-popup.open { display: block; }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .attach-popup .item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 18px;
+            font-size: 14px;
+            color: #333;
+            transition: 0.15s;
+        }
+        .attach-popup .item:active { background: var(--gray-light); }
+        .attach-popup .item .icon { font-size: 22px; width: 32px; text-align: center; }
+        .attach-popup .item .sub { font-size: 11px; color: var(--gray); }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 50;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.25s ease;
+        }
+        .overlay.open { display: flex; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius);
+            max-width: 400px;
+            width: 100%;
+            padding: 24px 20px 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+            animation: modalIn 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.94) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+        .modal .modal-sub { font-size: 13px; color: var(--gray); margin-bottom: 16px; }
+        .modal .modal-body { font-size: 14px; line-height: 1.7; color: #333; }
+        .modal .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        .modal .modal-actions .btn {
+            padding: 10px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .modal .modal-actions .btn:active { transform: scale(0.96); }
+        .modal .modal-actions .btn.primary { background: var(--primary); color: #fff; }
+        .modal .modal-actions .btn.primary:active { background: #2a6adf; }
+        .modal .modal-actions .btn.outline { background: transparent; color: var(--gray); border: 1px solid var(--gray-border); }
+        .modal .modal-actions .btn.danger { background: var(--danger); color: #fff; }
+        .modal .modal-actions .btn.danger:active { background: #d32f2f; }
+        .modal .modal-actions .btn:disabled { opacity: 0.4; pointer-events: none; }
+        .modal .risk-level {
+            display: inline-block;
+            font-weight: 700;
+            font-size: 20px;
+            padding: 2px 14px;
+            border-radius: 20px;
+            margin: 6px 0 10px;
+        }
+        .modal .risk-level.L1 { background: var(--success-light); color: var(--success); }
+        .modal .risk-level.L2 { background: var(--warning-light); color: var(--warning); }
+        .modal .risk-level.L3 { background: #fff3e0; color: #e65100; }
+        .modal .risk-level.L4 { background: var(--danger-light); color: var(--danger); }
+        .modal .detected-items {
+            background: var(--gray-light);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .modal .detected-items .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .modal .detected-items .item:last-child { border-bottom: none; }
+        .modal .detected-items .item .tag {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .modal .countdown {
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--danger);
+            text-align: center;
+            padding: 10px 0;
+        }
+        .modal .suggestion {
+            background: #f0f7ff;
+            border-left: 3px solid var(--primary);
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .modal .suggestion .label { font-weight: 600; color: var(--primary); }
+
+        .settings-panel {
+            position: absolute;
+            inset: 0;
+            background: #fff;
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            animation: slideRight 0.3s ease;
+        }
+        .settings-panel.open { display: flex; }
+        @keyframes slideRight {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        .settings-panel .header {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-border);
+            flex-shrink: 0;
+            background: #fff;
+        }
+        .settings-panel .header .back-btn { font-size: 22px; padding: 4px 8px; color: #333; }
+        .settings-panel .header .title { font-size: 18px; font-weight: 600; margin-left: 8px; }
+        .settings-panel .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px 30px;
+        }
+        .settings-panel .body .section { margin-bottom: 24px; }
+        .settings-panel .body .section .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .settings-panel .body .card {
+            background: var(--gray-light);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-bottom: 8px;
+        }
+        .settings-panel .body .card .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+        }
+        .settings-panel .body .card .row .label { font-size: 14px; }
+        .settings-panel .body .card .row .value { font-size: 13px; color: var(--gray); }
+        .settings-panel .body .card .row .tag-group {
+            display: flex;
+            gap: 6px;
+        }
+        .settings-panel .body .card .row .tag-group .tag {
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            background: #fff;
+            border: 1px solid var(--gray-border);
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .settings-panel .body .card .row .tag-group .tag.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .settings-panel .body .card .row .tag-group .tag:active { transform: scale(0.94); }
+        .settings-panel .body .card .row .tag-group .tag.locked { opacity: 0.5; cursor: not-allowed; background: #eee; }
+        .settings-panel .body .card .row .toggle {
+            width: 44px;
+            height: 26px;
+            background: #ccc;
+            border-radius: 13px;
+            position: relative;
+            transition: 0.25s;
+            cursor: pointer;
+        }
+        .settings-panel .body .card .row .toggle.active { background: var(--primary); }
+        .settings-panel .body .card .row .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.25s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+        .settings-panel .body .card .row .toggle.active::after { left: 20px; }
+        .settings-panel .body .card .row .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 4px 0;
+        }
+        .settings-panel .body .card .row .contact-item .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .settings-panel .body .card .row .contact-item .info { flex: 1; }
+        .settings-panel .body .card .row .contact-item .info .name { font-size: 14px; font-weight: 500; }
+        .settings-panel .body .card .row .contact-item .info .phone { font-size: 12px; color: var(--gray); }
+        .settings-panel .body .card .row .contact-item .badge-l4 {
+            font-size: 10px;
+            background: var(--danger-light);
+            color: var(--danger);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .settings-panel .body .btn-add {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed var(--gray-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            color: var(--gray);
+            text-align: center;
+            transition: 0.2s;
+        }
+        .settings-panel .body .btn-add:active { background: var(--gray-light); }
+        .settings-panel .body .sensitivity-slider {
+            display: flex;
+            gap: 8px;
+            margin: 8px 0;
+        }
+        .settings-panel .body .sensitivity-slider .opt {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            border-radius: var(--radius-sm);
+            background: #fff;
+            border: 2px solid var(--gray-border);
+            font-size: 13px;
+            font-weight: 500;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .settings-panel .body .sensitivity-slider .opt:active { transform: scale(0.96); }
+        .settings-panel .body .sensitivity-slider .opt.active {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .settings-panel .body .sensitivity-slider .opt .sub {
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--gray);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .history-panel {
+            position: absolute;
+            inset: 0;
+            background: #f8f9fc;
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            animation: slideRight 0.3s ease;
+        }
+        .history-panel.open { display: flex; }
+        .history-panel .header {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-border);
+            flex-shrink: 0;
+            background: #fff;
+        }
+        .history-panel .header .back-btn { font-size: 22px; padding: 4px 8px; color: #333; }
+        .history-panel .header .title { font-size: 18px; font-weight: 600; margin-left: 8px; }
+        .history-panel .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px 30px;
+        }
+        .history-panel .body .history-item {
+            background: #fff;
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border-left: 4px solid var(--gray);
+        }
+        .history-panel .body .history-item.L1 { border-left-color: var(--success); }
+        .history-panel .body .history-item.L2 { border-left-color: var(--warning); }
+        .history-panel .body .history-item.L3 { border-left-color: #e65100; }
+        .history-panel .body .history-item.L4 { border-left-color: var(--danger); }
+        .history-panel .body .history-item .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-panel .body .history-item .top .level { font-weight: 700; font-size: 13px; }
+        .history-panel .body .history-item .top .level.L1 { color: var(--success); }
+        .history-panel .body .history-item .top .level.L2 { color: var(--warning); }
+        .history-panel .body .history-item .top .level.L3 { color: #e65100; }
+        .history-panel .body .history-item .top .level.L4 { color: var(--danger); }
+        .history-panel .body .history-item .top .time { font-size: 11px; color: var(--gray); }
+        .history-panel .body .history-item .desc { font-size: 13px; color: #444; margin-top: 4px; }
+        .history-panel .body .history-item .desc .highlight { background: #fff3e0; padding: 0 4px; border-radius: 3px; }
+        .history-panel .body .history-item .action { font-size: 12px; color: var(--gray); margin-top: 4px; }
+        .history-panel .body .empty { text-align: center; padding: 60px 20px; color: var(--gray); }
+        .history-panel .body .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+        .guide-panel {
+            position: absolute;
+            inset: 0;
+            background: #f8f9fc;
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            animation: slideRight 0.3s ease;
+        }
+        .guide-panel.open { display: flex; }
+        .guide-panel .header {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-border);
+            flex-shrink: 0;
+            background: #fff;
+        }
+        .guide-panel .header .back-btn { font-size: 22px; padding: 4px 8px; color: #333; }
+        .guide-panel .header .title { font-size: 18px; font-weight: 600; margin-left: 8px; }
+        .guide-panel .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px 30px;
+        }
+        .guide-panel .body .guide-card {
+            background: #fff;
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            cursor: pointer;
+            transition: 0.15s;
+            border-left: 4px solid var(--danger);
+        }
+        .guide-panel .body .guide-card:active { transform: scale(0.99); }
+        .guide-panel .body .guide-card .title { font-size: 15px; font-weight: 600; }
+        .guide-panel .body .guide-card .desc { font-size: 13px; color: #666; margin-top: 4px; }
+        .guide-panel .body .guide-card .detail {
+            font-size: 13px;
+            color: #333;
+            margin-top: 8px;
+            padding: 10px 12px;
+            background: var(--gray-light);
+            border-radius: 6px;
+            display: none;
+        }
+        .guide-panel .body .guide-card .detail.open { display: block; }
+        .guide-panel .body .guide-card .detail .example {
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-top: 6px;
+            border: 1px solid var(--gray-border);
+            font-size: 12px;
+            color: #555;
+        }
+
+        .toast {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.78);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 24px;
+            font-size: 13px;
+            z-index: 100;
+            opacity: 0;
+            transition: 0.3s;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        .file-input-hidden { display: none; }
+
+        @media (max-width: 430px) {
+            #app { max-width: 100%; border-radius: 0; }
+        }
+        @media (min-width: 431px) {
+            #app {
+                border-radius: 20px;
+                margin-top: 20px;
+                height: calc(100vh - 40px);
+                max-height: 820px;
+            }
+            body { background: #e8eaed; display: flex; justify-content: center; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="toast" id="toast"></div>
+
+        <!-- ========== CHAT VIEW ========== -->
+        <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+
+        <div class="chat-header">
+            <div class="title">🛡️ 隐私哨兵 <span class="badge">实时保护</span></div>
+            <div class="actions">
+                <button id="btnGuide" title="防骗指南">📖</button>
+                <button id="btnHistory" title="预警历史">📋</button>
+                <button id="btnSettings" title="设置" class="active">⚙️</button>
+            </div>
+        </div>
+
+        <div class="messages" id="messages">
+            <div class="msg bot">
+                <div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span> 在线</div>
+                你好！我已开启敏感信息检测。<br>
+                发送消息、图片、音频或视频，我将自动检测其中的身份证、银行卡、密码、验证码等敏感信息。<br>
+                <span style="font-size:13px;color:var(--gray);">💡 试试输入 "我的身份证号是110105199003071234"</span><br>
+                <span style="font-size:13px;color:var(--primary);">🖼️ 输入图片URL（以http开头）将使用AI视觉识别</span>
+            </div>
+        </div>
+
+        <div class="input-area" id="inputArea">
+            <button class="attach-btn" id="attachBtn">📎</button>
+            <div class="input-wrap" id="inputWrap">
+                <textarea id="msgInput" rows="1" placeholder="输入消息或图片URL..." style="height:28px;" autofocus></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn">➤</button>
+
+            <div class="attach-popup" id="attachPopup">
+                <div class="item" data-type="image">📷 图片 <span class="sub">JPG / PNG</span></div>
+                <div class="item" data-type="audio">🎵 音频 <span class="sub">MP3 / WAV</span></div>
+                <div class="item" data-type="video">🎬 视频 <span class="sub">MP4 / MOV</span></div>
+            </div>
+        </div>
+
+        <input type="file" class="file-input-hidden" id="fileImage" accept="image/*">
+        <input type="file" class="file-input-hidden" id="fileAudio" accept="audio/*">
+        <input type="file" class="file-input-hidden" id="fileVideo" accept="video/*">
+
+        <!-- ========== RISK MODAL ========== -->
+        <div class="overlay" id="riskModal">
+            <div class="modal" id="riskModalContent">
+                <div class="modal-title" id="riskTitle">⚠️ 风险预警</div>
+                <div class="modal-sub" id="riskSub">检测到敏感信息</div>
+                <div class="risk-level" id="riskLevelBadge">L2 · 中风险</div>
+                <div class="modal-body"><div id="riskBody"></div>
+                    <div class="modal-actions" id="riskActions">
+                        <button class="btn outline" id="riskCancel">取消</button>
+                        <button class="btn primary" id="riskConfirm">仍然发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== SETTINGS PANEL (不变) ========== -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="header"><button class="back-btn" id="settingsBack">‹</button><span class="title">⚙️ 设置</span></div>
+            <div class="body">
+                <div class="section">
+                    <div class="section-title">👤 用户画像</div>
+                    <div class="card">
+                        <div class="row"><span class="label">年龄段</span><span class="value" id="ageDisplay">30-45岁</span></div>
+                        <div class="row" style="flex-wrap:wrap;gap:6px;padding-top:4px;">
+                            <span class="tag-group" id="ageGroup">
+                                <span class="tag" data-age="18-">18-30</span>
+                                <span class="tag active" data-age="30-45">30-45</span>
+                                <span class="tag" data-age="45-60">45-60</span>
+                                <span class="tag" data-age="60+">60+</span>
+                            </span>
+                        </div>
+                        <div class="row" style="margin-top:8px;border-top:1px solid #eee;padding-top:10px;">
+                            <span class="label">数字素养</span>
+                            <span class="value" id="literacyDisplay">中级 · 日常使用</span>
+                        </div>
+                        <div class="quick-settings">
+                            <span class="chip" data-lit="basic">初级</span>
+                            <span class="chip active" data-lit="mid">中级</span>
+                            <span class="chip" data-lit="adv">高级</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">🎯 预警灵敏度</div>
+                    <div class="card">
+                        <div class="sensitivity-slider" id="sensitivitySlider">
+                            <div class="opt" data-level="low">低 <span class="sub">仅L3+</span></div>
+                            <div class="opt active" data-level="mid">中 <span class="sub">标准</span></div>
+                            <div class="opt" data-level="high">高 <span class="sub">全覆盖</span></div>
+                        </div>
+                        <div class="row" style="margin-top:8px;border-top:1px solid #eee;padding-top:10px;">
+                            <span class="label">当前灵敏度</span>
+                            <span class="value" id="sensitivityLabel">中 · 标准预警策略</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">🔍 检测项</div>
+                    <div class="card">
+                        <div class="row"><span class="label">身份证号</span><span class="value" style="color:var(--primary);">L1</span></div>
+                        <div class="row"><span class="label">银行卡号</span><span class="value" style="color:var(--warning);">L2</span></div>
+                        <div class="row"><span class="label">密码</span><span class="value" style="color:#e65100;">L3</span></div>
+                        <div class="row"><span class="label">短信验证码 (OTP)</span><span class="value" style="color:var(--danger);font-weight:600;">L4 强制</span></div>
+                        <div class="row"><span class="label">手机号</span><span class="value" style="color:var(--gray);">L1</span></div>
+                        <div class="row"><span class="label">家庭住址</span><span class="value" style="color:var(--gray);">L1</span></div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">📞 紧急联系人</div>
+                    <div class="card">
+                        <div class="row">
+                            <div class="contact-item">
+                                <div class="avatar">👩</div>
+                                <div class="info">
+                                    <div class="name">妈妈</div>
+                                    <div class="phone">138****6688</div>
+                                </div>
+                                <span class="badge-l4">L4 通知</span>
+                            </div>
+                        </div>
+                        <button class="btn-add" id="addContactBtn">+ 添加紧急联系人</button>
+                        <div style="font-size:11px;color:var(--gray);margin-top:8px;">仅在 L4 级极高风险时发送脱敏风险摘要通知</div>
+                    </div>
+                </div>
+                <button class="btn-add" id="resetDefaults" style="border-color:var(--danger);color:var(--danger);margin-top:8px;">↺ 恢复默认设置</button>
+            </div>
+        </div>
+
+        <!-- ========== HISTORY PANEL ========== -->
+        <div class="history-panel" id="historyPanel">
+            <div class="header"><button class="back-btn" id="historyBack">‹</button><span class="title">📋 预警历史</span></div>
+            <div class="body" id="historyBody"></div>
+        </div>
+
+        <!-- ========== GUIDE PANEL ========== -->
+        <div class="guide-panel" id="guidePanel">
+            <div class="header"><button class="back-btn" id="guideBack">‹</button><span class="title">📖 防骗指南</span></div>
+            <div class="body" id="guideBody">
+                <div class="guide-card" data-guide="0">
+                    <div class="title">👮 冒充公检法</div>
+                    <div class="desc">声称你涉嫌洗钱，要求转账至「安全账户」</div>
+                    <div class="detail">🔹 防范：公检法不会电话办案，更不会要求转账。<br>🔹 案例：张女士接到「民警」电话，称其涉嫌诈骗，要求将资金转入指定账户「配合调查」，损失 12 万元。</div>
+                </div>
+                <div class="guide-card" data-guide="1">
+                    <div class="title">💸 刷单返利</div>
+                    <div class="desc">先垫付小额返利，再要求大额充值后消失</div>
+                    <div class="detail">🔹 防范：所有要求垫付的刷单都是诈骗。<br>🔹 案例：李同学参与「抖音点赞」任务，前期获利 200 元，后充值 5000 元后平台无法提现。</div>
+                </div>
+                <div class="guide-card" data-guide="2">
+                    <div class="title">📈 虚假投资理财</div>
+                    <div class="desc">高回报理财 / 加密货币内幕消息</div>
+                    <div class="detail">🔹 防范：超高回报率且稳赚不赔的都是骗局。<br>🔹 案例：王先生通过「理财导师」购买虚拟货币，投入 20 万元后平台关闭，血本无归。</div>
+                </div>
+                <div class="guide-card" data-guide="3">
+                    <div class="title">🛒 冒充客服退款</div>
+                    <div class="desc">主动来电称商品质量问题，要求退款验证</div>
+                    <div class="detail">🔹 防范：通过官方渠道核实，不点击陌生链接。<br>🔹 案例：陈女士接到「淘宝客服」电话，称商品有质量问题可双倍退款，按指示操作后银行卡被盗刷 3 万元。</div>
+                </div>
+                <div class="guide-card" data-guide="4">
+                    <div class="title">🔗 钓鱼链接</div>
+                    <div class="desc">短信 / 邮件中的可疑链接，诱导输入敏感信息</div>
+                    <div class="detail">🔹 防范：不点击陌生链接，手动输入官方网址。<br>🔹 案例：赵先生收到「银行」短信称账户异常，点击链接输入卡号和密码后，卡内 5 万元被转走。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //  ⚙️ 配置
+        // ================================================================
+        // 修改为你的后端地址（如果端口不同，请调整）
+        const API_BASE_URL = 'http://localhost:3000/api/detect'; // 你的 Node 后端地址
+
+        // ================================================================
+        //  STATE (原有)
+        // ================================================================
+        const STATE = {
+            age: '30-45',
+            literacy: 'mid',
+            sensitivity: 'mid',
+            history: [],
+            contacts: [{ name: '妈妈', phone: '138****6688' }],
+            detectLevels: { id: 1, bankcard: 2, password: 3, otp: 4, phone: 1, address: 1 },
+            pendingSend: null,
+            countdownActive: false,
+            countdownValue: 0,
+            countdownTimer: null,
+        };
+
+        // ================================================================
+        //  DOM REFS
+        // ================================================================
+        const $ = id => document.getElementById(id);
+        const msgContainer = $('messages');
+        const msgInput = $('msgInput');
+        const sendBtn = $('sendBtn');
+        const attachBtn = $('attachBtn');
+        const attachPopup = $('attachPopup');
+        const riskModal = $('riskModal');
+        const riskTitle = $('riskTitle');
+        const riskSub = $('riskSub');
+        const riskLevelBadge = $('riskLevelBadge');
+        const riskBody = $('riskBody');
+        const riskActions = $('riskActions');
+        const riskCancel = $('riskCancel');
+        const riskConfirm = $('riskConfirm');
+        const settingsPanel = $('settingsPanel');
+        const settingsBack = $('settingsBack');
+        const btnSettings = $('btnSettings');
+        const historyPanel = $('historyPanel');
+        const historyBack = $('historyBack');
+        const btnHistory = $('btnHistory');
+        const historyBody = $('historyBody');
+        const guidePanel = $('guidePanel');
+        const guideBack = $('guideBack');
+        const btnGuide = $('btnGuide');
+        const guideBody = $('guideBody');
+        const toast = $('toast');
+        const fileImage = $('fileImage');
+        const fileAudio = $('fileAudio');
+        const fileVideo = $('fileVideo');
+        const inputWrap = $('inputWrap');
+
+        let toastTimer = null;
+        let attachOpen = false;
+
+        // ================================================================
+        //  UTILITY (不变)
+        // ================================================================
+        function getTime() {
+            const d = new Date();
+            return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function showToast(msg, duration = 2000) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        function scrollToBottom() {
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+        }
+
+        function addMessage(text, type = 'bot', extra = {}) {
+            const div = document.createElement('div');
+            div.className = `msg ${type}`;
+            if (type === 'bot') {
+                div.innerHTML = `<div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span></div>${text}`;
+            } else {
+                div.textContent = text;
+            }
+            if (extra.time) {
+                const t = document.createElement('div');
+                t.className = 'time';
+                t.textContent = extra.time;
+                div.appendChild(t);
+            }
+            if (extra.riskBadge) {
+                const b = document.createElement('span');
+                b.className = `risk-badge ${extra.riskBadge}`;
+                b.textContent = extra.riskBadge;
+                div.appendChild(b);
+            }
+            if (extra.html) {
+                div.innerHTML = extra.html;
+            }
+            msgContainer.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function addUserMessage(text, extra = {}) {
+            const div = document.createElement('div');
+            div.className = 'msg user';
+            div.textContent = text;
+            if (extra.time) {
+                const t = document.createElement('div');
+                t.className = 'time';
+                t.textContent = extra.time;
+                div.appendChild(t);
+            }
+            msgContainer.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        // ================================================================
+        //  原有本地检测引擎 (保留)
+        // ================================================================
+        const PATTERNS = {
+            id: /\b\d{17}[\dXx]\b|\b\d{15}\b/g,
+            bankcard: /\b\d{16,19}\b/g,
+            password: /\b(?:密码|pwd|password)\s*[:：]?\s*\S{4,20}\b/gi,
+            otp: /\b\d{4,8}\b(?=\s*(?:验证码|OTP|动态码|短信码))/gi,
+            phone: /\b1[3-9]\d{9}\b/g,
+            address: /(?:北京市|上海市|广州市|深圳市|杭州市|成都市|武汉市|南京市|天津市|重庆市|西安市|长沙市|青岛市|郑州市|大连市|东莞市|宁波市|厦门市|合肥市|福州市|昆明市|沈阳市|济南市|无锡市|苏州市|南昌市|南宁市|长春市|哈尔滨市|太原市|石家庄市|兰州市|海口市|贵阳市|乌鲁木齐市|呼和浩特市|银川市|西宁市|拉萨市)\s*\S{2,20}(?:路|街|大道|巷|弄|号|大厦|小区|花园|苑|村|楼|层|室)/gi,
+        };
+
+        function detectSensitive(text) {
+            const results = [];
+            const ids = text.match(PATTERNS.id) || [];
+            for (const m of ids) {
+                if (m.length >= 15) {
+                    results.push({ type: 'id', value: m, label: '身份证号', level: STATE.detectLevels.id });
+                }
+            }
+            const cards = text.match(PATTERNS.bankcard) || [];
+            for (const m of cards) {
+                if (m.length >= 16 && m.length <= 19) {
+                    results.push({ type: 'bankcard', value: m, label: '银行卡号', level: STATE.detectLevels.bankcard });
+                }
+            }
+            const pwdMatches = text.match(PATTERNS.password) || [];
+            for (const m of pwdMatches) {
+                const parts = m.split(/[:：]\s*/);
+                if (parts.length > 1) {
+                    const pwdVal = parts[1].trim();
+                    if (pwdVal.length >= 4) {
+                        results.push({ type: 'password', value: pwdVal, label: '密码', level: STATE.detectLevels.password });
+                    }
+                }
+            }
+            const otpMatches = text.match(PATTERNS.otp) || [];
+            for (const m of otpMatches) {
+                results.push({ type: 'otp', value: m, label: '短信验证码', level: 4 });
+            }
+            const phones = text.match(PATTERNS.phone) || [];
+            for (const m of phones) {
+                results.push({ type: 'phone', value: m, label: '手机号', level: STATE.detectLevels.phone });
+            }
+            const addrs = text.match(PATTERNS.address) || [];
+            for (const m of addrs) {
+                results.push({ type: 'address', value: m, label: '家庭住址', level: STATE.detectLevels.address });
+            }
+            const seen = new Set();
+            const unique = [];
+            for (const r of results) {
+                const key = r.type + '|' + r.value;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(r);
+                }
+            }
+            return unique;
+        }
+
+        function getMaxLevel(detections) {
+            if (!detections.length) return 0;
+            let max = 0;
+            for (const d of detections) {
+                if (d.level > max) max = d.level;
+            }
+            return max;
+        }
+
+        function desensitize(value, type) {
+            if (type === 'id') {
+                if (value.length >= 18) return value.slice(0, 6) + '********' + value.slice(-4);
+                return value.slice(0, 6) + '****' + value.slice(-4);
+            }
+            if (type === 'bankcard') return value.slice(0, 4) + ' **** **** ' + value.slice(-4);
+            if (type === 'phone') return value.slice(0, 3) + '****' + value.slice(-4);
+            if (type === 'password') return '******';
+            if (type === 'otp') return '****';
+            if (type === 'address') {
+                if (value.length > 6) return value.slice(0, 3) + '***' + value.slice(-3);
+                return value.slice(0, 2) + '***';
+            }
+            return value;
+        }
+
+        function getLevelName(level) {
+            const map = { 1: 'L1 · 低风险', 2: 'L2 · 中风险', 3: 'L3 · 高风险', 4: 'L4 · 极高风险' };
+            return map[level] || '未知';
+        }
+
+        function getLevelColor(level) {
+            const map = { 1: 'L1', 2: 'L2', 3: 'L3', 4: 'L4' };
+            return map[level] || '';
+        }
+
+        function getRiskReason(detections, maxLevel) {
+            const labels = detections.map(d => d.label).join('、');
+            let reason = `检测到 ${labels} 等敏感信息。`;
+            if (maxLevel >= 4) {
+                reason = `⚠️ 检测到 ${labels}，其中包含短信验证码，泄露将直接导致账户被盗！`;
+            } else if (maxLevel >= 3) {
+                reason = `⚠️ 检测到 ${labels} 同时发送给非通讯录联系人，存在极高诈骗风险。`;
+            } else if (maxLevel >= 2) {
+                reason = `检测到 ${labels}，请确认对方身份可信后再发送。`;
+            } else {
+                reason = `检测到 ${labels}，建议确认对方身份后再发送。`;
+            }
+            return reason;
+        }
+
+        function getSuggestion(detections, maxLevel) {
+            const items = detections.map(d => `「${d.label}」`).join('、');
+            let sug = `建议对 ${items} 进行脱敏处理后再发送。`;
+            if (maxLevel >= 4) {
+                sug = '🚫 验证码绝不能泄露！请立即停止发送，并检查账户安全。';
+            } else if (maxLevel >= 3) {
+                sug = '🔒 建议通过其他渠道（如电话）确认对方身份，或使用脱敏后的信息。';
+            } else if (maxLevel >= 2) {
+                sug = '💡 建议先确认对方身份，或对敏感信息进行脱敏（如隐藏中间几位）。';
+            } else {
+                sug = '💡 建议确认对方身份后再发送，或使用脱敏信息。';
+            }
+            return sug;
+        }
+
+        function desensitizeText(text, detections) {
+            let result = text;
+            const sorted = detections.slice().sort((a, b) => {
+                const idxA = text.indexOf(a.value);
+                const idxB = text.indexOf(b.value);
+                return idxB - idxA;
+            });
+            for (const d of sorted) {
+                const start = text.indexOf(d.value);
+                if (start === -1) continue;
+                const desensitized = desensitize(d.value, d.type);
+                result = result.replace(d.value, desensitized);
+            }
+            return result;
+        }
+
+        // ================================================================
+        //  新增：调用后端 AI 视觉 API
+        // ================================================================
+        async function callImageAPI(imageUrl, question = '请识别图片中的所有敏感信息，包括身份证号、银行卡号、手机号等，直接输出结果。') {
+            try {
+                const resp = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_url: imageUrl, question: question })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.error || `HTTP ${resp.status}`);
+                }
+
+                const data = await resp.json();
+                return data;
+            } catch (error) {
+                console.error('API 调用失败:', error);
+                throw error;
+            }
+        }
+
+        // ================================================================
+        //  修改后的发送逻辑（支持图片 URL 检测）
+        // ================================================================
+        function sendMessageSafe(text, detections, maxLevel, fileInfo = null) {
+            const time = getTime();
+            let safeText = text;
+            let hasSensitive = detections && detections.length > 0;
+            if (hasSensitive) {
+                safeText = desensitizeText(text, detections);
+            }
+            let displayText = safeText;
+            if (fileInfo) {
+                displayText = `[${fileInfo.type}] ${fileInfo.name}`;
+            }
+            const userDiv = addUserMessage(displayText, { time });
+            if (hasSensitive && text !== safeText) {
+                const badge = document.createElement('span');
+                badge.style.cssText = 'font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:12px;margin-left:8px;';
+                badge.textContent = '🛡️ 已脱敏';
+                userDiv.appendChild(badge);
+            }
+            if (fileInfo && fileInfo.dataUrl) {
+                const div = document.createElement('div');
+                div.className = 'msg user';
+                div.style.alignSelf = 'flex-end';
+                div.style.background = 'var(--primary)';
+                div.style.color = '#fff';
+                div.style.borderRadius = '16px 16px 4px 16px';
+                div.style.padding = '8px 12px';
+                div.style.maxWidth = '88%';
+                if (fileInfo.type === 'image') {
+                    div.innerHTML = `<img src="${fileInfo.dataUrl}" style="max-width:180px;border-radius:8px;display:block;">`;
+                } else if (fileInfo.type === 'video') {
+                    div.innerHTML = `<video controls style="max-width:180px;border-radius:8px;display:block;" src="${fileInfo.dataUrl}"></video>`;
+                } else {
+                    div.innerHTML = `🎵 音频文件: ${fileInfo.name}`;
+                }
+                msgContainer.appendChild(div);
+                scrollToBottom();
+            }
+            let reply = '✅ 消息已发送。';
+            if (hasSensitive) {
+                const types = detections.map(d => d.label).join('、');
+                reply = `✅ 消息已发送（已对 ${types} 进行脱敏处理）。`;
+            }
+            if (fileInfo && !hasSensitive) {
+                reply = `✅ 已接收 ${fileInfo.type} 文件「${fileInfo.name}」，未检测到敏感信息。`;
+            }
+            addMessage(reply, 'bot', { time: getTime() });
+            if (hasSensitive) {
+                const action = maxLevel >= 2 ? '已发送（用户确认并脱敏）' : '已发送（自动脱敏）';
+                addHistory(maxLevel, detections, action, text);
+            }
+            msgInput.value = '';
+            msgInput.style.height = '28px';
+            STATE.pendingSend = null;
+        }
+
+        // ================================================================
+        //  核心处理函数（判断是否为图片 URL 并调用 API）
+        // ================================================================
+        function processDetection(text, fileInfo = null) {
+            // 如果文本以 http:// 或 https:// 开头，视为图片 URL，调用 AI 视觉 API
+            const trimmed = text.trim();
+            if (/^https?:\/\/\S+\.(jpg|jpeg|png|gif|webp|bmp|tiff?)/i.test(trimmed) ||
+                /^https?:\/\/\S+/.test(trimmed)) {
+                // 调用 AI 检测
+                addMessage('🖼️ 正在使用 AI 视觉识别图片中的敏感信息...', 'bot', { time: getTime() });
+                callImageAPI(trimmed)
+                    .then(data => {
+                        // 解析返回结果
+                        let resultText = data.result || '未获取到识别结果';
+                        // 如果有 raw 数据，可以展示更多
+                        if (data.raw) {
+                            // 尝试提取更有用的信息，但保留原始结果
+                        }
+                        addMessage(`🧠 AI 识别结果：\n${resultText}`, 'bot', { time: getTime() });
+                        // 同时记录历史（AI 结果也可视为一次检测，但级别未知，可标记为 L1）
+                        addHistory(1, [{ label: 'AI视觉识别', value: trimmed }], 'AI识别完成', trimmed);
+                    })
+                    .catch(error => {
+                        addMessage(`❌ AI 识别失败：${error.message}，请检查图片 URL 是否可访问。`, 'bot', { time: getTime() });
+                    });
+                // 显示用户消息
+                addUserMessage(`🖼️ 图片 URL: ${trimmed}`, { time: getTime() });
+                msgInput.value = '';
+                msgInput.style.height = '28px';
+                return;
+            }
+
+            // 否则走本地文本检测
+            const detections = detectSensitive(text);
+            const maxLevel = getMaxLevel(detections);
+
+            if (!detections.length) {
+                sendMessageSafe(text, [], 0, fileInfo);
+                return;
+            }
+
+            const level = maxLevel;
+            const levelName = getLevelName(level);
+            const color = getLevelColor(level);
+
+            const detailHtml = detections.map(d =>
+                `<div class="item"><span>${d.label}</span><span class="tag">${desensitize(d.value, d.type)}</span></div>`
+            ).join('');
+
+            const reason = getRiskReason(detections, level);
+            const suggestion = getSuggestion(detections, level);
+
+            STATE.pendingSend = { text, detections, maxLevel, fileInfo };
+
+            if (level === 1) {
+                showToast(`🟢 ${levelName} · ${reason}`, 3000);
+                addMessage(`📋 检测到 ${detections.map(d=>d.label).join('、')}，已自动脱敏。`, 'bot', { time: getTime() });
+                sendMessageSafe(text, detections, maxLevel, fileInfo);
+                return;
+            }
+
+            if (level === 2) {
+                showRiskModal({
+                    title: '⚠️ 敏感信息检测',
+                    sub: `检测到 ${detections.map(d=>d.label).join('、')}`,
+                    level: levelName,
+                    levelClass: color,
+                    body: `
+                        <p>您即将向联系人发送以下敏感信息：</p>
+                        <div class="detected-items">${detailHtml}</div>
+                        <p style="color:#666;font-size:13px;">${reason}</p>
+                        <div class="suggestion"><span class="label">💡 建议：</span>${suggestion}</div>
+                    `,
+                    actions: [
+                        { text: '取消', class: 'outline', action: 'cancel' },
+                        { text: '仍然发送（已脱敏）', class: 'primary', action: 'confirm' },
+                    ]
+                }).then(result => {
+                    if (result === 'confirm') {
+                        sendMessageSafe(text, detections, maxLevel, fileInfo);
+                    }
+                });
+                return;
+            }
+
+            if (level === 3) {
+                showRiskModal({
+                    title: '🚨 高风险预警',
+                    sub: '发送已暂停',
+                    level: levelName,
+                    levelClass: color,
+                    body: `
+                        <p>检测到 ${detections.map(d=>d.label).join('、')} 同时发送给非通讯录联系人，存在极高诈骗风险。</p>
+                        <div class="detected-items">${detailHtml}</div>
+                        <p style="color:#e65100;font-weight:600;">⏳ 等待 <span id="countdownDisplay">8</span> 秒后可选择继续发送</p>
+                        <div class="suggestion"><span class="label">💡 建议：</span>${suggestion}</div>
+                    `,
+                    actions: [
+                        { text: '取消发送', class: 'outline', action: 'cancel' },
+                        { text: '继续发送 (8s)', class: 'danger', action: 'confirm', disabled: true, id: 'countdownBtn' },
+                    ],
+                    countdown: 8,
+                }).then(result => {
+                    if (result === 'confirm') {
+                        sendMessageSafe(text, detections, maxLevel, fileInfo);
+                    }
+                });
+                return;
+            }
+
+            if (level >= 4) {
+                showRiskModal({
+                    title: '⛔ 发送已阻止',
+                    sub: '极高风险 · 强制阻断',
+                    level: levelName,
+                    levelClass: color,
+                    body: `
+                        <p>🚫 检测到 <strong>${detections.map(d=>d.label).join('、')}</strong> 被发送给疑似诈骗号码。</p>
+                        <div class="detected-items">${detailHtml}</div>
+                        <p style="color:var(--danger);font-weight:600;">验证码泄露将直接导致账户被盗！</p>
+                        <div class="suggestion"><span class="label">🔒 建议：</span>${suggestion}</div>
+                        <p style="font-size:13px;color:var(--gray);margin-top:8px;">📞 已建议通知紧急联系人</p>
+                    `,
+                    actions: [
+                        { text: '我知道了', class: 'primary', action: 'close' },
+                        { text: '📖 查看防骗指南', class: 'outline', action: 'guide' },
+                    ],
+                    noConfirm: true,
+                });
+                addHistory(level, detections, '已阻止发送', text);
+                return;
+            }
+        }
+
+        // ================================================================
+        //  RISK MODAL (保持不变)
+        // ================================================================
+        let modalResolve = null;
+
+        function showRiskModal(config) {
+            return new Promise((resolve) => {
+                modalResolve = resolve;
+                riskTitle.textContent = config.title || '⚠️ 风险预警';
+                riskSub.textContent = config.sub || '检测到敏感信息';
+                riskLevelBadge.textContent = config.level || 'L2 · 中风险';
+                riskLevelBadge.className = `risk-level ${config.levelClass || 'L2'}`;
+                riskBody.innerHTML = config.body || '';
+                riskActions.innerHTML = '';
+                for (const btn of config.actions) {
+                    const b = document.createElement('button');
+                    b.className = `btn ${btn.class}`;
+                    b.textContent = btn.text;
+                    if (btn.disabled) {
+                        b.disabled = true;
+                        if (btn.id) b.id = btn.id;
+                    }
+                    b.addEventListener('click', () => {
+                        if (btn.action === 'cancel') {
+                            closeModal('cancel');
+                            resolve('cancel');
+                        } else if (btn.action === 'confirm') {
+                            closeModal('confirm');
+                            resolve('confirm');
+                        } else if (btn.action === 'close') {
+                            closeModal('close');
+                            resolve('close');
+                        } else if (btn.action === 'guide') {
+                            closeModal('guide');
+                            resolve('guide');
+                            openGuide();
+                        }
+                    });
+                    riskActions.appendChild(b);
+                }
+                riskModal.classList.add('open');
+                if (config.countdown) {
+                    let count = config.countdown;
+                    const display = document.getElementById('countdownDisplay');
+                    const btn = document.getElementById('countdownBtn');
+                    const update = () => {
+                        if (display) display.textContent = count;
+                        if (btn) {
+                            btn.textContent = `继续发送 (${count}s)`;
+                            btn.disabled = true;
+                        }
+                        if (count <= 0) {
+                            clearInterval(interval);
+                            if (btn) {
+                                btn.textContent = '继续发送';
+                                btn.disabled = false;
+                            }
+                            const newBtn = riskActions.querySelector('.btn.danger');
+                            if (newBtn) {
+                                newBtn.disabled = false;
+                                newBtn.textContent = '继续发送';
+                                const clone = newBtn.cloneNode(true);
+                                newBtn.parentNode.replaceChild(clone, newBtn);
+                                clone.addEventListener('click', () => {
+                                    closeModal('confirm');
+                                    resolve('confirm');
+                                });
+                            }
+                        }
+                    };
+                    update();
+                    const interval = setInterval(() => {
+                        count--;
+                        update();
+                        if (count <= 0) clearInterval(interval);
+                    }, 1000);
+                    riskModal._interval = interval;
+                }
+            });
+        }
+
+        function closeModal(action) {
+            riskModal.classList.remove('open');
+            if (riskModal._interval) {
+                clearInterval(riskModal._interval);
+                riskModal._interval = null;
+            }
+        }
+
+        riskCancel.addEventListener('click', () => {
+            if (modalResolve) {
+                modalResolve('cancel');
+                modalResolve = null;
+            }
+            closeModal('cancel');
+        });
+
+        riskConfirm.addEventListener('click', () => {
+            if (modalResolve) {
+                modalResolve('confirm');
+                modalResolve = null;
+            }
+            closeModal('confirm');
+        });
+
+        // ================================================================
+        //  HISTORY
+        // ================================================================
+        function addHistory(level, detections, action, content) {
+            const entry = {
+                level,
+                detections: detections.map(d => ({ label: d.label, value: d.value })),
+                action,
+                content: content.slice(0, 50) + (content.length > 50 ? '...' : ''),
+                time: getTime(),
+                date: new Date().toLocaleDateString(),
+            };
+            STATE.history.unshift(entry);
+            if (STATE.history.length > 50) STATE.history.pop();
+            renderHistory();
+        }
+
+        function renderHistory() {
+            if (STATE.history.length === 0) {
+                historyBody.innerHTML = `
+                    <div class="empty">
+                        <div class="icon">📭</div>
+                        <div>暂无预警记录</div>
+                        <div style="font-size:12px;color:#bbb;">发送含敏感信息的消息后将在此显示</div>
+                    </div>
+                `;
+                return;
+            }
+            let html = '';
+            for (const h of STATE.history) {
+                const levelClass = getLevelColor(h.level);
+                const levelName = getLevelName(h.level);
+                const items = h.detections.map(d => `<span class="highlight">${d.label}</span>`).join('、');
+                html += `
+                    <div class="history-item ${levelClass}">
+                        <div class="top">
+                            <span class="level ${levelClass}">${levelName}</span>
+                            <span class="time">${h.time}</span>
+                        </div>
+                        <div class="desc">${items} → ${h.action}</div>
+                        <div class="action">内容：${h.content}</div>
+                    </div>
+                `;
+            }
+            historyBody.innerHTML = html;
+        }
+
+        // ================================================================
+        //  FILE HANDLING (保持不变，仍使用模拟检测，但可加提示)
+        // ================================================================
+        function handleFile(file, type) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                let detected = [];
+                if (type === 'image') {
+                    addMessage('🔍 正在扫描图片中的敏感信息（本地模拟）...', 'bot', { time: getTime() });
+                    setTimeout(() => {
+                        const mockDetections = [
+                            { type: 'id', label: '身份证号', level: 1 },
+                            { type: 'phone', label: '手机号', level: 1 },
+                        ];
+                        const hasSensitive = Math.random() > 0.4;
+                        if (hasSensitive) {
+                            const pick = mockDetections[Math.floor(Math.random() * mockDetections.length)];
+                            detected = [{
+                                type: pick.type,
+                                value: pick.type === 'id' ? '110105199003071234' : '13912345678',
+                                label: pick.label,
+                                level: pick.level
+                            }];
+                        }
+                        if (detected.length > 0) {
+                            const maxL = getMaxLevel(detected);
+                            const levelName = getLevelName(maxL);
+                            const color = getLevelColor(maxL);
+                            const detail = detected.map(d =>
+                                `<div>${d.label}: <strong>${desensitize(d.value, d.type)}</strong></div>`
+                            ).join('');
+                            addMessage(
+                                `🖼️ 图片扫描完成\n检测到 ${detected.map(d=>d.label).join('、')}\n风险等级: ${levelName}\n${detail}\n💡 如需更精准识别，请使用图片URL进行AI检测。`,
+                                'bot', { time: getTime(), riskBadge: color }
+                            );
+                            addHistory(maxL, detected, '图片扫描检测', file.name);
+                        } else {
+                            addMessage('✅ 图片扫描完成，未检测到敏感信息。', 'bot', { time: getTime() });
+                        }
+                    }, 800);
+                }
+                if (type === 'audio') {
+                    addMessage('🎵 正在分析音频内容（语音转文字模拟）...', 'bot', { time: getTime() });
+                    setTimeout(() => {
+                        const hasSensitive = Math.random() > 0.5;
+                        if (hasSensitive) {
+                            detected = [
+                                { type: 'bankcard', value: '6228480012345678', label: '银行卡号', level: 2 },
+                                { type: 'phone', value: '13912345678', label: '手机号', level: 1 },
+                            ];
+                            const maxL = getMaxLevel(detected);
+                            const levelName = getLevelName(maxL);
+                            const color = getLevelColor(maxL);
+                            const detail = detected.map(d =>
+                                `<div>${d.label}: <strong>${desensitize(d.value, d.type)}</strong></div>`
+                            ).join('');
+                            addMessage(
+                                `🎤 音频分析完成\n转写内容包含 ${detected.map(d=>d.label).join('、')}\n风险等级: ${levelName}\n${detail}`,
+                                'bot', { time: getTime(), riskBadge: color }
+                            );
+                            addHistory(maxL, detected, '音频检测', file.name);
+                        } else {
+                            addMessage('✅ 音频分析完成，未检测到敏感信息。', 'bot', { time: getTime() });
+                        }
+                    }, 1200);
+                }
+                if (type === 'video') {
+                    addMessage('🎬 正在分析视频内容（帧检测模拟）...', 'bot', { time: getTime() });
+                    setTimeout(() => {
+                        const hasSensitive = Math.random() > 0.5;
+                        if (hasSensitive) {
+                            detected = [
+                                { type: 'id', value: '110105199003071234', label: '身份证号', level: 1 },
+                                { type: 'address', value: '北京市朝阳区建国路88号', label: '家庭住址', level: 1 },
+                            ];
+                            const maxL = getMaxLevel(detected);
+                            const levelName = getLevelName(maxL);
+                            const color = getLevelColor(maxL);
+                            const detail = detected.map(d =>
+                                `<div>${d.label}: <strong>${desensitize(d.value, d.type)}</strong></div>`
+                            ).join('');
+                            addMessage(
+                                `🎞️ 视频分析完成\n检测到 ${detected.map(d=>d.label).join('、')}\n风险等级: ${levelName}\n${detail}`,
+                                'bot', { time: getTime(), riskBadge: color }
+                            );
+                            addHistory(maxL, detected, '视频检测', file.name);
+                        } else {
+                            addMessage('✅ 视频分析完成，未检测到敏感信息。', 'bot', { time: getTime() });
+                        }
+                    }, 1500);
+                }
+                addUserMessage(`[${type}] ${file.name}`, { time: getTime() });
+                if (type === 'image' || type === 'video') {
+                    const lastUserMsg = msgContainer.querySelector('.msg.user:last-child');
+                    if (lastUserMsg) {
+                        const preview = document.createElement('div');
+                        preview.style.marginTop = '8px';
+                        if (type === 'image') {
+                            preview.innerHTML = `<img src="${dataUrl}" style="max-width:180px;border-radius:8px;display:block;">`;
+                        } else {
+                            preview.innerHTML = `<video controls style="max-width:180px;border-radius:8px;display:block;" src="${dataUrl}"></video>`;
+                        }
+                        lastUserMsg.appendChild(preview);
+                    }
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ================================================================
+        //  EVENT BINDINGS (与原来一致)
+        // ================================================================
+        sendBtn.addEventListener('click', () => {
+            const text = msgInput.value.trim();
+            if (!text) return;
+            processDetection(text);
+        });
+
+        msgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendBtn.click();
+            }
+        });
+
+        msgInput.addEventListener('input', () => {
+            msgInput.style.height = '28px';
+            msgInput.style.height = Math.min(msgInput.scrollHeight, 100) + 'px';
+        });
+
+        inputWrap.addEventListener('click', function(e) {
+            if (e.target !== msgInput) {
+                msgInput.focus();
+            }
+        });
+        msgInput.addEventListener('click', function(e) {
+            this.focus();
+        });
+
+        attachBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            attachOpen = !attachOpen;
+            attachPopup.classList.toggle('open', attachOpen);
+        });
+
+        document.addEventListener('click', () => {
+            attachPopup.classList.remove('open');
+            attachOpen = false;
+        });
+
+        attachPopup.addEventListener('click', (e) => e.stopPropagation());
+
+        document.querySelectorAll('.attach-popup .item').forEach(el => {
+            el.addEventListener('click', () => {
+                const type = el.dataset.type;
+                attachPopup.classList.remove('open');
+                attachOpen = false;
+                if (type === 'image') fileImage.click();
+                else if (type === 'audio') fileAudio.click();
+                else if (type === 'video') fileVideo.click();
+            });
+        });
+
+        fileImage.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0], 'image');
+                e.target.value = '';
+            }
+        });
+
+        fileAudio.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0], 'audio');
+                e.target.value = '';
+            }
+        });
+
+        fileVideo.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0], 'video');
+                e.target.value = '';
+            }
+        });
+
+        // Settings (原样保留)
+        btnSettings.addEventListener('click', () => {
+            settingsPanel.classList.toggle('open');
+        });
+        settingsBack.addEventListener('click', () => {
+            settingsPanel.classList.remove('open');
+        });
+
+        document.querySelectorAll('#ageGroup .tag').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('#ageGroup .tag').forEach(t => t.classList.remove('active'));
+                el.classList.add('active');
+                STATE.age = el.dataset.age;
+                const map = { '18-': '18-30岁', '30-45': '30-45岁', '45-60': '45-60岁', '60+': '60岁以上' };
+                document.getElementById('ageDisplay').textContent = map[STATE.age] || '30-45岁';
+            });
+        });
+
+        document.querySelectorAll('.quick-settings .chip').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('.quick-settings .chip').forEach(c => c.classList.remove('active'));
+                el.classList.add('active');
+                STATE.literacy = el.dataset.lit;
+                const map = { basic: '初级 · 偶尔使用', mid: '中级 · 日常使用', adv: '高级 · 熟悉网络安全' };
+                document.getElementById('literacyDisplay').textContent = map[STATE.literacy] || '中级 · 日常使用';
+            });
+        });
+
+        document.querySelectorAll('#sensitivitySlider .opt').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('#sensitivitySlider .opt').forEach(o => o.classList.remove('active'));
+                el.classList.add('active');
+                STATE.sensitivity = el.dataset.level;
+                const map = { low: '低 · 仅L3+', mid: '中 · 标准预警策略', high: '高 · 全覆盖' };
+                document.getElementById('sensitivityLabel').textContent = map[STATE.sensitivity] || '中 · 标准预警策略';
+                const levelMap = {
+                    low: { id: 3, bankcard: 3, password: 3, phone: 3, address: 3 },
+                    mid: { id: 1, bankcard: 2, password: 3, phone: 1, address: 1 },
+                    high: { id: 1, bankcard: 1, password: 2, phone: 1, address: 1 },
+                };
+                const cfg = levelMap[STATE.sensitivity] || levelMap.mid;
+                STATE.detectLevels.id = cfg.id;
+                STATE.detectLevels.bankcard = cfg.bankcard;
+                STATE.detectLevels.password = cfg.password;
+                STATE.detectLevels.phone = cfg.phone;
+                STATE.detectLevels.address = cfg.address;
+                showToast(`灵敏度已切换至 ${map[STATE.sensitivity]}`, 1500);
+            });
+        });
+
+        document.getElementById('resetDefaults').addEventListener('click', () => {
+            document.querySelectorAll('#sensitivitySlider .opt').forEach(o => o.classList.remove('active'));
+            document.querySelector('#sensitivitySlider .opt[data-level="mid"]').classList.add('active');
+            STATE.sensitivity = 'mid';
+            document.getElementById('sensitivityLabel').textContent = '中 · 标准预警策略';
+            STATE.detectLevels = { id: 1, bankcard: 2, password: 3, otp: 4, phone: 1, address: 1 };
+            document.querySelectorAll('#ageGroup .tag').forEach(t => t.classList.remove('active'));
+            document.querySelector('#ageGroup .tag[data-age="30-45"]').classList.add('active');
+            STATE.age = '30-45';
+            document.getElementById('ageDisplay').textContent = '30-45岁';
+            document.querySelectorAll('.quick-settings .chip').forEach(c => c.classList.remove('active'));
+            document.querySelector('.quick-settings .chip[data-lit="mid"]').classList.add('active');
+            STATE.literacy = 'mid';
+            document.getElementById('literacyDisplay').textContent = '中级 · 日常使用';
+            showToast('已恢复默认设置', 1500);
+        });
+
+        document.getElementById('addContactBtn').addEventListener('click', () => {
+            const name = prompt('请输入联系人姓名：');
+            if (name && name.trim()) {
+                const phone = prompt('请输入手机号：');
+                if (phone && phone.trim()) {
+                    STATE.contacts.push({ name: name.trim(), phone: phone.trim() });
+                    showToast(`已添加紧急联系人 ${name.trim()}`, 1500);
+                }
+            }
+        });
+
+        btnHistory.addEventListener('click', () => {
+            historyPanel.classList.toggle('open');
+            renderHistory();
+        });
+
+        historyBack.addEventListener('click', () => {
+            historyPanel.classList.remove('open');
+        });
+
+        btnGuide.addEventListener('click', () => {
+            guidePanel.classList.toggle('open');
+        });
+
+        guideBack.addEventListener('click', () => {
+            guidePanel.classList.remove('open');
+        });
+
+        guideBody.addEventListener('click', (e) => {
+            const card = e.target.closest('.guide-card');
+            if (card) {
+                const detail = card.querySelector('.detail');
+                if (detail) {
+                    detail.classList.toggle('open');
+                }
+            }
+        });
+
+        function openGuide() {
+            guidePanel.classList.add('open');
+        }
+        window.openGuide = openGuide;
+
+        // ================================================================
+        //  INIT
+        // ================================================================
+        renderHistory();
+
+        console.log('🛡️ 隐私哨兵已启动！ (AI视觉已接入)');
+        setTimeout(() => {
+            addMessage('💡 试试在下方输入框发送 "我的身份证是110105199003071234" 或 "卡号6228480012345678"', 'bot', { time: getTime() });
+            addMessage('🖼️ 也可以输入图片URL（如 https://example.com/id.jpg）使用AI识别', 'bot', { time: getTime() });
+        }, 800);
+    </script>
+</body>
+</html>
