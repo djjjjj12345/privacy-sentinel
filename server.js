@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
+// 引入路由
 const detectRoutes = require('./routes/detect');
 
 const app = express();
@@ -12,8 +14,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // 静态文件托管（前端）
 app.use(express.static('前端'));
 
-// API 路由
-app.use('/api/detect', detectRoutes);
+// API 路由挂载
+app.use('/api', detectRoutes);   // 这样 /api/detect 就有效了
 
 // 根路径返回前端页面
 app.get('/', (req, res) => {

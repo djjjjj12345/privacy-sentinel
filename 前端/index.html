@@ -5,8 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>隐私哨兵 - 敏感信息检测</title>
     <style>
-        /* ========== Reset & Base (与原样一致) ========== */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* ========== Reset & Base ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         :root {
             --primary: #3b7cff;
             --primary-light: #e8eeff;
@@ -758,7 +762,7 @@
         <div class="toast" id="toast"></div>
 
         <!-- ========== CHAT VIEW ========== -->
-        <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="status-bar"><span id="currentTime">9:41</span><span>📶 🔋</span></div>
 
         <div class="chat-header">
             <div class="title">🛡️ 隐私哨兵 <span class="badge">实时保护</span></div>
@@ -775,7 +779,7 @@
                 你好！我已开启敏感信息检测。<br>
                 发送消息、图片、音频或视频，我将自动检测其中的身份证、银行卡、密码、验证码等敏感信息。<br>
                 <span style="font-size:13px;color:var(--gray);">💡 试试输入 "我的身份证号是110105199003071234"</span><br>
-                <span style="font-size:13px;color:var(--primary);">🖼️ 输入图片URL（以http开头）将使用AI视觉识别</span>
+                <span style="font-size:13px;color:var(--primary);">📂 输入图片URL（以http开头）将使用AI视觉识别</span>
             </div>
         </div>
 
@@ -928,8 +932,8 @@
         // ================================================================
         //  ⚙️ 配置
         // ================================================================
-        // 修改为你的后端地址（如果端口不同，请调整）
-        const API_BASE_URL = 'http://localhost:3000/api/detect'; // 你的 Node 后端地址
+        // 使用相对路径，适配 Railway
+        const API_BASE_URL = '/api/detect';
 
         // ================================================================
         //  STATE (原有)
@@ -985,7 +989,7 @@
         let attachOpen = false;
 
         // ================================================================
-        //  UTILITY (不变)
+        //  UTILITY
         // ================================================================
         function getTime() {
             const d = new Date();
@@ -1275,26 +1279,19 @@
         function processDetection(text, fileInfo = null) {
             // 如果文本以 http:// 或 https:// 开头，视为图片 URL，调用 AI 视觉 API
             const trimmed = text.trim();
-            if (/^https?:\/\/\S+\.(jpg|jpeg|png|gif|webp|bmp|tiff?)/i.test(trimmed) ||
-                /^https?:\/\/\S+/.test(trimmed)) {
+            if (/^https?:\/\/\S+/.test(trimmed)) {
                 // 调用 AI 检测
                 addMessage('🖼️ 正在使用 AI 视觉识别图片中的敏感信息...', 'bot', { time: getTime() });
                 callImageAPI(trimmed)
                     .then(data => {
                         // 解析返回结果
                         let resultText = data.result || '未获取到识别结果';
-                        // 如果有 raw 数据，可以展示更多
-                        if (data.raw) {
-                            // 尝试提取更有用的信息，但保留原始结果
-                        }
                         addMessage(`🧠 AI 识别结果：\n${resultText}`, 'bot', { time: getTime() });
-                        // 同时记录历史（AI 结果也可视为一次检测，但级别未知，可标记为 L1）
                         addHistory(1, [{ label: 'AI视觉识别', value: trimmed }], 'AI识别完成', trimmed);
                     })
                     .catch(error => {
                         addMessage(`❌ AI 识别失败：${error.message}，请检查图片 URL 是否可访问。`, 'bot', { time: getTime() });
                     });
-                // 显示用户消息
                 addUserMessage(`🖼️ 图片 URL: ${trimmed}`, { time: getTime() });
                 msgInput.value = '';
                 msgInput.style.height = '28px';
@@ -1404,7 +1401,7 @@
         }
 
         // ================================================================
-        //  RISK MODAL (保持不变)
+        //  RISK MODAL
         // ================================================================
         let modalResolve = null;
 
@@ -1556,7 +1553,7 @@
         }
 
         // ================================================================
-        //  FILE HANDLING (保持不变，仍使用模拟检测，但可加提示)
+        //  FILE HANDLING (保持不变，仍使用模拟检测)
         // ================================================================
         function handleFile(file, type) {
             const reader = new FileReader();
@@ -1666,7 +1663,7 @@
         }
 
         // ================================================================
-        //  EVENT BINDINGS (与原来一致)
+        //  EVENT BINDINGS
         // ================================================================
         sendBtn.addEventListener('click', () => {
             const text = msgInput.value.trim();
@@ -1740,7 +1737,7 @@
             }
         });
 
-        // Settings (原样保留)
+        // Settings
         btnSettings.addEventListener('click', () => {
             settingsPanel.classList.toggle('open');
         });
@@ -1855,10 +1852,13 @@
         // ================================================================
         renderHistory();
 
+        // 更新时间显示
+        document.getElementById('currentTime').textContent = getTime();
+
         console.log('🛡️ 隐私哨兵已启动！ (AI视觉已接入)');
         setTimeout(() => {
-            addMessage('💡 试试在下方输入框发送 "我的身份证是110105199003071234" 或 "卡号6228480012345678"', 'bot', { time: getTime() });
-            addMessage('🖼️ 也可以输入图片URL（如 https://example.com/id.jpg）使用AI识别', 'bot', { time: getTime() });
+            addMessage('🔍 试试在下方输入框发送 "我的身份证是110105199003071234" 或 "卡号6228480012345678"', 'bot', { time: getTime() });
+            addMessage('📂 也可以输入图片URL（如 https://example.com/id.jpg）使用AI识别', 'bot', { time: getTime() });
         }, 800);
     </script>
 </body>
