@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 });
 
 // 端口
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-    console.log(`后端服务运行在 http://localhost:${PORT}`);
+const port = process.env.PORT || 8080; // 优先使用 Railway 提供的动态端口
+app.listen(port, '0.0.0.0', () => {
+  console.log(`后端服务运行在 http://0.0.0.0:${port}`);
 });
