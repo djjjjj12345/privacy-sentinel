@@ -1,0 +1,82 @@
+import os
+import json
+import requests
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import dashscope
+from dashscope import MultiModalConversation
+
+app = Flask(__name__)
+CORS(app)  # 允许跨域，方便本地前端调用
+
+# ---------- 配置你的阿里云 API Key ----------
+# 去 https://dashscope.console.aliyun.com/ 申请
+DASHSCOPE_API_KEY = "sk-你的API密钥"
+dashscope.api_key = DASHSCOPE_API_KEY
+
+# ---------- 图片分析函数 ----------
+def analyze_image_with_qwen(image_url, question):
+    """调用通义千问 VL 多模态模型提取图片信息"""
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"image": image_url},
+                {"text": question or "请提取这张图片中所有的身份证号、银行卡号、手机号、密码、验证码。如果存在，请原样输出号码；如果不存在，请回复'无敏感信息'。"}
+            ]
+        }
+    ]
+    try:
+        response = MultiModalConversation.call(
+            model="qwen-vl-plus",   # 也可用 qwen-vl-max
+            messages=messages
+        )
+        if response.status_code == 200:
+            # 提取文本结果
+            content = response.output.choices[0].message.content
+            # content 可能是 list，取 text 部分
+            if isinstance(content, list):
+                for item in content:
+                    if item.get("text"):
+                        return item["text"]
+            elif isinstance(content, str):
+                return content
+            else:
+                return "无法解析返回内容"
+        else:
+            return f"API 调用失败: {response.code} - {response.message}"
+    except Exception as e:
+        return f"调用异常: {str(e)}"
+
+# ---------- 前端 API 路由 ----------
+@app.route('/api/detect', methods=['POST'])
+def detect():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "无效的 JSON"}), 400
+
+    image_url = data.get('image_url')
+    question = data.get('question', '')
+
+    if not image_url:
+        return jsonify({"error": "缺少 image_url 参数"}), 400
+
+    # 可选：验证 URL 是否可访问（简单检查）
+    try:
+        head = requests.head(image_url, timeout=5)
+        if head.status_code != 200:
+            return jsonify({"error": "图片 URL 不可访问，请检查链接"}), 400
+    except:
+        return jsonify({"error": "图片 URL 连接失败"}), 400
+
+    # 调用多模态 AI
+    result_text = analyze_image_with_qwen(image_url, question)
+
+    # 构造返回给前端的数据
+    return jsonify({
+        "result": result_text,
+        "raw": result_text   # 前端暂未使用，但可保留
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=3000, debug=True)
