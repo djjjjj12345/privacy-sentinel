@@ -1,55 +1,57 @@
+/**
+ * 兼容接口 POST /api/detect
+ * ---------------------------------------------------------------
+ * 这是第一版界面使用的老接口。保留它是为了不破坏已经部署的页面，
+ * 但内部改为复用统一的 analyze 引擎，因此现在同样会返回结构化的 items。
+ *
+ * 老契约： { image_url, question }  -> { success, result }
+ * 新契约： 在老字段之外，额外附带 items / maxLevel / advice 等结构化字段。
+ */
+
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 
-const VOLC_API_KEY = process.env.VOLC_API_KEY;
-const VOLC_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/responses';
-const MODEL = 'doubao-seed-2-0-mini-260428';
+const analyzer = require('../services/analyzer');
 
 router.post('/detect', async (req, res) => {
-    const { image_url, question } = req.body;
+  const { image_url, question } = req.body || {};
 
-    if (!image_url) {
-        return res.status(400).json({ error: '请提供图片URL' });
+  if (!image_url) {
+    return res.status(400).json({ success: false, error: '请提供图片URL' });
+  }
+
+  try {
+    const result = await analyzer.analyzeImage({
+      imageUrl: image_url,
+      question,
+      profile: {},
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        error: result.error || 'AI服务调用失败，请检查图片地址是否正确。',
+      });
     }
 
-    const payload = {
-        model: MODEL,
-        input: [{
-            role: 'user',
-            content: [
-                { type: 'input_image', image_url: image_url },
-                { type: 'input_text', text: question || '请识别图片中的所有敏感信息，包括身份证号、银行卡号、手机号等。' }
-            ]
-        }]
-    };
+    // 老前端只认 result 字段，这里生成一份人类可读的文本摘要
+    const lines = result.items.length
+      ? result.items.map((i) => `- ${i.label}：${i.masked}（${i.level >= 3 ? '高风险' : '需注意'}）`)
+      : ['未检测到敏感信息。'];
 
-    try {
-        const response = await axios.post(VOLC_API_URL, payload, {
-            headers: {
-                'Authorization': `Bearer ${VOLC_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            timeout: 60000
-        });
+    const text = [`${result.summary}（${result.levelName}）`, ...lines, `建议：${result.advice}`].join('\n');
 
-        const data = response.data;
-        let answer = '未能提取到有效信息。';
-        if (data.output && data.output.length > 0) {
-            const content = data.output[0]?.content;
-            if (content && content.length > 0) {
-                const textItem = content.find(item => item.type === 'output_text');
-                if (textItem && textItem.text) {
-                    answer = textItem.text;
-                }
-            }
-        }
-
-        res.json({ success: true, result: answer });
-    } catch (error) {
-        console.error('API调用失败:', error.response?.data || error.message);
-        res.status(500).json({ error: 'AI服务调用失败，请检查图片地址是否正确。' });
-    }
+    return res.json({
+      ...result,
+      result: text,
+    });
+  } catch (error) {
+    console.error('[/api/detect] 调用失败:', error);
+    return res.status(error.status || 500).json({
+      success: false,
+      error: error.message || 'AI服务调用失败，请检查图片地址是否正确。',
+    });
+  }
 });
 
 module.exports = router;

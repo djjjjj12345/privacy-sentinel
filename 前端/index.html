@@ -743,6 +743,113 @@
 
         .file-input-hidden { display: none; }
 
+        /* ========== 多模态识别新增样式 ========== */
+        .analysis-card {
+            background: #fff;
+            border: 1px solid var(--gray-border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            margin-top: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .analysis-card .ac-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .analysis-card .ac-title { font-size: 13px; font-weight: 600; color: #1a1a2e; }
+        .engine-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .engine-badge.hybrid { background: #ede7f6; color: #5e35b1; }
+        .engine-badge.local { background: var(--gray-light); color: #616161; }
+        .analysis-card .ac-summary { color: #444; margin-bottom: 8px; }
+        .analysis-card .ac-items { display: flex; flex-direction: column; gap: 6px; }
+        .analysis-card .ac-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 10px;
+            background: var(--gray-light);
+            border-radius: 8px;
+            border-left: 3px solid var(--gray);
+        }
+        .analysis-card .ac-item.L1 { border-left-color: var(--success); }
+        .analysis-card .ac-item.L2 { border-left-color: var(--warning); }
+        .analysis-card .ac-item.L3 { border-left-color: #f4511e; }
+        .analysis-card .ac-item.L4 { border-left-color: var(--danger); }
+        .analysis-card .ac-item .ac-label { font-size: 12px; color: #666; flex: 0 0 auto; padding-top: 1px; }
+        .analysis-card .ac-item .ac-value {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            color: #1a1a2e;
+            word-break: break-all;
+            flex: 1;
+        }
+        .analysis-card .ac-doubt {
+            flex: 0 0 auto;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            background: var(--warning-light);
+            color: #e65100;
+            align-self: center;
+        }
+        .analysis-card .ac-advice {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: var(--primary-light);
+            border-radius: 8px;
+            font-size: 12px;
+            color: #2c4a8f;
+        }
+        .ac-empty { color: var(--success); font-size: 13px; }
+
+        .reason-list { margin-top: 8px; font-size: 12px; color: #555; }
+        .reason-list .reason-title { font-weight: 600; margin-bottom: 4px; }
+        .reason-list ul { padding-left: 18px; }
+        .reason-list li { margin-bottom: 3px; line-height: 1.5; }
+        .reason-list .conf { color: var(--gray); }
+
+        .steps { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; font-size: 12px; color: #666; }
+        .steps .step { display: flex; align-items: center; gap: 8px; }
+        .steps .step .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-border); flex: 0 0 auto; }
+        .steps .step.active { color: var(--primary); }
+        .steps .step.active .dot { background: var(--primary); animation: stepPulse 1s infinite; }
+        .steps .step.done .dot { background: var(--success); }
+        .steps .step.done { color: #444; }
+        @keyframes stepPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .img-with-box {
+            position: relative;
+            display: inline-block;
+            max-width: 200px;
+            margin-top: 8px;
+            border-radius: 8px;
+            overflow: visible;
+        }
+        .img-with-box > img { display: block; width: 100%; border-radius: 8px; }
+        .img-with-box .sensitive-box {
+            position: absolute;
+            border: 2px solid var(--danger);
+            background: rgba(244, 67, 54, 0.14);
+            border-radius: 3px;
+            pointer-events: none;
+        }
+        .img-with-box .sensitive-box::after {
+            content: attr(data-label);
+            position: absolute;
+            top: -16px;
+            left: -2px;
+            background: var(--danger);
+            color: #fff;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
         @media (max-width: 430px) {
             #app { max-width: 100%; border-radius: 0; }
         }
@@ -891,7 +998,7 @@
 
         <!-- ========== HISTORY PANEL ========== -->
         <div class="history-panel" id="historyPanel">
-            <div class="header"><button class="back-btn" id="historyBack">‹</button><span class="title">📋 预警历史</span></div>
+            <div class="header"><button class="back-btn" id="historyBack">‹</button><span class="title">📋 预警历史</span><button id="historyClear" style="margin-left:auto;font-size:13px;color:var(--gray);padding:4px 8px;">清空</button></div>
             <div class="body" id="historyBody"></div>
         </div>
 
@@ -934,6 +1041,21 @@
         // ================================================================
         // 使用相对路径，适配 Railway
         const API_BASE_URL = '/api/detect';
+        const API_ANALYZE_URL = '/api/analyze';
+
+        // 与服务端 services/schema.js 保持一致的契约
+        // （如需以服务端为准，可运行时拉取 GET /api/analyze/schema 覆盖）
+        const TYPE_LABEL = {
+            id: '身份证号', bankcard: '银行卡号', phone: '手机号',
+            password: '密码', otp: '短信验证码', address: '家庭住址',
+            name: '姓名', other: '其他敏感信息',
+        };
+        // 各类型的风险等级下限：模型可在其之上上调，设置页的灵敏度也能覆盖
+        const TYPE_FLOOR = { otp: 4, password: 3, bankcard: 2, id: 1, phone: 1, address: 1, name: 1, other: 1 };
+
+        const AI_TIMEOUT_MS = 45000;     // 图片识别总超时
+        const AI_TEXT_REVIEW_MS = 9000;  // 纯文本语义复检的等待上限，超时按本地结果放行
+        const HISTORY_KEY = 'privacy-sentinel:history';
 
         // ================================================================
         //  STATE (原有)
@@ -1132,6 +1254,11 @@
                 if (value.length > 6) return value.slice(0, 3) + '***' + value.slice(-3);
                 return value.slice(0, 2) + '***';
             }
+            if (type === 'name') {
+                if (value.length <= 1) return value;
+                if (value.length === 2) return value.slice(0, 1) + '*';
+                return value.slice(0, 1) + '*'.repeat(Math.min(value.length - 1, 2));
+            }
             return value;
         }
 
@@ -1192,81 +1319,223 @@
         }
 
         // ================================================================
-        //  新增：调用后端 AI 视觉 API
+        //  多模态分析：统一走 /api/analyze
         // ================================================================
-        async function callImageAPI(imageUrl, question = '请识别图片中的所有敏感信息，包括身份证号、银行卡号、手机号等，直接输出结果。') {
+        function getProfile() {
+            return { age: STATE.age, literacy: STATE.literacy, sensitivity: STATE.sensitivity };
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        /**
+         * 调用服务端统一分析接口。
+         * 图片以 base64 data URL 直传，不需要先传到图床。
+         */
+        async function callAnalyze(payload, timeoutMs = AI_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                const resp = await fetch(API_BASE_URL, {
+                const resp = await fetch(API_ANALYZE_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image_url: imageUrl, question: question })
+                    body: JSON.stringify(Object.assign({ profile: getProfile() }, payload)),
+                    signal: controller.signal,
                 });
-
-                if (!resp.ok) {
-                    const err = await resp.json();
-                    throw new Error(err.error || `HTTP ${resp.status}`);
-                }
-
-                const data = await resp.json();
+                let data = null;
+                try { data = await resp.json(); } catch (e) { data = null; }
+                if (!data) throw new Error(`服务返回异常（HTTP ${resp.status}）`);
+                if (!resp.ok || data.success === false) throw new Error(data.error || `HTTP ${resp.status}`);
                 return data;
-            } catch (error) {
-                console.error('API 调用失败:', error);
-                throw error;
+            } catch (err) {
+                if (err.name === 'AbortError') throw new Error('识别超时，请检查网络后重试');
+                throw err;
+            } finally {
+                clearTimeout(timer);
             }
         }
 
+        /** 服务端条目 → 前端风险条目（本地的灵敏度设置作为等级下限） */
+        function toLocalDetections(items) {
+            return (items || []).map(function (it) {
+                const type = TYPE_FLOOR[it.type] ? it.type : 'other';
+                const floor = STATE.detectLevels[type] || TYPE_FLOOR[type] || 1;
+                return {
+                    type: type,
+                    label: TYPE_LABEL[type] || it.label || '敏感信息',
+                    value: it.raw,
+                    masked: it.masked || desensitize(it.raw, type),
+                    level: Math.max(floor, Number(it.level) || 1),
+                    reason: it.reason || '',
+                    confidence: typeof it.confidence === 'number' ? it.confidence : null,
+                    verified: typeof it.verified === 'boolean' ? it.verified : null,
+                    bbox: Array.isArray(it.bbox) ? it.bbox : null,
+                    engine: it.engine || 'ai',
+                };
+            });
+        }
+
+        function engineLabel(source) {
+            if (source === 'hybrid') return { text: '本地规则 + AI 多模态', cls: 'hybrid' };
+            if (source === 'ai') return { text: 'AI 多模态识别', cls: '' };
+            return { text: '本地规则引擎', cls: 'local' };
+        }
+
+        /** 渲染「为什么危险」——模型给出的判定依据比固定话术有用得多 */
+        function renderReasons(detections) {
+            const withReason = detections.filter(function (d) { return d.reason; });
+            if (!withReason.length) return '';
+            const rows = withReason.map(function (d) {
+                const conf = d.confidence != null
+                    ? ` <span class="conf">· 可信度 ${Math.round(d.confidence * 100)}%</span>` : '';
+                return `<li><b>${escapeHtml(d.label)}</b>：${escapeHtml(d.reason)}${conf}</li>`;
+            }).join('');
+            return `<div class="reason-list"><div class="reason-title">🧠 判定依据</div><ul>${rows}</ul></div>`;
+        }
+
+        /** 结构化识别结果卡片 */
+        function addBotCard(analysis) {
+            if (!analysis) return null;
+            const src = engineLabel(analysis.source);
+            const detections = analysis.detections || [];
+            const head = `<div class="ac-head"><span class="ac-title">🔎 多模态识别结果</span><span class="engine-badge ${src.cls}">${src.text}</span></div>`;
+
+            let bodyHtml;
+            if (!detections.length) {
+                bodyHtml = `<div class="ac-empty">✅ ${escapeHtml(analysis.summary || '未检测到敏感信息')}</div>`;
+            } else {
+                const rows = detections.map(function (d) {
+                    const doubt = d.verified === false
+                        ? '<span class="ac-doubt" title="校验位不通过，可能是测试号码或录入错误">存疑</span>'
+                        : '';
+                    return `<div class="ac-item ${getLevelColor(d.level)}">
+                        <span class="ac-label">${escapeHtml(d.label)}</span>
+                        <span class="ac-value">${escapeHtml(d.masked || d.value)}</span>
+                        ${doubt}
+                    </div>`;
+                }).join('');
+                bodyHtml = `<div class="ac-summary">${escapeHtml(analysis.summary || '')}</div>
+                    <div class="ac-items">${rows}</div>
+                    ${renderReasons(detections)}
+                    ${analysis.advice ? `<div class="ac-advice">💡 ${escapeHtml(analysis.advice)}</div>` : ''}`;
+            }
+
+            const warn = (analysis.warnings || []).map(function (w) {
+                return `<div style="margin-top:8px;font-size:12px;color:#e65100;">⚠️ ${escapeHtml(w)}</div>`;
+            }).join('');
+
+            return addMessage('', 'bot', {
+                time: getTime(),
+                html: `<div class="analysis-card">${head}${bodyHtml}${warn}</div>`,
+            });
+        }
+
+        /** 按模型返回的归一化坐标，在图片上画出敏感区域 */
+        function renderImageWithBoxes(dataUrl, detections) {
+            const wrap = document.createElement('div');
+            wrap.className = 'img-with-box';
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.alt = '待检测图片';
+            wrap.appendChild(img);
+
+            const boxes = detections.filter(function (d) { return d.bbox && d.bbox.length === 4; });
+            function paint() {
+                wrap.querySelectorAll('.sensitive-box').forEach(function (el) { el.remove(); });
+                const w = wrap.clientWidth;
+                const h = wrap.clientHeight;
+                if (!w || !h) return;
+                boxes.forEach(function (d) {
+                    const box = document.createElement('div');
+                    box.className = 'sensitive-box';
+                    box.dataset.label = d.label;
+                    box.style.left = (d.bbox[0] * w) + 'px';
+                    box.style.top = (d.bbox[1] * h) + 'px';
+                    box.style.width = Math.max(12, d.bbox[2] * w) + 'px';
+                    box.style.height = Math.max(12, d.bbox[3] * h) + 'px';
+                    wrap.appendChild(box);
+                });
+            }
+            if (img.complete) paint(); else img.addEventListener('load', paint);
+            window.addEventListener('resize', paint);
+            return wrap;
+        }
+
+        /** 压缩图片，降低上传体积与识别成本；任何一步失败都回退为原图 */
+        function downscaleImage(file, maxEdge = 1600, quality = 0.85) {
+            return new Promise(function (resolve, reject) {
+                const reader = new FileReader();
+                reader.onerror = function () { reject(new Error('文件读取失败')); };
+                reader.onload = function (e) {
+                    const raw = e.target.result;
+                    const img = new Image();
+                    img.onerror = function () { resolve(raw); };
+                    img.onload = function () {
+                        try {
+                            let w = img.naturalWidth;
+                            let h = img.naturalHeight;
+                            const scale = Math.min(1, maxEdge / Math.max(w, h));
+                            if (scale === 1 && raw.length < 2 * 1024 * 1024) return resolve(raw);
+                            w = Math.round(w * scale);
+                            h = Math.round(h * scale);
+                            const canvas = document.createElement('canvas');
+                            canvas.width = w;
+                            canvas.height = h;
+                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                            resolve(canvas.toDataURL('image/jpeg', quality));
+                        } catch (err) {
+                            resolve(raw);
+                        }
+                    };
+                    img.src = raw;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         // ================================================================
-        //  修改后的发送逻辑（支持图片 URL 检测）
+        //  发送落库：文本与文件共用
         // ================================================================
-        function sendMessageSafe(text, detections, maxLevel, fileInfo = null) {
+        function sendMessageSafe(text, detections, maxLevel, fileInfo = null, extra = {}) {
             const time = getTime();
-            let safeText = text;
-            let hasSensitive = detections && detections.length > 0;
-            if (hasSensitive) {
-                safeText = desensitizeText(text, detections);
-            }
-            let displayText = safeText;
-            if (fileInfo) {
-                displayText = `[${fileInfo.type}] ${fileInfo.name}`;
-            }
-            const userDiv = addUserMessage(displayText, { time });
-            if (hasSensitive && text !== safeText) {
-                const badge = document.createElement('span');
-                badge.style.cssText = 'font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:12px;margin-left:8px;';
-                badge.textContent = '🛡️ 已脱敏';
-                userDiv.appendChild(badge);
-            }
-            if (fileInfo && fileInfo.dataUrl) {
-                const div = document.createElement('div');
-                div.className = 'msg user';
-                div.style.alignSelf = 'flex-end';
-                div.style.background = 'var(--primary)';
-                div.style.color = '#fff';
-                div.style.borderRadius = '16px 16px 4px 16px';
-                div.style.padding = '8px 12px';
-                div.style.maxWidth = '88%';
-                if (fileInfo.type === 'image') {
-                    div.innerHTML = `<img src="${fileInfo.dataUrl}" style="max-width:180px;border-radius:8px;display:block;">`;
-                } else if (fileInfo.type === 'video') {
-                    div.innerHTML = `<video controls style="max-width:180px;border-radius:8px;display:block;" src="${fileInfo.dataUrl}"></video>`;
-                } else {
-                    div.innerHTML = `🎵 音频文件: ${fileInfo.name}`;
+            const hasSensitive = detections && detections.length > 0;
+            const safeText = hasSensitive ? desensitizeText(text, detections) : text;
+
+            // 文件场景下用户气泡与缩略图已在分析阶段渲染，这里不重复添加
+            if (!extra.preRendered) {
+                let displayText = safeText;
+                if (fileInfo) {
+                    displayText = `[${fileInfo.type}] ${fileInfo.name}`;
                 }
-                msgContainer.appendChild(div);
-                scrollToBottom();
+                const userDiv = addUserMessage(displayText, { time });
+                if (hasSensitive && text !== safeText) {
+                    const badge = document.createElement('span');
+                    badge.style.cssText = 'font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:12px;margin-left:8px;';
+                    badge.textContent = '🛡️ 已脱敏';
+                    userDiv.appendChild(badge);
+                }
             }
+
+            // 结构化识别结果卡片
+            if (extra.analysis) {
+                addBotCard(extra.analysis);
+            }
+
             let reply = '✅ 消息已发送。';
             if (hasSensitive) {
                 const types = detections.map(d => d.label).join('、');
                 reply = `✅ 消息已发送（已对 ${types} 进行脱敏处理）。`;
-            }
-            if (fileInfo && !hasSensitive) {
-                reply = `✅ 已接收 ${fileInfo.type} 文件「${fileInfo.name}」，未检测到敏感信息。`;
+            } else if (fileInfo) {
+                reply = `✅ 已发送 ${fileInfo.type} 文件「${fileInfo.name}」，未检测到敏感信息。`;
             }
             addMessage(reply, 'bot', { time: getTime() });
+
             if (hasSensitive) {
                 const action = maxLevel >= 2 ? '已发送（用户确认并脱敏）' : '已发送（自动脱敏）';
-                addHistory(maxLevel, detections, action, text);
+                addHistory(maxLevel, detections, action, text || (fileInfo ? fileInfo.name : ''));
             }
             msgInput.value = '';
             msgInput.style.height = '28px';
@@ -1274,130 +1543,188 @@
         }
 
         // ================================================================
-        //  核心处理函数（判断是否为图片 URL 并调用 API）
+        //  统一处置策略：文本与文件复用同一套 L1~L4 逻辑
         // ================================================================
-        function processDetection(text, fileInfo = null) {
-            // 如果文本以 http:// 或 https:// 开头，视为图片 URL，调用 AI 视觉 API
-            const trimmed = text.trim();
-            if (/^https?:\/\/\S+/.test(trimmed)) {
-                // 调用 AI 检测
-                addMessage('🖼️ 正在使用 AI 视觉识别图片中的敏感信息...', 'bot', { time: getTime() });
-                callImageAPI(trimmed)
-                    .then(data => {
-                        // 解析返回结果
-                        let resultText = data.result || '未获取到识别结果';
-                        addMessage(`🧠 AI 识别结果：\n${resultText}`, 'bot', { time: getTime() });
-                        addHistory(1, [{ label: 'AI视觉识别', value: trimmed }], 'AI识别完成', trimmed);
-                    })
-                    .catch(error => {
-                        addMessage(`❌ AI 识别失败：${error.message}，请检查图片 URL 是否可访问。`, 'bot', { time: getTime() });
-                    });
-                addUserMessage(`🖼️ 图片 URL: ${trimmed}`, { time: getTime() });
-                msgInput.value = '';
-                msgInput.style.height = '28px';
-                return;
-            }
-
-            // 否则走本地文本检测
-            const detections = detectSensitive(text);
-            const maxLevel = getMaxLevel(detections);
+        function disposeDetections(ctx) {
+            const detections = ctx.detections || [];
+            const maxLevel = ctx.maxLevel || 0;
+            const text = ctx.text || '';
+            const fileInfo = ctx.fileInfo || null;
+            const extra = ctx.extra || {};
 
             if (!detections.length) {
-                sendMessageSafe(text, [], 0, fileInfo);
+                // 没有风险，直接放行
+                sendMessageSafe(text, [], 0, fileInfo, extra);
                 return;
             }
 
-            const level = maxLevel;
-            const levelName = getLevelName(level);
-            const color = getLevelColor(level);
+            const levelName = getLevelName(maxLevel);
+            const color = getLevelColor(maxLevel);
+            const labels = detections.map(function (d) { return d.label; }).join('、');
+            const detailHtml = detections.map(function (d) {
+                return `<div class="item"><span>${escapeHtml(d.label)}</span><span class="tag">${escapeHtml(d.masked || desensitize(d.value, d.type))}</span></div>`;
+            }).join('');
+            const reason = getRiskReason(detections, maxLevel);
+            const suggestion = (extra.advice || '').trim() || getSuggestion(detections, maxLevel);
+            const reasonHtml = renderReasons(detections);
+            const src = extra.analysis ? engineLabel(extra.analysis.source) : null;
+            const sourceHtml = src
+                ? `<div class="ac-head" style="margin-bottom:6px;"><span class="engine-badge ${src.cls}">${src.text}</span></div>`
+                : '';
 
-            const detailHtml = detections.map(d =>
-                `<div class="item"><span>${d.label}</span><span class="tag">${desensitize(d.value, d.type)}</span></div>`
-            ).join('');
+            STATE.pendingSend = { text: text, detections: detections, maxLevel: maxLevel, fileInfo: fileInfo };
 
-            const reason = getRiskReason(detections, level);
-            const suggestion = getSuggestion(detections, level);
-
-            STATE.pendingSend = { text, detections, maxLevel, fileInfo };
-
-            if (level === 1) {
+            if (maxLevel === 1) {
                 showToast(`🟢 ${levelName} · ${reason}`, 3000);
-                addMessage(`📋 检测到 ${detections.map(d=>d.label).join('、')}，已自动脱敏。`, 'bot', { time: getTime() });
-                sendMessageSafe(text, detections, maxLevel, fileInfo);
+                addMessage(`📋 检测到 ${labels}，已自动脱敏。`, 'bot', { time: getTime() });
+                sendMessageSafe(text, detections, maxLevel, fileInfo, extra);
                 return;
             }
 
-            if (level === 2) {
+            if (maxLevel === 2) {
                 showRiskModal({
                     title: '⚠️ 敏感信息检测',
-                    sub: `检测到 ${detections.map(d=>d.label).join('、')}`,
+                    sub: `检测到 ${labels}`,
                     level: levelName,
                     levelClass: color,
                     body: `
                         <p>您即将向联系人发送以下敏感信息：</p>
                         <div class="detected-items">${detailHtml}</div>
-                        <p style="color:#666;font-size:13px;">${reason}</p>
-                        <div class="suggestion"><span class="label">💡 建议：</span>${suggestion}</div>
+                        <p style="color:#666;font-size:13px;">${escapeHtml(reason)}</p>
+                        ${reasonHtml}
+                        ${sourceHtml}
+                        <div class="suggestion"><span class="label">💡 建议：</span>${escapeHtml(suggestion)}</div>
                     `,
                     actions: [
                         { text: '取消', class: 'outline', action: 'cancel' },
                         { text: '仍然发送（已脱敏）', class: 'primary', action: 'confirm' },
                     ]
-                }).then(result => {
+                }).then(function (result) {
                     if (result === 'confirm') {
-                        sendMessageSafe(text, detections, maxLevel, fileInfo);
+                        sendMessageSafe(text, detections, maxLevel, fileInfo, extra);
                     }
                 });
                 return;
             }
 
-            if (level === 3) {
+            if (maxLevel === 3) {
                 showRiskModal({
                     title: '🚨 高风险预警',
                     sub: '发送已暂停',
                     level: levelName,
                     levelClass: color,
                     body: `
-                        <p>检测到 ${detections.map(d=>d.label).join('、')} 同时发送给非通讯录联系人，存在极高诈骗风险。</p>
+                        <p>检测到 ${escapeHtml(labels)} 正在被发送出去，存在极高诈骗风险。</p>
                         <div class="detected-items">${detailHtml}</div>
+                        ${reasonHtml}
                         <p style="color:#e65100;font-weight:600;">⏳ 等待 <span id="countdownDisplay">8</span> 秒后可选择继续发送</p>
-                        <div class="suggestion"><span class="label">💡 建议：</span>${suggestion}</div>
+                        ${sourceHtml}
+                        <div class="suggestion"><span class="label">💡 建议：</span>${escapeHtml(suggestion)}</div>
                     `,
                     actions: [
                         { text: '取消发送', class: 'outline', action: 'cancel' },
                         { text: '继续发送 (8s)', class: 'danger', action: 'confirm', disabled: true, id: 'countdownBtn' },
                     ],
                     countdown: 8,
-                }).then(result => {
+                }).then(function (result) {
                     if (result === 'confirm') {
-                        sendMessageSafe(text, detections, maxLevel, fileInfo);
+                        sendMessageSafe(text, detections, maxLevel, fileInfo, extra);
                     }
                 });
                 return;
             }
 
-            if (level >= 4) {
-                showRiskModal({
-                    title: '⛔ 发送已阻止',
-                    sub: '极高风险 · 强制阻断',
-                    level: levelName,
-                    levelClass: color,
-                    body: `
-                        <p>🚫 检测到 <strong>${detections.map(d=>d.label).join('、')}</strong> 被发送给疑似诈骗号码。</p>
-                        <div class="detected-items">${detailHtml}</div>
-                        <p style="color:var(--danger);font-weight:600;">验证码泄露将直接导致账户被盗！</p>
-                        <div class="suggestion"><span class="label">🔒 建议：</span>${suggestion}</div>
-                        <p style="font-size:13px;color:var(--gray);margin-top:8px;">📞 已建议通知紧急联系人</p>
-                    `,
-                    actions: [
-                        { text: '我知道了', class: 'primary', action: 'close' },
-                        { text: '📖 查看防骗指南', class: 'outline', action: 'guide' },
-                    ],
-                    noConfirm: true,
-                });
-                addHistory(level, detections, '已阻止发送', text);
+            // L4：强制阻断，不提供继续发送入口
+            showRiskModal({
+                title: '⛔ 发送已阻止',
+                sub: '极高风险 · 强制阻断',
+                level: levelName,
+                levelClass: color,
+                body: `
+                    <p>🚫 检测到 <strong>${escapeHtml(labels)}</strong> 正在被发送出去。</p>
+                    <div class="detected-items">${detailHtml}</div>
+                    ${reasonHtml}
+                    <p style="color:var(--danger);font-weight:600;">验证码泄露将直接导致账户被盗！</p>
+                    ${sourceHtml}
+                    <div class="suggestion"><span class="label">🔒 建议：</span>${escapeHtml(suggestion)}</div>
+                    <p style="font-size:13px;color:var(--gray);margin-top:8px;">📞 已建议通知紧急联系人</p>
+                `,
+                actions: [
+                    { text: '我知道了', class: 'primary', action: 'close' },
+                    { text: '📖 查看防骗指南', class: 'outline', action: 'guide' },
+                ],
+                noConfirm: true,
+            });
+            addHistory(maxLevel, detections, '已阻止发送', text || (fileInfo ? fileInfo.name : ''));
+        }
+
+        // ================================================================
+        //  文本消息：本地秒判 + AI 语义复检
+        // ================================================================
+        function processDetection(text) {
+            const trimmed = String(text).trim();
+            if (!trimmed) return;
+
+            // 兼容旧行为：输入图片链接时走视觉识别
+            if (/^https?:\/\/\S+$/i.test(trimmed) && /\.(png|jpe?g|webp|gif|bmp)(\?\S*)?$/i.test(trimmed)) {
+                addUserMessage('🖼️ 图片链接', { time: getTime() });
+                addMessage(escapeHtml(trimmed), 'bot', { time: getTime() });
+                msgInput.value = '';
+                msgInput.style.height = '28px';
+                handleImageSource(trimmed, { fileName: '图片链接', preRendered: true });
                 return;
             }
+
+            const localDetections = detectSensitive(trimmed);
+            const localLevel = getMaxLevel(localDetections);
+
+            // 本地命中时立刻处置，不等待模型，保证响应速度；
+            // 本地未命中时才需要等模型 —— 像「把验证码发我」这类没有固定格式的话术，正则永远抓不到。
+            if (localDetections.length) {
+                disposeDetections({ text: trimmed, detections: localDetections, maxLevel: localLevel });
+                callAnalyze({ kind: 'text', text: trimmed }, AI_TEXT_REVIEW_MS + 2000)
+                    .then(function (res) { reportAiSupplement(res, localDetections); })
+                    .catch(function (err) { console.warn('AI 复检失败:', err.message); });
+                return;
+            }
+
+            const pendingEl = addMessage('🧠 AI 正在复检语义风险…', 'bot', { time: getTime() });
+            callAnalyze({ kind: 'text', text: trimmed }, AI_TEXT_REVIEW_MS + 2000)
+                .then(function (res) {
+                    pendingEl.remove();
+                    const detections = toLocalDetections(res.items);
+                    disposeDetections({
+                        text: trimmed,
+                        detections: detections,
+                        maxLevel: getMaxLevel(detections),
+                        extra: { analysis: Object.assign({ detections: detections }, res) },
+                    });
+                })
+                .catch(function (err) {
+                    pendingEl.remove();
+                    console.warn('AI 复检失败:', err.message);
+                    // 模型不可用时不能让消息卡住，按本地结果放行
+                    disposeDetections({ text: trimmed, detections: [], maxLevel: 0 });
+                });
+        }
+
+        /** 本地先命中时，模型若发现额外风险，补一条提示 */
+        function reportAiSupplement(res, localDetections) {
+            if (!res || res.success === false) return;
+            const known = new Set(localDetections.map(function (d) { return d.value; }));
+            const extra = toLocalDetections(res.items).filter(function (d) { return !known.has(d.value); });
+            if (!extra.length) return;
+
+            const merged = localDetections.concat(extra);
+            addBotCard({
+                source: res.source,
+                summary: `AI 补充发现：${extra.map(function (d) { return d.label; }).join('、')}`,
+                advice: res.advice,
+                warnings: res.warnings,
+                detections: merged,
+            });
+            showToast(`🧠 AI 补充发现 ${extra.map(function (d) { return d.label; }).join('、')}`, 2500);
+            addHistory(getMaxLevel(merged), extra, 'AI 补充识别', extra.map(function (d) { return d.value; }).join(', '));
         }
 
         // ================================================================
@@ -1508,17 +1835,37 @@
         // ================================================================
         //  HISTORY
         // ================================================================
+        // 历史记录持久化：刷新页面不再丢失
+        function loadHistory() {
+            try {
+                const raw = localStorage.getItem(HISTORY_KEY);
+                if (!raw) return [];
+                const arr = JSON.parse(raw);
+                return Array.isArray(arr) ? arr.slice(0, 50) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveHistory() {
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(STATE.history.slice(0, 50)));
+            } catch (e) { /* 隐私模式下写入会失败，忽略即可 */ }
+        }
+
         function addHistory(level, detections, action, content) {
+            const text = String(content == null ? '' : content);
             const entry = {
                 level,
                 detections: detections.map(d => ({ label: d.label, value: d.value })),
                 action,
-                content: content.slice(0, 50) + (content.length > 50 ? '...' : ''),
+                content: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
                 time: getTime(),
                 date: new Date().toLocaleDateString(),
             };
             STATE.history.unshift(entry);
             if (STATE.history.length > 50) STATE.history.pop();
+            saveHistory();
             renderHistory();
         }
 
@@ -1553,113 +1900,202 @@
         }
 
         // ================================================================
-        //  FILE HANDLING (保持不变，仍使用模拟检测)
+        //  图片识别：本地上传与图片链接共用同一条通路
         // ================================================================
-        function handleFile(file, type) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const dataUrl = e.target.result;
-                let detected = [];
-                if (type === 'image') {
-                    addMessage('🔍 正在扫描图片中的敏感信息（本地模拟）...', 'bot', { time: getTime() });
-                    setTimeout(() => {
-                        const mockDetections = [
-                            { type: 'id', label: '身份证号', level: 1 },
-                            { type: 'phone', label: '手机号', level: 1 },
-                        ];
-                        const hasSensitive = Math.random() > 0.4;
-                        if (hasSensitive) {
-                            const pick = mockDetections[Math.floor(Math.random() * mockDetections.length)];
-                            detected = [{
-                                type: pick.type,
-                                value: pick.type === 'id' ? '110105199003071234' : '13912345678',
-                                label: pick.label,
-                                level: pick.level
-                            }];
-                        }
-                        if (detected.length > 0) {
-                            const maxL = getMaxLevel(detected);
-                            const levelName = getLevelName(maxL);
-                            const color = getLevelColor(maxL);
-                            const detail = detected.map(d =>
-                                `<div>${d.label}: <strong>${desensitize(d.value, d.type)}</strong></div>`
-                            ).join('');
-                            addMessage(
-                                `🖼️ 图片扫描完成\n检测到 ${detected.map(d=>d.label).join('、')}\n风险等级: ${levelName}\n${detail}\n💡 如需更精准识别，请使用图片URL进行AI检测。`,
-                                'bot', { time: getTime(), riskBadge: color }
-                            );
-                            addHistory(maxL, detected, '图片扫描检测', file.name);
-                        } else {
-                            addMessage('✅ 图片扫描完成，未检测到敏感信息。', 'bot', { time: getTime() });
-                        }
-                    }, 800);
-                }
-                if (type === 'audio') {
-                    addMessage('🎵 正在分析音频内容（语音转文字模拟）...', 'bot', { time: getTime() });
-                    setTimeout(() => {
-                        const hasSensitive = Math.random() > 0.5;
-                        if (hasSensitive) {
-                            detected = [
-                                { type: 'bankcard', value: '6228480012345678', label: '银行卡号', level: 2 },
-                                { type: 'phone', value: '13912345678', label: '手机号', level: 1 },
-                            ];
-                            const maxL = getMaxLevel(detected);
-                            const levelName = getLevelName(maxL);
-                            const color = getLevelColor(maxL);
-                            const detail = detected.map(d =>
-                                `<div>${d.label}: <strong>${desensitize(d.value, d.type)}</strong></div>`
-                            ).join('');
-                            addMessage(
-                                `🎤 音频分析完成\n转写内容包含 ${detected.map(d=>d.label).join('、')}\n风险等级: ${levelName}\n${detail}`,
-                                'bot', { time: getTime(), riskBadge: color }
-                            );
-                            addHistory(maxL, detected, '音频检测', file.name);
-                        } else {
-                            addMessage('✅ 音频分析完成，未检测到敏感信息。', 'bot', { time: getTime() });
-                        }
-                    }, 1200);
-                }
-                if (type === 'video') {
-                    addMessage('🎬 正在分析视频内容（帧检测模拟）...', 'bot', { time: getTime() });
-                    setTimeout(() => {
-                        const hasSensitive = Math.random() > 0.5;
-                        if (hasSensitive) {
-                            detected = [
-                                { type: 'id', value: '110105199003071234', label: '身份证号', level: 1 },
-                                { type: 'address', value: '北京市朝阳区建国路88号', label: '家庭住址', level: 1 },
-                            ];
-                            const maxL = getMaxLevel(detected);
-                            const levelName = getLevelName(maxL);
-                            const color = getLevelColor(maxL);
-                            const detail = detected.map(d =>
-                                `<div>${d.label}: <strong>${desensitize(d.value, d.type)}</strong></div>`
-                            ).join('');
-                            addMessage(
-                                `🎞️ 视频分析完成\n检测到 ${detected.map(d=>d.label).join('、')}\n风险等级: ${levelName}\n${detail}`,
-                                'bot', { time: getTime(), riskBadge: color }
-                            );
-                            addHistory(maxL, detected, '视频检测', file.name);
-                        } else {
-                            addMessage('✅ 视频分析完成，未检测到敏感信息。', 'bot', { time: getTime() });
-                        }
-                    }, 1500);
-                }
-                addUserMessage(`[${type}] ${file.name}`, { time: getTime() });
-                if (type === 'image' || type === 'video') {
-                    const lastUserMsg = msgContainer.querySelector('.msg.user:last-child');
-                    if (lastUserMsg) {
-                        const preview = document.createElement('div');
-                        preview.style.marginTop = '8px';
-                        if (type === 'image') {
-                            preview.innerHTML = `<img src="${dataUrl}" style="max-width:180px;border-radius:8px;display:block;">`;
-                        } else {
-                            preview.innerHTML = `<video controls style="max-width:180px;border-radius:8px;display:block;" src="${dataUrl}"></video>`;
-                        }
-                        lastUserMsg.appendChild(preview);
+        function makeStepCard(steps) {
+            const div = document.createElement('div');
+            div.className = 'msg bot';
+            div.innerHTML = `<div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span></div>
+                <div class="steps">${steps.map(function (s, i) {
+                    return `<div class="step ${i === 0 ? 'active' : ''}"><span class="dot"></span><span>${s}</span></div>`;
+                }).join('')}</div>`;
+            msgContainer.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function advanceSteps(card, index) {
+            if (!card) return;
+            card.querySelectorAll('.step').forEach(function (el, i) {
+                el.classList.toggle('done', i < index);
+                el.classList.toggle('active', i === index);
+            });
+            scrollToBottom();
+        }
+
+        async function handleImageSource(source, opts = {}) {
+            const card = opts.showSteps === false
+                ? null
+                : makeStepCard(['读取图片内容', '调用多模态模型识别', '解析结构化结果', '生成风险判定']);
+
+            try {
+                advanceSteps(card, 1);
+                const res = await callAnalyze({ kind: 'image', dataUrl: source, fileName: opts.fileName });
+                advanceSteps(card, 2);
+
+                const detections = toLocalDetections(res.items);
+
+                // 模型给了坐标就把敏感区域直接框在图上
+                if (opts.anchor && detections.some(function (d) { return d.bbox; })) {
+                    const old = opts.anchor.querySelector('.img-with-box');
+                    if (old && old.parentNode) {
+                        old.parentNode.replaceChild(renderImageWithBoxes(source, detections), old);
                     }
                 }
-            };
-            reader.readAsDataURL(file);
+
+                advanceSteps(card, 3);
+                setTimeout(function () { if (card) card.remove(); }, 500);
+
+                disposeDetections({
+                    text: '',
+                    detections: detections,
+                    maxLevel: getMaxLevel(detections),
+                    fileInfo: opts.fileInfo || null,
+                    extra: {
+                        preRendered: opts.preRendered === true,
+                        analysis: Object.assign({ detections: detections }, res),
+                    },
+                });
+            } catch (err) {
+                if (card) card.remove();
+                addMessage(`❌ 图片识别失败：${escapeHtml(err.message)}`, 'bot', { time: getTime() });
+                if (opts.fileInfo) {
+                    addHistory(1, [{ label: '识别失败', value: opts.fileInfo.name, level: 1 }], '识别失败', opts.fileInfo.name);
+                }
+            }
+        }
+
+        /** 把任意文件读成 base64 data URL（不压缩；图片另走 downscaleImage） */
+        function readAsDataURL(file) {
+            return new Promise(function (resolve, reject) {
+                const r = new FileReader();
+                r.onload = function (e) { resolve(e.target.result); };
+                r.onerror = function () { reject(new Error('文件读取失败')); };
+                r.readAsDataURL(file);
+            });
+        }
+
+        // ================================================================
+        //  文件入口：图片走视觉模型，音视频走豆包 input_audio / input_video
+        // ================================================================
+        const AUDIO_MIMES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/aac', 'audio/mp4', 'audio/x-m4a'];
+        const VIDEO_MIMES = ['video/mp4'];
+        const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+
+        async function analyzeFile(file, kind) {
+            // 1) mime 校验。浏览器拿不到 mime 时（罕见）放行，让后端兜底拒绝。
+            if (kind === 'image') {
+                if (!file.type || file.type.indexOf('image/') !== 0) {
+                    addMessage('❌ 目前只支持图片格式，请重新选择。', 'bot', { time: getTime() });
+                    return;
+                }
+            } else if (kind === 'audio') {
+                if (!file.type || !AUDIO_MIMES.includes(file.type.toLowerCase())) {
+                    addMessage(
+                        `❌ 不支持的音频格式（${file.type || '未知'}）。请使用 MP3 / WAV / AAC / M4A。`,
+                        'bot', { time: getTime() }
+                    );
+                    return;
+                }
+            } else if (kind === 'video') {
+                if (!file.type || !VIDEO_MIMES.includes(file.type.toLowerCase())) {
+                    addMessage(
+                        `❌ 不支持的视频格式（${file.type || '未知'}）。` +
+                        '豆包只接受 MP4 容器，浏览器录的 webm/quicktime 请先用「格式工厂」或 FFmpeg 转码。',
+                        'bot', { time: getTime() }
+                    );
+                    return;
+                }
+            } else {
+                addMessage(`❌ 未知文件类型：${kind}`, 'bot', { time: getTime() });
+                return;
+            }
+
+            // 2) 大小上限。豆包对音频/视频的原文上限就是 25MB。
+            if (file.size > MAX_MEDIA_BYTES) {
+                addMessage(
+                    `❌ 文件过大（${(file.size / 1024 / 1024).toFixed(1)}MB），超过 25MB 上限。请先压缩。`,
+                    'bot', { time: getTime() }
+                );
+                return;
+            }
+
+            // 3) 图片走压缩 + bbox 画框的旧路径，音视频走通用路径。
+            if (kind === 'image') {
+                let dataUrl;
+                try {
+                    dataUrl = await downscaleImage(file);
+                } catch (err) {
+                    addMessage(`❌ 图片读取失败：${escapeHtml(err.message)}`, 'bot', { time: getTime() });
+                    return;
+                }
+                const anchor = addUserMessage(`[image] ${file.name}`, { time: getTime() });
+                const wrap = document.createElement('div');
+                wrap.className = 'img-with-box';
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.alt = file.name;
+                wrap.appendChild(img);
+                anchor.appendChild(wrap);
+                scrollToBottom();
+                await handleImageSource(dataUrl, {
+                    fileName: file.name,
+                    fileInfo: { type: 'image', name: file.name, dataUrl: dataUrl },
+                    anchor: anchor,
+                    preRendered: true,
+                });
+                return;
+            }
+
+            // 4) 音视频：原样读为 base64 data URL，不压缩（mp3/wav 不可重编码；mp4 也避免二次编码损失）
+            let dataUrl;
+            try {
+                dataUrl = await readAsDataURL(file);
+            } catch (err) {
+                addMessage(`❌ 文件读取失败：${escapeHtml(err.message)}`, 'bot', { time: getTime() });
+                return;
+            }
+
+            addUserMessage(`[${kind}] ${file.name}`, { time: getTime() });
+            scrollToBottom();
+
+            const stepLabels = kind === 'audio'
+                ? ['读取音频内容', '语音转写 + 敏感识别', '解析结构化结果', '生成风险判定']
+                : ['读取视频内容', '抽帧 + 转写 + 敏感识别', '解析结构化结果', '生成风险判定'];
+            const card = makeStepCard(stepLabels);
+
+            try {
+                advanceSteps(card, 1);
+                const res = await callAnalyze({ kind: kind, dataUrl: dataUrl, fileName: file.name });
+                advanceSteps(card, 2);
+                const detections = toLocalDetections(res.items);
+                advanceSteps(card, 3);
+                setTimeout(function () { if (card) card.remove(); }, 500);
+
+                disposeDetections({
+                    text: res.transcript || '',
+                    detections: detections,
+                    maxLevel: getMaxLevel(detections),
+                    fileInfo: {
+                        type: kind,
+                        name: file.name,
+                        transcript: res.transcript || null,
+                    },
+                    extra: {
+                        preRendered: false,
+                        analysis: Object.assign({ detections: detections }, res, {
+                            transcript: res.transcript || null,
+                        }),
+                    },
+                });
+            } catch (err) {
+                if (card) card.remove();
+                addMessage(
+                    `❌ ${kind === 'audio' ? '音频' : '视频'}识别失败：${escapeHtml(err.message)}`,
+                    'bot', { time: getTime() }
+                );
+                addHistory(1, [{ label: '识别失败', value: file.name, level: 1 }], '识别失败', file.name);
+            }
         }
 
         // ================================================================
@@ -1718,21 +2154,21 @@
 
         fileImage.addEventListener('change', (e) => {
             if (e.target.files.length) {
-                handleFile(e.target.files[0], 'image');
+                analyzeFile(e.target.files[0], 'image');
                 e.target.value = '';
             }
         });
 
         fileAudio.addEventListener('change', (e) => {
             if (e.target.files.length) {
-                handleFile(e.target.files[0], 'audio');
+                analyzeFile(e.target.files[0], 'audio');
                 e.target.value = '';
             }
         });
 
         fileVideo.addEventListener('change', (e) => {
             if (e.target.files.length) {
-                handleFile(e.target.files[0], 'video');
+                analyzeFile(e.target.files[0], 'video');
                 e.target.value = '';
             }
         });
@@ -1850,15 +2286,28 @@
         // ================================================================
         //  INIT
         // ================================================================
+        // 读取上次的预警历史
+        STATE.history = loadHistory();
         renderHistory();
+
+        document.getElementById('historyClear').addEventListener('click', () => {
+            if (!STATE.history.length) {
+                showToast('暂无预警记录', 1200);
+                return;
+            }
+            STATE.history = [];
+            saveHistory();
+            renderHistory();
+            showToast('已清空预警历史', 1500);
+        });
 
         // 更新时间显示
         document.getElementById('currentTime').textContent = getTime();
 
-        console.log('🛡️ 隐私哨兵已启动！ (AI视觉已接入)');
+        console.log('🛡️ 隐私哨兵已启动（多模态识别已接入）');
         setTimeout(() => {
-            addMessage('🔍 试试在下方输入框发送 "我的身份证是110105199003071234" 或 "卡号6228480012345678"', 'bot', { time: getTime() });
-            addMessage('📂 也可以输入图片URL（如 https://example.com/id.jpg）使用AI识别', 'bot', { time: getTime() });
+            addMessage('🔍 试试发送 "我的身份证是110105199003071239" 或 "卡号6228480012345671"', 'bot', { time: getTime() });
+            addMessage('📷 点击左下角 📎 上传一张身份证 / 银行卡照片，体验真正的多模态识别', 'bot', { time: getTime() });
         }, 800);
     </script>
 </body>
