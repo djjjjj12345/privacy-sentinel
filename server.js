@@ -39,7 +39,8 @@ app.get('/api/health', (req, res) => {
 // ------------------------------------------------------------------
 //  静态前端
 // ------------------------------------------------------------------
-app.use(express.static('前端'));
+// 用绝对路径，避免部署环境工作目录不同导致静态资源 404
+app.use(express.static(path.join(__dirname, '前端')));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '前端', 'index.html'));
