@@ -184,6 +184,9 @@ async function analyzeText({ text, profile = {} }) {
   if (ai && !ai.ok) {
     warnings.push('模型未返回结构化结果，已使用本地规则引擎兜底');
   }
+  if (ai && ai.truncated) {
+    warnings.push('消息过长，AI 仅对前 12000 字做了复检，超出部分仅有本地规则结果');
+  }
 
   const aiItems = ai && ai.ok ? ai.items : [];
   const items = fuseItems(local, aiItems);

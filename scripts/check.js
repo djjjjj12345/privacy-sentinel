@@ -273,6 +273,13 @@ async function run() {
     check('回退时给出降级提示', Array.isArray(textFallback.body.warnings) && textFallback.body.warnings.length > 0);
     check('回退结果来源标记为 local', textFallback.body.source === 'local', textFallback.body.source);
     mockMode = 'good';
+
+    // 超长文本：AI 只复检前 12000 字，但本地正则仍扫全文，且必须显式提示截断
+    const longText = '日常寒暄。'.repeat(4000) + ` 身份证 ${VALID_ID}`;
+    const long = await post('/api/analyze', { kind: 'text', text: longText });
+    check('超长文本仍返回成功', long.body.success === true, `HTTP ${long.status}`);
+    check('超长文本的本地正则命中了尾部身份证', long.body.items.some((i) => i.type === 'id'), JSON.stringify(long.body.items.map((i) => i.type)));
+    check('超长文本带截断提示', Array.isArray(long.body.warnings) && long.body.warnings.some((w) => /12000/.test(w)), JSON.stringify(long.body.warnings));
   }
 
   console.log('\n=== 6. 参数校验 ===');
@@ -323,6 +330,10 @@ async function run() {
     check('音频请求带上了正确的 format=mp3',
       lastChatBody?.messages?.[0]?.content?.[0]?.input_audio?.format === 'mp3'
     );
+    check('音频请求的提问部分用的是 text 类型（而非 input_text）',
+      lastChatBody?.messages?.[0]?.content?.some((c) => c && c.type === 'text' && typeof c.text === 'string'),
+      JSON.stringify((lastChatBody?.messages?.[0]?.content || []).map((c) => c.type))
+    );
     check('音频转写文本被带回', r.body.transcript && /验证码|卡号/.test(r.body.transcript), r.body.transcript);
     check('模型识别的验证码被融合', Boolean(byType.otp), JSON.stringify(Object.keys(byType)));
     check('模型识别的银行卡被融合', Boolean(byType.bankcard));
@@ -347,9 +358,12 @@ async function run() {
     const items = (r.body && r.body.items) || [];
 
     check('视频识别返回成功', r.status === 200 && r.body.success === true, `HTTP ${r.status}`);
-    check('视频请求带上了 input_video',
+    check('视频请求带上了 video_url（方舟 Chat Completions 的视频类型）',
       Array.isArray(lastChatBody?.messages?.[0]?.content)
-      && lastChatBody.messages[0].content.some((c) => c && c.type === 'input_video' && c.input_video && typeof c.input_video.data === 'string')
+      && lastChatBody.messages[0].content.some((c) => c && c.type === 'video_url' && c.video_url && typeof c.video_url.url === 'string' && c.video_url.url.startsWith('data:video/mp4;base64,'))
+    );
+    check('视频请求的提问部分用的是 text 类型',
+      lastChatBody?.messages?.[0]?.content?.some((c) => c && c.type === 'text' && typeof c.text === 'string')
     );
     check('视频识别命中身份证', items.some((i) => i.type === 'id'), JSON.stringify(items.map((i) => i.type)));
     check('视频识别带回转写文本', r.body.transcript && /身份证号/.test(r.body.transcript), r.body.transcript);

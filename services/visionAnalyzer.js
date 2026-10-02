@@ -18,9 +18,11 @@ const { buildSystemPrompt, normalizeItem, TYPE_LABEL } = require('./schema');
 const BASE_URL = (process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3').replace(/\/$/, '');
 const VISION_MODEL = process.env.ARK_VISION_MODEL || 'doubao-seed-2-0-mini-260428';
 const TEXT_MODEL = process.env.ARK_TEXT_MODEL || VISION_MODEL;
-// 音频/视频单独走 Chat Completions。Lite 端对音频原生支持，Pro 系列更稳。
-const AUDIO_MODEL = process.env.ARK_AUDIO_MODEL || 'doubao-seed-2-0-lite-260428';
-const VIDEO_MODEL = process.env.ARK_VIDEO_MODEL || AUDIO_MODEL;
+// 音频/视频单独走 Chat Completions。
+// 默认沿用 VISION_MODEL：实测 doubao-seed-2-0-mini 系列同时支持 input_audio 与 video_url，
+// 且与账号已开通的模型保持一致，避免默认值指向不存在的模型 ID 导致 404。
+const AUDIO_MODEL = process.env.ARK_AUDIO_MODEL || VISION_MODEL;
+const VIDEO_MODEL = process.env.ARK_VIDEO_MODEL || VISION_MODEL;
 
 // 方舟图片上限约 10MB，base64 会膨胀约 1/3，这里按 base64 长度粗略设卡
 const MAX_DATA_URL_LENGTH = 14 * 1024 * 1024;
@@ -125,7 +127,7 @@ function readOutputText(data) {
   return chunks.join('\n');
 }
 
-function describeAxiosError(error) {
+function describeAxiosError(error, modelVar = 'ARK_VISION_MODEL') {
   const status = error.response && error.response.status;
   const payload = error.response && error.response.data;
   const detail = payload ? (payload.error ? payload.error.message || JSON.stringify(payload.error) : JSON.stringify(payload)) : error.message;
@@ -133,7 +135,7 @@ function describeAxiosError(error) {
   const hintMap = {
     401: 'API Key 无效或已失效，请检查 ARK_API_KEY',
     403: 'API Key 无权限，请确认已开通该模型',
-    404: '模型不存在，请检查 ARK_VISION_MODEL 是否与控制台中的模型 ID 一致',
+    404: `模型不存在，请检查 ${modelVar} 是否与控制台中的模型 ID 一致`,
     429: '触发限流或余额不足，请稍后重试',
   };
 
@@ -308,8 +310,12 @@ function readChatContent(data) {
 /**
  * 统一的"先转写为文字、再识别敏感条目"任务。
  * 返回与 runAnalysis 同构的 ok/items/transcript/advice 对象。
+ *
+ * 注意 Chat Completions 的内容类型名与 Responses API 不同：
+ *   文本是 "text"（不是 input_text），视频是 "video_url"（不是 input_video），
+ *   音频是 "input_audio"（其 data 字段收纯 base64）。以上均经线上实测确认。
  */
-async function analyzeMedia({ model, inputPart, question, mime, label }) {
+async function analyzeMedia({ model, modelVar, inputPart, question, mime, label }) {
   const startedAt = Date.now();
   let data;
   try {
@@ -317,13 +323,13 @@ async function analyzeMedia({ model, inputPart, question, mime, label }) {
       model,
       content: [
         inputPart,
-        { type: 'input_text', text: question },
+        { type: 'text', text: question },
       ],
       timeout: 180000,
     });
   } catch (error) {
     if (error instanceof UpstreamError) throw error;
-    const info = describeAxiosError(error);
+    const info = describeAxiosError(error, modelVar);
     throw new UpstreamError(`${label}识别失败：${info.message}`, info.status);
   }
 
@@ -406,6 +412,7 @@ async function analyzeAudio(dataUrl, opts = {}) {
 
   return analyzeMedia({
     model: AUDIO_MODEL,
+    modelVar: 'ARK_AUDIO_MODEL',
     mime: parsed.mime,
     label: '音频',
     inputPart: {
@@ -446,11 +453,14 @@ async function analyzeVideo(dataUrl, opts = {}) {
 
   return analyzeMedia({
     model: VIDEO_MODEL,
+    modelVar: 'ARK_VIDEO_MODEL',
     mime: parsed.mime,
     label: '视频',
+    // 方舟 Chat Completions 对视频只认 video_url（file_id / url 二选一），
+    // url 字段支持视频链接或 Base64 编码，这里直接传 data URL。
     inputPart: {
-      type: 'input_video',
-      input_video: { data: parsed.base64, format: fmt },
+      type: 'video_url',
+      video_url: { url: dataUrl },
     },
     question,
   });
@@ -499,18 +509,23 @@ async function analyzeText(text, opts = {}) {
   if (!text || typeof text !== 'string') {
     throw new UpstreamError('缺少文本内容', 400);
   }
-  const trimmed = text.slice(0, 4000);
+  // 截断必须显式告知：静默丢尾部内容会让「后半段的敏感信息」变成假阴性。
+  const TEXT_CAP = 12000;
+  const truncated = text.length > TEXT_CAP;
+  const trimmed = text.slice(0, TEXT_CAP);
 
-  return runAnalysis({
+  const result = await runAnalysis({
     model: TEXT_MODEL,
     profile: opts.profile,
     content: [
       {
         type: 'input_text',
-        text: `请分析下面这段即将发送给联系人的消息，识别其中的敏感信息与语义风险。\n\n---消息开始---\n${trimmed}\n---消息结束---`,
+        text: `请分析下面这段即将发送给联系人的消息，识别其中的敏感信息与语义风险。${truncated ? '（注意：消息过长，以下为前 ' + TEXT_CAP + ' 字）' : ''}\n\n---消息开始---\n${trimmed}\n---消息结束---`,
       },
     ],
   });
+  result.truncated = truncated;
+  return result;
 }
 
 module.exports = {
