@@ -138,7 +138,15 @@ function normalizeItem(raw, engine = 'ai') {
   if (ALIAS[type]) type = ALIAS[type];
   if (!TYPE_KEYS.includes(type)) type = 'other';
 
-  const value = String(raw.raw != null ? raw.raw : raw.value != null ? raw.value : '').trim();
+  // 模型偶尔会用 value/text/content 等字段名承载敏感内容，按优先级取第一个非空字符串
+  const pickStr = (...vals) => {
+    for (const v of vals) {
+      if (typeof v === 'string' && v.trim()) return v;
+      if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+    }
+    return '';
+  };
+  const value = pickStr(raw.raw, raw.value, raw.text, raw.content).trim();
   if (!value) return null;
 
   let confidence = Number(raw.confidence);

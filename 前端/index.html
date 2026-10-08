@@ -1054,7 +1054,7 @@
         const TYPE_FLOOR = { otp: 4, password: 3, bankcard: 2, id: 1, phone: 1, address: 1, name: 1, other: 1 };
 
         const AI_TIMEOUT_MS = 90000;      // 图片识别总超时（留出 Render 冷启动 30-60s 的余量）
-        const AI_MEDIA_TIMEOUT_MS = 240000; // 音视频总超时：模型抽帧+转写通常 30-120s，后端上限 180s，前端留长让服务端错误能透出
+        const AI_MEDIA_TIMEOUT_MS = 330000; // 音视频总超时：首轮上限 180s + 修复轮重试 120s，前端留足余量让服务端错误能透出
         const AI_TEXT_REVIEW_MS = 9000;  // 纯文本语义复检的等待上限，超时按本地结果放行
         const MEDIA_RAW_LIMIT = 22 * 1024 * 1024; // 音视频原文件上限（base64 后约 30MB，与服务端限制对齐）
         const HISTORY_KEY = 'privacy-sentinel:history';

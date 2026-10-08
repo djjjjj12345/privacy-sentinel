@@ -30,6 +30,7 @@ const VALID_CARD = '6228480012345671';
 //  假的方舟服务
 // ------------------------------------------------------------------
 let mockMode = 'good';
+let chatCallCount = 0;
 let lastRequestBody = null;
 
 const GOOD_RESULT = {
@@ -96,14 +97,43 @@ const mockServer = http.createServer((req, res) => {
         });
       }
       if (mockMode === 'audioLie') {
-        // 谎报场景：声称有敏感但 items 为空
+        // 谎报场景：声称有敏感但 items 为空（修复轮重试也返回同样的谎报）
         return send(200, {
           id: 'chat_lie',
           choices: [{ message: { role: 'assistant', content: JSON.stringify({ hasSensitive: true, maxLevel: 3, items: [] }) } }],
         });
       }
-      const isAudio = Array.isArray(lastChatBody?.messages?.[0]?.content)
-        && lastChatBody.messages[0].content.some((c) => c && c.type === 'input_audio');
+      if (mockMode === 'lieThenFix') {
+        // 第一轮谎报，修复轮纠正：验证修复重试机制
+        chatCallCount += 1;
+        if (chatCallCount === 1) {
+          return send(200, {
+            id: 'chat_lie_1',
+            choices: [{ message: { role: 'assistant', content: JSON.stringify({ hasSensitive: true, maxLevel: 3, items: [] }) } }],
+          });
+        }
+        return send(200, {
+          id: 'chat_fix_2',
+          choices: [{ message: { role: 'assistant', content: JSON.stringify(AUDIO_RESULT) } }],
+        });
+      }
+      if (mockMode === 'alias') {
+        // 模型用了别名键名 sensitiveItems / content：验证字段容错
+        return send(200, {
+          id: 'chat_alias',
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: JSON.stringify({
+                hasSensitive: true,
+                sensitiveItems: [{ type: 'otp', content: '853712', level: 4 }],
+              }),
+            },
+          }],
+        });
+      }
+      const userMsg = (lastChatBody?.messages || []).find((m) => Array.isArray(m.content));
+      const isAudio = userMsg && userMsg.content.some((c) => c && c.type === 'input_audio');
       const result = isAudio ? AUDIO_RESULT : VIDEO_RESULT;
       return send(200, {
         id: isAudio ? 'chat_audio_ok' : 'chat_video_ok',
@@ -322,17 +352,20 @@ async function run() {
 
     check('音频识别返回成功', r.status === 200 && r.body.success === true, `HTTP ${r.status}`);
     check('音频请求走的是 chat/completions', Boolean(lastChatBody && Array.isArray(lastChatBody.messages)));
+    const audioUserContent = ((lastChatBody?.messages || []).find((m) => Array.isArray(m.content)) || {}).content || [];
+    check('音频请求带上了 system 提示词（JSON 结构说明）',
+      Boolean((lastChatBody?.messages || []).some((m) => m.role === 'system' && typeof m.content === 'string' && m.content.includes('hasSensitive')))
+    );
     check('音频请求体里能看到 input_audio.data',
-      Array.isArray(lastChatBody?.messages?.[0]?.content)
-      && lastChatBody.messages[0].content.some((c) => c && c.type === 'input_audio' && c.input_audio && typeof c.input_audio.data === 'string'),
-      JSON.stringify(lastChatBody?.messages?.[0]?.content?.[0]?.type || null)
+      audioUserContent.some((c) => c && c.type === 'input_audio' && c.input_audio && typeof c.input_audio.data === 'string'),
+      JSON.stringify(audioUserContent[0]?.type || null)
     );
     check('音频请求带上了正确的 format=mp3',
-      lastChatBody?.messages?.[0]?.content?.[0]?.input_audio?.format === 'mp3'
+      audioUserContent[0]?.input_audio?.format === 'mp3'
     );
     check('音频请求的提问部分用的是 text 类型（而非 input_text）',
-      lastChatBody?.messages?.[0]?.content?.some((c) => c && c.type === 'text' && typeof c.text === 'string'),
-      JSON.stringify((lastChatBody?.messages?.[0]?.content || []).map((c) => c.type))
+      audioUserContent.some((c) => c && c.type === 'text' && typeof c.text === 'string'),
+      JSON.stringify(audioUserContent.map((c) => c.type))
     );
     check('音频转写文本被带回', r.body.transcript && /验证码|卡号/.test(r.body.transcript), r.body.transcript);
     check('模型识别的验证码被融合', Boolean(byType.otp), JSON.stringify(Object.keys(byType)));
@@ -345,7 +378,25 @@ async function run() {
 
     mockMode = 'audioLie';
     const lie = await post('/api/analyze', { kind: 'audio', dataUrl: tinyMp3 });
-    check('音频场景模型谎报时返回错误', lie.body.success === false, JSON.stringify(lie.body).slice(0, 120));
+    check('音频谎报（重试仍失败）降级为警告结果而非硬错误',
+      lie.body.success === true && Array.isArray(lie.body.warnings) && lie.body.warnings.length > 0,
+      JSON.stringify(lie.body).slice(0, 160)
+    );
+
+    mockMode = 'lieThenFix';
+    chatCallCount = 0;
+    const fixed = await post('/api/analyze', { kind: 'audio', dataUrl: tinyMp3 });
+    check('修复轮重试能把谎报纠正为正常结果',
+      fixed.body.success === true && Array.isArray(fixed.body.items) && fixed.body.items.length > 0,
+      JSON.stringify(fixed.body.items || []).slice(0, 120)
+    );
+
+    mockMode = 'alias';
+    const alias = await post('/api/analyze', { kind: 'audio', dataUrl: tinyMp3 });
+    check('模型用别名键名 sensitiveItems/content 时条目仍被解析',
+      alias.body.success === true && (alias.body.items || []).some((i) => i.type === 'otp' && i.raw === '853712'),
+      JSON.stringify((alias.body.items || []).map((i) => i.type))
+    );
     mockMode = 'good';
   }
 
@@ -358,12 +409,15 @@ async function run() {
     const items = (r.body && r.body.items) || [];
 
     check('视频识别返回成功', r.status === 200 && r.body.success === true, `HTTP ${r.status}`);
+    const videoUserContent = ((lastChatBody?.messages || []).find((m) => Array.isArray(m.content)) || {}).content || [];
     check('视频请求带上了 video_url（方舟 Chat Completions 的视频类型）',
-      Array.isArray(lastChatBody?.messages?.[0]?.content)
-      && lastChatBody.messages[0].content.some((c) => c && c.type === 'video_url' && c.video_url && typeof c.video_url.url === 'string' && c.video_url.url.startsWith('data:video/mp4;base64,'))
+      videoUserContent.some((c) => c && c.type === 'video_url' && c.video_url && typeof c.video_url.url === 'string' && c.video_url.url.startsWith('data:video/mp4;base64,'))
     );
     check('视频请求的提问部分用的是 text 类型',
-      lastChatBody?.messages?.[0]?.content?.some((c) => c && c.type === 'text' && typeof c.text === 'string')
+      videoUserContent.some((c) => c && c.type === 'text' && typeof c.text === 'string')
+    );
+    check('视频请求带上了 system 提示词（JSON 结构说明）',
+      Boolean((lastChatBody?.messages || []).some((m) => m.role === 'system' && typeof m.content === 'string' && m.content.includes('hasSensitive')))
     );
     check('视频识别命中身份证', items.some((i) => i.type === 'id'), JSON.stringify(items.map((i) => i.type)));
     check('视频识别带回转写文本', r.body.transcript && /身份证号/.test(r.body.transcript), r.body.transcript);

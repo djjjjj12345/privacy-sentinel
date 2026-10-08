@@ -216,8 +216,19 @@ async function callArkWithFallback(options) {
 
 /** 把模型返回的解析结果转成标准条目 */
 function toItems(parsed) {
-  if (!parsed || !Array.isArray(parsed.items)) return [];
-  return parsed.items.map((raw) => normalizeItem(raw, 'ai')).filter(Boolean);
+  if (!parsed || typeof parsed !== 'object') return [];
+  // json_object 模式不约束字段名，模型偶尔会用同义键名。
+  // 这里按优先级尝试常见别名，避免「有结果却整批丢弃」。
+  const ARRAY_KEYS = ['items', 'sensitive_items', 'sensitiveItems', 'detections', 'findings'];
+  let arr = null;
+  for (const key of ARRAY_KEYS) {
+    if (Array.isArray(parsed[key])) {
+      arr = parsed[key];
+      break;
+    }
+  }
+  if (!arr) return [];
+  return arr.map((raw) => normalizeItem(raw, 'ai')).filter(Boolean);
 }
 
 async function runAnalysis({ model, content, profile }) {
@@ -281,13 +292,14 @@ function parseDataUrl(input) {
 /**
  * Chat Completions 调用，专门用于 input_audio / input_video。
  * Responses API 对音视频支持尚不稳定，文档明确给出的是 Chat Completions 的写法。
+ * @param {Array} opts.messages 完整消息列表（含 system / 多轮上下文）
  */
-async function callArkChat({ model, content, timeout = 120000 }) {
+async function callArkChat({ model, messages, timeout = 120000 }) {
   const apiKey = getApiKey();
 
   const body = {
     model,
-    messages: [{ role: 'user', content }],
+    messages,
     temperature: 0.2,
   };
 
@@ -325,26 +337,56 @@ function readChatContent(data) {
  *   文本是 "text"（不是 input_text），视频是 "video_url"（不是 input_video），
  *   音频是 "input_audio"（其 data 字段收纯 base64）。以上均经线上实测确认。
  */
-async function analyzeMedia({ model, modelVar, inputPart, question, mime, label }) {
+async function analyzeMedia({ model, modelVar, inputPart, question, profile = {}, label }) {
   const startedAt = Date.now();
+
+  // 关键：必须把 JSON 结构写进 system prompt。此前音视频通道只发 user 消息，
+  // 模型从未见过 schema，只能自行编造字段名，导致条目整批解析失败。
+  const firstMessages = [
+    { role: 'system', content: buildSystemPrompt(profile) },
+    { role: 'user', content: [inputPart, { type: 'text', text: question }] },
+  ];
+
   let data;
   try {
-    data = await callArkChat({
-      model,
-      content: [
-        inputPart,
-        { type: 'text', text: question },
-      ],
-      timeout: 180000,
-    });
+    data = await callArkChat({ model, messages: firstMessages, timeout: 180000 });
   } catch (error) {
     if (error instanceof UpstreamError) throw error;
     const info = describeAxiosError(error, modelVar);
     throw new UpstreamError(`${label}识别失败：${info.message}`, info.status);
   }
 
-  const text = readChatContent(data);
-  const parsed = extractJson(text);
+  let text = readChatContent(data);
+  let parsed = extractJson(text);
+
+  // 修复轮：模型声称有敏感信息但 items 缺失/为空/字段不合规时，
+  // 复用第一轮上下文追加一轮纠正提问（不重传媒体，开销小、速度快）。
+  if (parsed && parsed.hasSensitive === true && !toItems(parsed).length) {
+    try {
+      const repairMessages = firstMessages.concat([
+        { role: 'assistant', content: text },
+        {
+          role: 'user',
+          content:
+            '你上一条回复中 hasSensitive 为 true，但 items 数组缺失、为空或字段不符合要求。' +
+            '请重新输出完整 JSON：把每一个敏感条目放入 items 数组，每条必须包含 type' +
+            '（id/bankcard/phone/password/otp/address/name/other 之一）与 raw（逐字符照抄原文）两个字段。' +
+            '若确实没有敏感信息，输出 hasSensitive:false 且 items 为空数组。',
+        },
+      ]);
+      const data2 = await callArkChat({ model, messages: repairMessages, timeout: 120000 });
+      const text2 = readChatContent(data2);
+      const parsed2 = extractJson(text2);
+      if (parsed2 && (toItems(parsed2).length || parsed2.hasSensitive !== true)) {
+        data = data2;
+        text = text2;
+        parsed = parsed2;
+      }
+    } catch (repairError) {
+      // 修复轮失败不致命：沿用第一轮结果，交给上层兜底
+    }
+  }
+
   const elapsedMs = Date.now() - startedAt;
 
   if (!parsed) {
@@ -423,7 +465,7 @@ async function analyzeAudio(dataUrl, opts = {}) {
   return analyzeMedia({
     model: AUDIO_MODEL,
     modelVar: 'ARK_AUDIO_MODEL',
-    mime: parsed.mime,
+    profile: opts.profile,
     label: '音频',
     inputPart: {
       type: 'input_audio',
@@ -464,7 +506,7 @@ async function analyzeVideo(dataUrl, opts = {}) {
   return analyzeMedia({
     model: VIDEO_MODEL,
     modelVar: 'ARK_VIDEO_MODEL',
-    mime: parsed.mime,
+    profile: opts.profile,
     label: '视频',
     // 方舟 Chat Completions 对视频只认 video_url（file_id / url 二选一），
     // url 字段支持视频链接或 Base64 编码，这里直接传 data URL。

@@ -132,12 +132,38 @@ async function analyzeMediaKind(kind, { dataUrl, profile = {}, question }) {
   }
 
   if (ai.claimedSensitive && !ai.items.length) {
+    // 走到这里说明模型层已做过一轮修复重试仍拿不到条目。
+    // 不能硬报错让用户什么都得不到，也不能假装「未检测到」（假阴性更危险）。
+    // 策略：用转写文本跑本地正则兜底；仍无结果时以「疑似有风险」警告降级返回。
+    const local = ai.transcript ? localDetector.detect(ai.transcript) : [];
+    if (local.length) {
+      const items = fuseItems(local, []);
+      return buildResult({
+        kind,
+        items,
+        ai: { ...ai, items: local },
+        local,
+        warnings: ['模型未能定位具体敏感条目，以下结果来自本地规则对转写文本的复查'],
+      });
+    }
     return {
-      success: false,
+      success: true,
       kind,
-      status: 502,
-      error: `${kind === 'audio' ? '音频' : '视频'}识别：模型认为存在敏感信息但未给出可用条目，请重试`,
+      source: 'ai',
+      engine: { local: 0, ai: 0 },
+      hasSensitive: false,
+      maxLevel: 0,
+      levelName: LEVEL_NAME[0],
+      summary: ai.summary || '模型提示本内容可能包含敏感信息，但未能定位到具体条目',
+      items: [],
+      advice: '请人工确认视频内容后再发送，避免泄露个人信息',
       transcript: ai.transcript || null,
+      warnings: ['模型提示可能存在敏感信息但未能定位具体条目，请人工确认后再发送'],
+      meta: {
+        model: ai.model,
+        elapsedMs: ai.elapsedMs,
+        requestId: ai.requestId,
+      },
     };
   }
 
