@@ -1,6 +1,6 @@
 {
   "name": "privacy-sentinel",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "隐私哨兵 · 多模态敏感信息检测与预警",
   "main": "server.js",

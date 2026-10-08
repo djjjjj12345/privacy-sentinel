@@ -14,9 +14,11 @@ app.set('trust proxy', 1);
 
 app.use(cors());
 
-// 图片以 base64 传输，需要放宽 body 上限（前端已做压缩，正常远低于此值）
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// 图片 base64 上限 14MB、音视频 base64 上限 30MB（见 services/visionAnalyzer.js）。
+// body 上限必须 ≥ 通道上限 + JSON 包装开销，否则大视频会被 Express 以 413 拒掉
+// （且返回 HTML 错误页，前端只能看到"服务返回异常"）。
+app.use(express.json({ limit: '45mb' }));
+app.use(express.urlencoded({ extended: true, limit: '45mb' }));
 
 // ------------------------------------------------------------------
 //  接口路由
@@ -56,7 +58,7 @@ app.use('/api', (req, res) => {
 // ------------------------------------------------------------------
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.too.large') {
-    return res.status(413).json({ success: false, error: '请求体过大，请压缩图片后重试' });
+    return res.status(413).json({ success: false, error: '请求体过大：请压缩图片，或剪短音视频（建议 1 分钟以内）后重试' });
   }
   console.error('[server] 未处理异常:', err);
   if (res.headersSent) return next(err);

@@ -130,6 +130,14 @@ function readOutputText(data) {
 function describeAxiosError(error, modelVar = 'ARK_VISION_MODEL') {
   const status = error.response && error.response.status;
   const payload = error.response && error.response.data;
+
+  // 网络层超时（axios 超时没有 response，code 为 ECONNABORTED）：
+  // 音视频抽帧+转写本身耗时较长，这类超时和"网络不通"是两回事，文案必须区分
+  const isTimeout = !status && (
+    error.code === 'ECONNABORTED' ||
+    /timeout of \d+ms exceeded/i.test(error.message || '')
+  );
+
   const detail = payload ? (payload.error ? payload.error.message || JSON.stringify(payload.error) : JSON.stringify(payload)) : error.message;
 
   const hintMap = {
@@ -139,9 +147,11 @@ function describeAxiosError(error, modelVar = 'ARK_VISION_MODEL') {
     429: '触发限流或余额不足，请稍后重试',
   };
 
-  const hint = hintMap[status] || '模型服务调用失败';
+  const hint = isTimeout
+    ? '模型处理超时（音视频抽帧转写较慢），请剪短或压缩后重试'
+    : (hintMap[status] || '模型服务调用失败');
   return {
-    status: status || 502,
+    status: isTimeout ? 504 : (status || 502),
     message: `${hint}${detail ? `（${String(detail).slice(0, 200)}）` : ''}`,
   };
 }
