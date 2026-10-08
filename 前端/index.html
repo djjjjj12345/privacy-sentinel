@@ -1336,8 +1336,13 @@
         /**
          * 调用服务端统一分析接口。
          * 图片以 base64 data URL 直传，不需要先传到图床。
+         *
+         * 502/503/504 或网络断连时自动重试（最多 2 次）：
+         * 这类错误几乎都来自 Render 部署重启或休眠唤醒窗口，属瞬时故障，
+         * 服务通常在十几秒内恢复，直接报错会让用户误以为功能坏了。
          */
-        async function callAnalyze(payload, timeoutMs = AI_TIMEOUT_MS, kindLabel) {
+        async function callAnalyze(payload, timeoutMs = AI_TIMEOUT_MS, kindLabel, _retry) {
+            const retry = _retry || 0;
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
@@ -1349,7 +1354,17 @@
                 });
                 let data = null;
                 try { data = await resp.json(); } catch (e) { data = null; }
-                if (!data) throw new Error(`服务返回异常（HTTP ${resp.status}）`);
+                if (!data) {
+                    // 非 JSON 响应体 = Render 代理层错误页（服务重启/唤醒/崩溃中）
+                    if ((resp.status === 502 || resp.status === 503 || resp.status === 504) && retry < 2) {
+                        await new Promise(r => setTimeout(r, 8000 + retry * 9000));
+                        return callAnalyze(payload, timeoutMs, kindLabel, retry + 1);
+                    }
+                    if (resp.status === 502 || resp.status === 503 || resp.status === 504) {
+                        throw new Error('服务暂时不可用（正在部署或休眠唤醒中），已自动重试仍失败。请约 1 分钟后再试');
+                    }
+                    throw new Error(`服务返回异常（HTTP ${resp.status}）`);
+                }
                 if (!resp.ok || data.success === false) throw new Error(data.error || `HTTP ${resp.status}`);
                 return data;
             } catch (err) {
@@ -1357,6 +1372,11 @@
                     throw new Error(kindLabel
                         ? `${kindLabel}识别超时：模型处理超时（大文件常需 1-2 分钟）。请剪短或压缩后再试`
                         : '识别超时，请检查网络后重试');
+                }
+                // 网络层断连（服务重启时连接被掐）同样走自动重试
+                if (err.name === 'TypeError' && retry < 2) {
+                    await new Promise(r => setTimeout(r, 8000 + retry * 9000));
+                    return callAnalyze(payload, timeoutMs, kindLabel, retry + 1);
                 }
                 throw err;
             } finally {
@@ -2335,6 +2355,11 @@
         // 读取上次的预警历史
         STATE.history = loadHistory();
         renderHistory();
+
+        // 预热：免费档服务 15 分钟无人访问会休眠，唤醒要 30-60 秒。
+        // 页面一打开就发一个轻量健康检查，趁用户浏览界面时把服务唤醒，
+        // 等他真正上传文件时服务已是热态，避免撞上唤醒窗口的 502。
+        fetch('/api/health', { method: 'GET' }).catch(() => {});
 
         document.getElementById('historyClear').addEventListener('click', () => {
             if (!STATE.history.length) {
