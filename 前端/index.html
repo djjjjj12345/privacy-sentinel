@@ -862,6 +862,14 @@
             }
             body { background: #e8eaed; display: flex; justify-content: center; align-items: center; }
         }
+    /* P3: 转写文本高亮 */
+        .transcript-block { box-sizing:border-box; word-break:break-word; }
+        .transcript-block .pi-highlight {
+            background: linear-gradient(transparent 60%, #fff176 60%);
+            padding: 1px 3px; border-radius: 3px; font-weight: 600;
+            color: #5d4037;
+        }
+        .transcript-block .transcript-text { white-space: pre-wrap; }
     </style>
 </head>
 <body>
@@ -1598,6 +1606,15 @@
                 ? `<div class="ac-head" style="margin-bottom:6px;"><span class="engine-badge ${src.cls}">${src.text}</span></div>`
                 : '';
 
+            // ====== P3: 转写文本可读性增强 ======
+            // 音视频识别后有 transcript 时，用大字号渲染转写全文，把命中的敏感内容就地高亮。
+            // 这样老年用户可以一眼看到「哪一句提到了我的隐私」。
+            let transcriptHtml = '';
+            const transcript = (extra.transcript && String(extra.transcript).trim()) || '';
+            if (transcript) {
+                transcriptHtml = renderTranscriptWithHighlights(transcript, detections);
+            }
+
             STATE.pendingSend = { text: text, detections: detections, maxLevel: maxLevel, fileInfo: fileInfo };
 
             if (maxLevel === 1) {
@@ -1617,6 +1634,7 @@
                         <p>您即将向联系人发送以下敏感信息：</p>
                         <div class="detected-items">${detailHtml}</div>
                         <p style="color:#666;font-size:13px;">${escapeHtml(reason)}</p>
+                        ${transcriptHtml}
                         ${reasonHtml}
                         ${sourceHtml}
                         <div class="suggestion"><span class="label">💡 建议：</span>${escapeHtml(suggestion)}</div>
@@ -1642,6 +1660,7 @@
                     body: `
                         <p>检测到 ${escapeHtml(labels)} 正在被发送出去，存在极高诈骗风险。</p>
                         <div class="detected-items">${detailHtml}</div>
+                        ${transcriptHtml}
                         ${reasonHtml}
                         <p style="color:#e65100;font-weight:600;">⏳ 等待 <span id="countdownDisplay">8</span> 秒后可选择继续发送</p>
                         ${sourceHtml}
@@ -1669,6 +1688,7 @@
                 body: `
                     <p>🚫 检测到 <strong>${escapeHtml(labels)}</strong> 正在被发送出去。</p>
                     <div class="detected-items">${detailHtml}</div>
+                    ${transcriptHtml}
                     ${reasonHtml}
                     <p style="color:var(--danger);font-weight:600;">验证码泄露将直接导致账户被盗！</p>
                     ${sourceHtml}
@@ -1683,6 +1703,61 @@
             });
             addHistory(maxLevel, detections, '已阻止发送', text || (fileInfo ? fileInfo.name : ''));
         }
+
+        /**
+         * P3: 渲染带高亮的转写文本。
+         * - 大字号 16px，方便老人看清
+         * - 命中条目的 raw 值用 <mark class="pi-highlight"> 包裹（已脱敏展示）
+         * - 转写文本超长时折叠（>300 字），点击「展开」看全文
+         */
+        function renderTranscriptWithHighlights(transcript, detections) {
+            if (!transcript) return '';
+            const FOLD_THRESHOLD = 300;
+
+            // 把所有 raw 在转写文本中替换为高亮（按长度从长到短，避免短字符串先匹配把长字符串切断）
+            const sorted = (detections || [])
+                .map((d) => ({ value: d.value, masked: d.masked, type: d.type, label: d.label }))
+                .filter((d) => d.value && d.value.length >= 2)
+                .sort((a, b) => b.value.length - a.value.length);
+
+            let html = escapeHtml(transcript);
+            for (const d of sorted) {
+                const maskedText = d.masked || desensitize(d.value, d.type);
+                const safe = maskedText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                // 全局替换（按字面值），不做正则转义外的小写化——raw 是模型原样照抄的，文本里也是原样
+                const escapedRaw = d.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const re = new RegExp(escapeRegExp(escapedRaw), 'g');
+                html = html.replace(
+                    re,
+                    `<mark class="pi-highlight" title="${escapeHtml(d.label || d.type)}">${safe}</mark>`
+                );
+            }
+
+            const long = transcript.length > FOLD_THRESHOLD;
+            const foldId = `tx-fold-${Math.random().toString(36).slice(2, 8)}`;
+            const head = long ? html.slice(0, FOLD_THRESHOLD) + '…' : html;
+            const tail = long ? html.slice(FOLD_THRESHOLD) : '';
+
+            let html2 = `
+                <div class="transcript-block" style="margin:12px 0;padding:12px;border-left:3px solid var(--primary);background:#f9fbff;border-radius:6px;">
+                    <div style="font-size:13px;color:var(--gray);margin-bottom:6px;">📝 转写文本（黄色高亮为敏感内容）</div>
+                    <div id="${foldId}-head" class="transcript-text" style="font-size:16px;line-height:1.7;color:#222;">${head}</div>
+            `;
+            if (long) {
+                html2 += `
+                    <div id="${foldId}-tail" class="transcript-text" style="font-size:16px;line-height:1.7;color:#222;display:none;">${tail}</div>
+                    <button type="button" onclick="
+                        document.getElementById('${foldId}-head').style.display='none';
+                        document.getElementById('${foldId}-tail').style.display='block';
+                        this.style.display='none';
+                    " style="margin-top:8px;background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;">展开全文 ↓</button>
+                `;
+            }
+            html2 += `</div>`;
+            return html2;
+        }
+        /** RegExp 转义：把正则元字符前加反斜杠，避免 highlighter 在 raw 含特殊字符时被破坏 */
+        function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
         // ================================================================
         //  文本消息：本地秒判 + AI 语义复检
@@ -2023,6 +2098,95 @@
             });
         }
 
+        /**
+         * 图片人脸模糊：把识别到的人脸区域像素化（降采样再升采样），
+         * 再用原大小贴回原图。处理全程在浏览器本地完成，原始人脸图像素从不外发。
+         *
+         * 浏览器原生 FaceDetector 仅 Chromium 系（Chrome / Edge / 部分 Android）支持，
+         * 不支持时自动降级为「画面中心区域局部模糊」并返回 degraded=true，
+         * UI 会提示用户换 Chrome/Edge 获得更精准保护。
+         */
+        async function maskFacesInImage(dataUrl) {
+            // 1) 加载图片到内存
+            const img = await new Promise(function (resolve, reject) {
+                const im = new Image();
+                im.onload = function () { resolve(im); };
+                im.onerror = function () { reject(new Error('图片解码失败')); };
+                im.src = dataUrl;
+            });
+
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            if (!w || !h) return { masked: false };
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+
+            let regions = []; // {x, y, w, h} 单位像素
+            let degraded = false;
+
+            // 2) 尝试浏览器原生人脸检测
+            if ('FaceDetector' in window) {
+                try {
+                    const fd = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 10 });
+                    const faces = await fd.detect(img);
+                    for (const face of faces) {
+                        const bb = face.boundingBox || face;
+                        regions.push({
+                            x: Math.max(0, Math.floor(bb.x)),
+                            y: Math.max(0, Math.floor(bb.y)),
+                            w: Math.min(w - bb.x, Math.floor(bb.width)),
+                            h: Math.min(h - bb.y, Math.floor(bb.height)),
+                        });
+                    }
+                } catch (err) {
+                    degraded = true;
+                }
+            } else {
+                degraded = true;
+            }
+
+            // 3) 降级方案：以画面中心 60% × 50% 作为最可能的人脸区域
+            if (degraded || regions.length === 0) {
+                if (degraded) {
+                    regions = [{
+                        x: Math.floor(w * 0.2),
+                        y: Math.floor(h * 0.15),
+                        w: Math.floor(w * 0.6),
+                        h: Math.floor(h * 0.5),
+                    }];
+                } else if (regions.length === 0) {
+                    // FaceDetector 可用但没找到人脸，啥也不做
+                    return { masked: false, faceCount: 0 };
+                }
+            }
+
+            // 4) 像素化每个区域：降采样到 16x16 再升采样回原大小
+            for (const r of regions) {
+                if (r.w < 8 || r.h < 8) continue;
+                // 用临时小 canvas 抓取 → 重绘 → 覆盖回原图
+                const BLOCK = 16;
+                const smallW = Math.max(1, Math.round(r.w / BLOCK));
+                const smallH = Math.max(1, Math.round(r.h / BLOCK));
+                const smallCanvas = document.createElement('canvas');
+                smallCanvas.width = smallW;
+                smallCanvas.height = smallH;
+                const sctx = smallCanvas.getContext('2d');
+                sctx.imageSmoothingEnabled = true;
+                sctx.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, smallW, smallH);
+                // 把像素化结果贴回原图
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(smallCanvas, 0, 0, smallW, smallH, r.x, r.y, r.w, r.h);
+            }
+
+            // 5) 输出新的 dataUrl
+            const out = canvas.toDataURL('image/jpeg', 0.85);
+            return { masked: true, dataUrl: out, faceCount: regions.length, degraded };
+        }
+
         // ================================================================
         //  文件入口：图片走视觉模型，音视频走豆包 input_audio / video_url
         // ================================================================
@@ -2068,7 +2232,7 @@
                 return;
             }
 
-            // 3) 图片走压缩 + bbox 画框的旧路径，音视频走通用路径。
+            // 3) 图片走压缩 + 人脸预处理 + bbox 画框的路径，音视频走通用路径。
             if (kind === 'image') {
                 let dataUrl;
                 try {
@@ -2077,6 +2241,24 @@
                     addMessage(`❌ 图片读取失败：${escapeHtml(err.message)}`, 'bot', { time: getTime() });
                     return;
                 }
+
+                // ====== P2: 上传前人脸模糊 ======
+                // 默认开启（STATE.faceBlurMask = true）。FaceDetector 仅 Chromium 支持，
+                // 不支持的浏览器退化为「画面中心区域局部模糊」 + 提示用户换浏览器更安全。
+                if (STATE.faceBlurMask !== false) {
+                    try {
+                        const blurred = await maskFacesInImage(dataUrl);
+                        if (blurred && blurred.masked) {
+                            dataUrl = blurred.dataUrl;
+                            const faceCount = blurred.faceCount || 0;
+                            showToast(`已自动模糊 ${faceCount} 张人脸后再上传${blurred.degraded ? '（降级模式：模糊了画面中心区域，建议换 Chrome/Edge 获得更精准保护）' : ''}`, 2200);
+                        }
+                    } catch (err) {
+                        // 模糊失败不回滚——上传原图，避免阻断正常流程
+                        console.warn('人脸模糊跳过:', err);
+                    }
+                }
+
                 const anchor = addUserMessage(`[image] ${file.name}`, { time: getTime() });
                 const wrap = document.createElement('div');
                 wrap.className = 'img-with-box';

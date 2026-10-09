@@ -6,6 +6,7 @@ const path = require('path');
 
 const analyzeRoutes = require('./routes/analyze');
 const detectRoutes = require('./routes/detect');
+const logger = require('./services/logger');
 
 const app = express();
 
@@ -60,7 +61,7 @@ app.use((err, req, res, next) => {
   if (err && err.type === 'entity.too.large') {
     return res.status(413).json({ success: false, error: '请求体过大：请压缩图片，或剪短音视频（建议 1 分钟以内）后重试' });
   }
-  console.error('[server] 未处理异常:', err);
+  logger.error('[server] 未处理异常:', err);
   if (res.headersSent) return next(err);
   res.status(500).json({ success: false, error: err.message || '服务器内部错误' });
 });
@@ -68,8 +69,8 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || 8080;
 app.listen(port, '0.0.0.0', () => {
   const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
-  console.log(`隐私哨兵服务已启动: http://0.0.0.0:${port}`);
+  logger.info(`隐私哨兵服务已启动: http://0.0.0.0:${port}`);
   if (!hasKey) {
-    console.warn('警告: 未检测到 ARK_API_KEY，AI 识别能力不可用（文本仍可用本地规则引擎）');
+    logger.warn('警告: 未检测到 ARK_API_KEY，AI 识别能力不可用（文本仍可用本地规则引擎）');
   }
 });

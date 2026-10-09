@@ -153,7 +153,79 @@ function collectMatches(text) {
     push('address', value, m.index, m.index + m[0].length, true);
   }
 
+  // ---- 邮箱 ----
+  const emailRe = /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g;
+  for (const m of text.matchAll(emailRe)) {
+    push('email', m[0], m.index, m.index + m[0].length, true);
+  }
+
+  // ---- URL（含查询参数、fragment）----
+  const urlRe = /\b(?:https?:\/\/|www\.)[\w-]+(?:\.[\w-]+)+(?:[\/?#][^\s，。；;、<>"]*)?/gi;
+  for (const m of text.matchAll(urlRe)) {
+    push('url', m[0], m.index, m.index + m[0].length, true);
+  }
+
+  // ---- 护照（中国 E/G/D 系列，8 位数字；新旧版均可）----
+  // 仅在出现「护照」上下文时识别，避免误伤 9 位产品序列号；前后不允许是数字
+  const passportRe = /(?:护照|护照号|passport|护照号码)\s*[:：是为]?\s*([EGegD]\d{7,8})\b/g;
+  for (const m of text.matchAll(passportRe)) {
+    const value = m[1].toUpperCase();
+    const start = m.index + m[0].lastIndexOf(value);
+    push('passport', value, start, start + value.length, true);
+  }
+
+  // ---- 统一社会信用代码（GB 32100-2015：18 位 = 登记管理部门1+机构类别1+登记管理机关行政区划码6+主体标识码（9 位组织机构代码）+校验位1）----
+  // 仅在「信用代码」「营业执照」「统一社会信用代码」上下文中识别，避免误伤任意 18 位数字
+  const usccRe = /(?:统一社会信用代码|信用代码|营业执照)\s*[:：是为号]?\s*([0-9A-HJ-NPQRTUWXY]{2}\d{6}[0-9A-HJ-NPQRTUWXY]{10})\b/g;
+  for (const m of text.matchAll(usccRe)) {
+    const value = m[1].toUpperCase();
+    const start = m.index + m[0].lastIndexOf(value);
+    // 校验 ISO 7064 MOD 31-3
+    if (verifyUsccChecksum(value)) {
+      push('uscc', value, start, start + value.length, true);
+    } else {
+      push('uscc', value, start, start + value.length, false);
+    }
+  }
+
+  // ---- IPv4（前后无数字，避免误识别 192.168.1.100/24 中的尾数）----
+  const ipv4Re = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
+  for (const m of text.matchAll(ipv4Re)) {
+    // 跳过 192-255.0-255.0-255.0-255 的极端小数字和 0/255 边界
+    const segs = m[0].split('.').map(Number);
+    if (segs.some((s) => s > 255)) continue;
+    push('ip', m[0], m.index, m.index + m[0].length, true);
+  }
+
+  // ---- IPv6（仅 8 段冒号十六进制；太罕见，放在最后最低优先级）----
+  const ipv6Re = /(?<![\w:])(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(?![\w:])/g;
+  for (const m of text.matchAll(ipv6Re)) {
+    push('ip', m[0], m.index, m.index + m[0].length, true);
+  }
+
+  // ---- MAC 地址（AA:BB:CC:DD:EE:FF / AA-BB-CC-DD-EE-FF）----
+  const macRe = /\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b/g;
+  for (const m of text.matchAll(macRe)) {
+    push('mac', m[0].toUpperCase(), m.index, m.index + m[0].length, true);
+  }
+
   return raw;
+}
+
+/** 统一社会信用代码校验位（ISO 7064 MOD 31-3） */
+function verifyUsccChecksum(value) {
+  const v = String(value).toUpperCase();
+  if (v.length !== 18) return false;
+  const weights = [1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28];
+  const chars = '0123456789ABCDEFGHJKLMNPQRTUWXY';
+  let sum = 0;
+  for (let i = 0; i < 17; i++) {
+    const idx = chars.indexOf(v[i]);
+    if (idx < 0) return false;
+    sum += idx * weights[i];
+  }
+  const checkIdx = (31 - (sum % 31)) % 31;
+  return chars[checkIdx] === v[17];
 }
 
 /**
@@ -163,11 +235,17 @@ function collectMatches(text) {
 const TYPE_PRIORITY = {
   otp: 100,
   password: 95,
+  uscc: 90,    // 校验位可信，证据强
   id: 90,
   bankcard: 80,
   phone: 70,
-  address: 60,
-  name: 50,
+  email: 65,
+  url: 65,
+  ip: 60,
+  mac: 60,
+  passport: 55,
+  address: 50,
+  name: 45,
   other: 10,
 };
 
@@ -227,6 +305,7 @@ module.exports = {
   checkIdCard,
   checkBankCard,
   isLuhnValid,
+  verifyUsccChecksum,
   TYPE_LABEL,
   desensitize,
 };

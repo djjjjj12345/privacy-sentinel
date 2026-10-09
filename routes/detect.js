@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 
 const analyzer = require('../services/analyzer');
+const logger = require('../services/logger');
 
 router.post('/detect', async (req, res) => {
   const { image_url, question } = req.body || {};
@@ -46,7 +47,7 @@ router.post('/detect', async (req, res) => {
       result: text,
     });
   } catch (error) {
-    console.error('[/api/detect] 调用失败:', error);
+    logger.error('[/api/detect] 调用失败:', error);
     return res.status(error.status || 500).json({
       success: false,
       error: error.message || 'AI服务调用失败，请检查图片地址是否正确。',

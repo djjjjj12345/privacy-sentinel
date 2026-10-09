@@ -23,6 +23,7 @@ const router = express.Router();
 
 const analyzer = require('../services/analyzer');
 const { TYPE_LABEL, TYPE_FLOOR, LEVEL_NAME } = require('../services/schema');
+const logger = require('../services/logger');
 
 // ------------------------------------------------------------------
 //  轻量限流：保护 API Key 不被单页循环刷爆
@@ -167,7 +168,7 @@ router.post('/', rateLimit, async (req, res) => {
       error: `不支持的内容类型：${kind || '(空)'}，可选值 image / text / audio / video`,
     });
   } catch (error) {
-    console.error('[analyze] 未捕获异常:', error);
+    logger.error('[analyze] 未捕获异常:', error);
     return res.status(error.status || 500).json({
       success: false,
       error: error.message || '服务内部错误',

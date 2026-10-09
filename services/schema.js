@@ -14,6 +14,12 @@ const TYPE_LABEL = {
   otp: '短信验证码',
   address: '家庭住址',
   name: '姓名',
+  email: '电子邮箱',
+  url: '链接地址',
+  passport: '护照号',
+  uscc: '统一社会信用代码',
+  ip: 'IP 地址',
+  mac: 'MAC 地址',
   other: '其他敏感信息',
 };
 
@@ -28,6 +34,12 @@ const TYPE_FLOOR = {
   phone: 1,
   address: 1,
   name: 1,
+  email: 1,
+  url: 1,
+  passport: 1,
+  uscc: 2,
+  ip: 1,
+  mac: 1,
   other: 1,
 };
 
@@ -83,6 +95,49 @@ function desensitize(value, type) {
       if (v.length <= 1) return v;
       if (v.length === 2) return v.slice(0, 1) + '*';
       return v.slice(0, 1) + '*'.repeat(Math.min(v.length - 1, 2));
+    case 'email':
+      // 保留首字符 + @ 之后的首字符，其余打码
+      const at = v.indexOf('@');
+      if (at < 1) return '***@***';
+      const domain = at === -1 ? '' : v.slice(at);
+      const local = v.slice(0, at);
+      if (local.length <= 1) return local + '***' + domain;
+      return local[0] + '***' + domain;
+    case 'url':
+      // 隐藏 query 中的 token/secret，保留域名
+      try {
+        const u = new URL(v);
+        let query = u.search;
+        if (query) {
+          query = query.replace(/([?&])(token|access_token|password|pwd|secret|api_key|apikey|sid|signature|sig|code)=([^&]*)/gi,
+            (_, pre, key) => `${pre}${key}=***`);
+        }
+        return u.host + u.pathname + query + u.hash;
+      } catch (_) {
+        return v.length <= 8 ? '***' : v.slice(0, 6) + '***' + v.slice(-4);
+      }
+    case 'passport':
+      // 中国护照 E/G/D + 8 位：保留首字母 + 末 2 位
+      if (v.length < 4) return '***';
+      return v[0] + '*'.repeat(Math.max(1, v.length - 3)) + v.slice(-2);
+    case 'uscc':
+      // 18 位统一社会信用代码：保留前 6 位（登记部门）+ 后 4 位
+      if (v.length < 18) return '***';
+      return v.slice(0, 6) + '**********' + v.slice(-2);
+    case 'ip':
+      // IPv4 保留前两段；IPv6 保留前两段
+      if (v.includes(':')) {
+        const parts = v.split(':');
+        return (parts[0] || '****') + ':' + (parts[1] || '****') + ':****:****:****:****:****:****';
+      }
+      const segs = v.split('.');
+      if (segs.length !== 4) return '***';
+      return segs[0] + '.' + segs[1] + '.*.*';
+    case 'mac':
+      // MAC 保留前 3 段（厂商 OUI），隐藏设备 ID
+      const macSegs = v.split(/[:\-]/);
+      if (macSegs.length === 6) return macSegs[0] + ':' + macSegs[1] + ':' + macSegs[2] + ':**:**:**';
+      return '**:**:**:**:**:**';
     default:
       if (v.length <= 4) return '****';
       return v.slice(0, 2) + '***' + v.slice(-2);
@@ -134,6 +189,12 @@ function normalizeItem(raw, engine = 'ai') {
     code: 'otp', sms_code: 'otp', verify_code: 'otp', 验证码: 'otp', 短信验证码: 'otp',
     addr: 'address', 住址: 'address', 地址: 'address',
     username: 'name', 姓名: 'name',
+    email_address: 'email', mail: 'email', 邮箱: 'email', 'e-mail': 'email',
+    link: 'url', website: 'url', 链接: 'url', 网址: 'url', url_address: 'url',
+    passport_id: 'passport', passport_no: 'passport', passport_number: 'passport', 护照: 'passport', 护照号: 'passport',
+    credit_code: 'uscc', 'uscc': 'uscc', 信用代码: 'uscc', '社会信用代码': 'uscc',
+    ipv4: 'ip', ipv6: 'ip', 'ip_address': 'ip', 'ip地址': 'ip',
+    mac_address: 'mac', 'macaddr': 'mac', 'mac地址': 'mac',
   };
   if (ALIAS[type]) type = ALIAS[type];
   if (!TYPE_KEYS.includes(type)) type = 'other';
@@ -253,7 +314,7 @@ function buildSystemPrompt(profile = {}) {
     '  "transcript": "语音转写文本，无语音时填 null",',
     '  "items": [',
     '    {',
-    '      "type": "id | bankcard | phone | password | otp | address | name | other",',
+    '      "type": "id | bankcard | phone | password | otp | address | name | email | url | passport | uscc | ip | mac | other",',
     '      "raw": "原样照抄的敏感内容",',
     '      "level": 1 | 2 | 3 | 4,',
     '      "confidence": 0.0 - 1.0,',
