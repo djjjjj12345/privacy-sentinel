@@ -1,13 +1,13 @@
-/* Privacy Sentinel · Service Worker v3.1
+/* Privacy Sentinel · Service Worker v3.2
  *
  * 策略：
  *   - /api/*          永远走网络（识别结果实时性强，缓存反而误事）
  *   - GET 其他路径     网络优先，失败回退缓存（保证离线仍可看历史）
  *   - 字体/图片/JS    缓存优先（它们很少变）
  *
- * 注意：缓存版本号（v3.1.0）随产品版本一起改；旧缓存会在 activate 时清理。
+ * 注意：缓存版本号（v3.2.0）随产品版本一起改；旧缓存会在 activate 时清理。
  */
-const CACHE_VERSION = 'privacy-sentinel-v3.1.0';
+const CACHE_VERSION = 'privacy-sentinel-v3.2.0';
 const STATIC_CACHE = [CACHE_VERSION + '-shell'];
 
 self.addEventListener('install', (event) => {

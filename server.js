@@ -6,6 +6,8 @@ const path = require('path');
 
 const analyzeRoutes = require('./routes/analyze');
 const detectRoutes = require('./routes/detect');
+const authRoutes = require('./routes/auth');
+const historyRoutes = require('./routes/history');
 const logger = require('./services/logger');
 
 const app = express();
@@ -26,16 +28,26 @@ app.use(express.urlencoded({ extended: true, limit: '45mb' }));
 // ------------------------------------------------------------------
 app.use('/api/analyze', analyzeRoutes);
 app.use('/api', detectRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/history', historyRoutes);
 
 // 健康检查：便于确认部署版本与关键环境变量是否就绪
 app.get('/api/health', (req, res) => {
   const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
+  let dbStatus = 'ok';
+  try {
+    // 轻量探活：能查库就说明 SQLite 正常
+    require('./services/db').prepare('SELECT 1 AS ok').get();
+  } catch (e) {
+    dbStatus = 'error: ' + e.message;
+  }
   res.json({
     success: true,
     version: require('./package.json').version,
     uptime: Math.round(process.uptime()),
     model: process.env.ARK_VISION_MODEL || 'doubao-seed-2-0-mini-260428',
     arkKeyConfigured: hasKey,
+    db: dbStatus,
   });
 });
 

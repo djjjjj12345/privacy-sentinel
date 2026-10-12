@@ -5,6 +5,7 @@
  *   ③ scripts/test-local-extended.js — 本地正则引擎扩展（16+ 项）
  *   ④ scripts/test-server.js        — HTTP 层（12 项）
  *   ⑤ scripts/test-end-to-end.js    — 端到端 AI 流程（11 项）
+ *   ⑥ scripts/test-auth-history.js  — 账号认证 + 云端历史（22 项）
  *
  * 用法：node scripts/test-all.js
  */
@@ -18,6 +19,7 @@ const suites = [
   { name: '本地正则扩展',  file: 'test-local-extended.js',  weight: '16+ 项' },
   { name: 'HTTP 层',      file: 'test-server.js',          weight: '12 项' },
   { name: '端到端 AI',    file: 'test-end-to-end.js',      weight: '11 项' },
+  { name: '账号与历史',   file: 'test-auth-history.js',    weight: '22 项' },
 ];
 
 let totalPass = 0, totalFail = 0, suiteResults = [];

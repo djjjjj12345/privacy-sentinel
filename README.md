@@ -64,6 +64,13 @@
 | v3.1 P5 | 完整测试套件 118 项 | 5 分钟跑完全部回归 |
 | v3.1 P6 | README + 架构图 + 截图 | 作品集展示 |
 | v3.1 P7 | 中英双语切换 | 海外用户友好 |
+| **v3.2 A1** | **SQLite 持久化历史 + 云同步** | **换设备不丢记录（Node 内置 node:sqlite，零依赖）** |
+| **v3.2 A2** | **用户账号 + 登录** | **scrypt 哈希 + HttpOnly 会话 Cookie，30 天免登录** |
+| **v3.2 A3** | **检测报告 PDF 导出** | **一键打印/另存 PDF，含条目表/等级/建议，零依赖** |
+| v3.2 A4 | 历史 JSON 导出/导入备份 | 免费部署磁盘重置也不怕 |
+
+> ⚠️ Render 免费档磁盘是**临时**的：重新部署会清空账号与历史。
+> 长期数据请定期用历史面板的 ⬇️ 按钮导出 JSON 备份，或为服务挂载持久磁盘（$7/月）。
 
 ## 四、架构
 
@@ -161,7 +168,21 @@ npm test
 
 ### `GET /api/health`
 
-返回 `{ success, version, uptime, model, arkKeyConfigured }`
+返回 `{ success, version, uptime, model, arkKeyConfigured, db }`
+
+### `POST /api/auth/register | /api/auth/login`（v3.2）
+
+`{ "username": "2-24位", "password": "≥6位" }` → 种下 `ps_session` HttpOnly Cookie（30 天）。
+密码仅以 scrypt 哈希 + 随机盐存储。
+
+### `GET /api/auth/me` / `POST /api/auth/logout`
+
+探测当前登录状态 / 登出并清除会话。
+
+### `GET·POST·DELETE /api/history`、`POST /api/history/import`（v3.2，需登录）
+
+云端预警历史：列表（最新 50）/ 追加（每人上限 200 条）/ 清空 / 批量导入备份。
+条目结构：`{ level, action, content, detections:[{label,value}], time, date }`
 
 ### `GET /manifest.webmanifest`
 
@@ -171,10 +192,10 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：118 通过 / 0 失败 / 118 项
+# 总计：140 通过 / 0 失败 / 140 项
 ```
 
-5 个独立套件：
+6 个独立套件：
 
 | 套件 | 文件 | 覆盖 |
 |---|---|---|
@@ -183,6 +204,7 @@ npm test
 | 本地正则 | `scripts/test-local-extended.js` | 16+ 项字段识别 |
 | HTTP 层 | `scripts/test-server.js` | 12 项 API 行为 |
 | 端到端 AI | `scripts/test-end-to-end.js` | 11 项模型流程 |
+| 账号与历史 | `scripts/test-auth-history.js` | 22 项注册/登录/云同步 |
 
 ## 八、部署
 

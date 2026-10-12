@@ -22,3 +22,7 @@ Thumbs.db
 # 编辑器
 .vscode/
 .idea/
+
+# 本地 SQLite 数据（用户账号与历史，绝不提交）
+data/
+*.db

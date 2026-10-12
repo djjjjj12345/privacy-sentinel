@@ -879,6 +879,45 @@
             color: #5d4037;
         }
         .transcript-block .transcript-text { white-space: pre-wrap; }
+    /* ===== v3.2 认证弹窗 ===== */
+        .auth-input {
+            box-sizing: border-box; width: 100%; padding: 10px 12px; margin-bottom: 10px;
+            border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none;
+            background: #fafafa; transition: border-color .15s;
+        }
+        .auth-input:focus { border-color: var(--primary); background: #fff; }
+        .auth-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+        .auth-tabs .btn { flex: 1; }
+        .account-row {
+            display: flex; align-items: center; gap: 10px; padding: 12px;
+            background: #f5f7fa; border-radius: 8px; margin-bottom: 12px;
+        }
+        .account-row .avatar { font-size: 28px; }
+        .account-row .name { font-weight: 700; font-size: 16px; }
+        .account-row .sub { font-size: 12px; color: var(--gray); }
+    /* ===== v3.2 PDF 报告导出（打印样式） ===== */
+        #printReport { display: none; }
+        @media print {
+            #app { display: none !important; }
+            #printReport { display: block !important; }
+            body { background: #fff !important; display: block; }
+        }
+        #printReport { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #1a1a1a; max-width: 720px; margin: 0 auto; padding: 24px 8px; }
+        #printReport .pr-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1565c0; padding-bottom: 12px; }
+        #printReport .pr-brand { font-size: 20px; font-weight: 800; }
+        #printReport .pr-time { font-size: 12px; color: #666; }
+        #printReport .pr-level {
+            display: inline-block; padding: 6px 14px; border-radius: 6px; color: #fff;
+            font-weight: 700; font-size: 14px; margin: 16px 0 8px;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        #printReport table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+        #printReport th, #printReport td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+        #printReport th { background: #eef3fa; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        #printReport .pr-section { margin: 14px 0; }
+        #printReport .pr-section h3 { font-size: 14px; margin: 0 0 6px; color: #1565c0; }
+        #printReport .pr-footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 11px; color: #888; line-height: 1.6; }
+        #printReport .pr-transcript { background: #f9fbf9; border-left: 3px solid #43a047; padding: 10px 12px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
     </style>
 </head>
 <body>
@@ -893,6 +932,7 @@
             <div class="actions">
                 <button id="btnGuide" title="防骗指南" data-i18n-title="nav.guide" data-i18n-aria="nav.guide">📖</button>
                 <button id="btnHistory" title="预警历史" data-i18n-title="nav.history" data-i18n-aria="nav.history">📋</button>
+                <button id="btnAccount" title="账号" data-i18n-title="nav.account" data-i18n-aria="nav.account">👤</button>
                 <button id="btnLang" title="中/EN" data-i18n-title="nav.lang" onclick="i18n.setLocale(i18n.getLocale()==='zh'?'en':'zh')" style="font-size:13px;">中/EN</button>
                 <button id="btnSettings" title="设置" data-i18n-title="nav.settings" data-i18n-aria="nav.settings" class="active">⚙️</button>
             </div>
@@ -936,6 +976,46 @@
                     <div class="modal-actions" id="riskActions">
                         <button class="btn outline" id="riskCancel">取消</button>
                         <button class="btn primary" id="riskConfirm">仍然发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== AUTH MODAL (v3.2) ========== -->
+        <div class="overlay" id="authModal">
+            <div class="modal">
+                <div class="modal-title" id="authTitle" data-i18n="auth.title">👤 登录</div>
+                <div class="modal-sub" data-i18n="auth.sub">登录后预警历史将云端同步，换设备也不丢</div>
+                <div class="modal-body">
+                    <div class="auth-tabs">
+                        <button class="btn primary" id="authTabLogin" data-i18n="auth.login">登录</button>
+                        <button class="btn outline" id="authTabReg" data-i18n="auth.register">注册</button>
+                    </div>
+                    <input class="auth-input" id="authUser" placeholder="用户名（2-24 位字母/数字/中文）" data-i18n-placeholder="auth.username" autocomplete="username">
+                    <input class="auth-input" id="authPass" type="password" placeholder="密码（至少 6 位）" data-i18n-placeholder="auth.password" autocomplete="current-password">
+                    <div id="authErr" style="color:var(--danger);font-size:12px;min-height:18px;margin-bottom:4px;"></div>
+                    <div class="modal-actions">
+                        <button class="btn outline" id="authClose" data-i18n="auth.close">取消</button>
+                        <button class="btn primary" id="authSubmit" data-i18n="auth.login">登录</button>
+                    </div>
+                    <p style="font-size:11px;color:var(--gray);margin-top:10px;line-height:1.5;" data-i18n="auth.privacyNote">🔒 密码仅以 scrypt 哈希存储；账号仅用于同步你的预警历史，不收集任何其他信息。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== ACCOUNT MODAL (v3.2，已登录) ========== -->
+        <div class="overlay" id="accountModal">
+            <div class="modal">
+                <div class="modal-title" data-i18n="account.title">👤 我的账号</div>
+                <div class="modal-sub" data-i18n="account.sub">云端同步已开启</div>
+                <div class="modal-body">
+                    <div class="account-row">
+                        <span class="avatar">👤</span>
+                        <span><span class="name" id="accountName"></span><br><span class="sub" id="accountCount" data-i18n="account.synced"></span></span>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn outline" id="accountClose" data-i18n="account.close">关闭</button>
+                        <button class="btn danger" id="btnLogout" data-i18n="account.logout">退出登录</button>
                     </div>
                 </div>
             </div>
@@ -1016,9 +1096,17 @@
 
         <!-- ========== HISTORY PANEL ========== -->
         <div class="history-panel" id="historyPanel">
-            <div class="header"><button class="back-btn" id="historyBack">‹</button><span class="title">📋 预警历史</span><button id="historyClear" style="margin-left:auto;font-size:13px;color:var(--gray);padding:4px 8px;">清空</button></div>
+            <div class="header">
+                <button class="back-btn" id="historyBack">‹</button><span class="title" data-i18n="history.title">📋 预警历史</span>
+                <span style="margin-left:auto;display:flex;gap:4px;">
+                    <button id="historyExport" title="导出 JSON 备份" data-i18n-title="history.export" style="font-size:14px;padding:4px 8px;">⬇️</button>
+                    <button id="historyImportBtn" title="导入 JSON 备份" data-i18n-title="history.import" style="font-size:14px;padding:4px 8px;">⬆️</button>
+                    <button id="historyClear" style="font-size:13px;color:var(--gray);padding:4px 8px;" data-i18n="history.clear">清空</button>
+                </span>
+            </div>
             <div class="body" id="historyBody"></div>
         </div>
+        <input type="file" class="file-input-hidden" id="historyImportFile" accept="application/json,.json">
 
         <!-- ========== GUIDE PANEL ========== -->
         <div class="guide-panel" id="guidePanel">
@@ -1086,6 +1174,7 @@
             literacy: 'mid',
             sensitivity: 'mid',
             history: [],
+            user: null, // v3.2：登录用户 {username}，null 表示游客模式
             contacts: [{ name: '妈妈', phone: '138****6688' }],
             detectLevels: { id: 1, bankcard: 2, password: 3, otp: 4, phone: 1, address: 1 },
             pendingSend: null,
@@ -1628,6 +1717,14 @@
 
             STATE.pendingSend = { text: text, detections: detections, maxLevel: maxLevel, fileInfo: fileInfo };
 
+            // v3.2：记录报告上下文，供「📄 导出报告」使用（仅 L2+ 弹窗里出现按钮）
+            lastReportCtx = {
+                detections: detections, maxLevel: maxLevel, levelName: levelName,
+                reason: reason, suggestion: suggestion, fileInfo: fileInfo, extra: extra,
+                text: text || '', action: '', time: getTime(), date: new Date().toLocaleDateString(),
+            };
+            const exportBtnHtml = `<div style="margin-top:10px;text-align:right;"><button type="button" class="btn outline" style="font-size:12px;" onclick="exportCurrentReport()">📄 ${i18n.t('report.button')}</button></div>`;
+
             if (maxLevel === 1) {
                 showToast(`🟢 ${levelName} · ${reason}`, 3000);
                 addMessage(`📋 检测到 ${labels}，已自动脱敏。`, 'bot', { time: getTime() });
@@ -1636,6 +1733,7 @@
             }
 
             if (maxLevel === 2) {
+                lastReportCtx.action = '用户确认后已脱敏发送';
                 showRiskModal({
                     title: '⚠️ 敏感信息检测',
                     sub: `检测到 ${labels}`,
@@ -1649,6 +1747,7 @@
                         ${reasonHtml}
                         ${sourceHtml}
                         <div class="suggestion"><span class="label">💡 建议：</span>${escapeHtml(suggestion)}</div>
+                        ${exportBtnHtml}
                     `,
                     actions: [
                         { text: '取消', class: 'outline', action: 'cancel' },
@@ -1663,6 +1762,7 @@
             }
 
             if (maxLevel === 3) {
+                lastReportCtx.action = '高风险预警 · 倒计时确认';
                 showRiskModal({
                     title: '🚨 高风险预警',
                     sub: '发送已暂停',
@@ -1676,6 +1776,7 @@
                         <p style="color:#e65100;font-weight:600;">⏳ 等待 <span id="countdownDisplay">8</span> 秒后可选择继续发送</p>
                         ${sourceHtml}
                         <div class="suggestion"><span class="label">💡 建议：</span>${escapeHtml(suggestion)}</div>
+                        ${exportBtnHtml}
                     `,
                     actions: [
                         { text: '取消发送', class: 'outline', action: 'cancel' },
@@ -1691,6 +1792,7 @@
             }
 
             // L4：强制阻断，不提供继续发送入口
+            lastReportCtx.action = '已强制阻断发送';
             showRiskModal({
                 title: '⛔ 发送已阻止',
                 sub: '极高风险 · 强制阻断',
@@ -1705,6 +1807,7 @@
                     ${sourceHtml}
                     <div class="suggestion"><span class="label">🔒 建议：</span>${escapeHtml(suggestion)}</div>
                     <p style="font-size:13px;color:var(--gray);margin-top:8px;">📞 已建议通知紧急联系人</p>
+                    ${exportBtnHtml}
                 `,
                 actions: [
                     { text: '我知道了', class: 'primary', action: 'close' },
@@ -1978,8 +2081,230 @@
             STATE.history.unshift(entry);
             if (STATE.history.length > 50) STATE.history.pop();
             saveHistory();
+            // v3.2：登录后同步到云端（失败不打扰用户，本地仍有完整记录）
+            if (STATE.user) {
+                fetch('/api/history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(entry),
+                }).catch(() => {});
+            }
             renderHistory();
         }
+
+        // ================================================================
+        //  v3.2：云端历史同步 / 备份
+        // ================================================================
+        function mergeHistory(local, cloud) {
+            // 以 content+time+level 作为指纹去重，合并后按云端在前排列
+            const seen = new Set();
+            const merged = [];
+            for (const e of [].concat(cloud || [], local || [])) {
+                const key = `${e.level}|${e.content}|${e.time}|${e.date || ''}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                merged.push(e);
+            }
+            return merged.slice(0, 50);
+        }
+
+        async function loadCloudHistory() {
+            try {
+                const res = await fetch('/api/history');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.success && Array.isArray(data.items)) {
+                    STATE.history = mergeHistory(STATE.history, data.items.map(({ id, ...e }) => e));
+                    saveHistory();
+                    renderHistory();
+                }
+            } catch (e) { /* 网络异常静默降级为本地模式 */ }
+        }
+
+        function exportHistory() {
+            if (!STATE.history.length) {
+                showToast(i18n.t('history.empty'), 1500);
+                return;
+            }
+            const payload = {
+                app: 'privacy-sentinel',
+                version: '3.2',
+                exportedAt: new Date().toISOString(),
+                entries: STATE.history,
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `privacy-sentinel-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast(i18n.t('history.exported'), 1800);
+        }
+
+        function importHistoryFile(file) {
+            const reader = new FileReader();
+            reader.onload = async function () {
+                try {
+                    const data = JSON.parse(String(reader.result));
+                    const entries = Array.isArray(data) ? data : (Array.isArray(data.entries) ? data.entries : null);
+                    if (!entries) throw new Error('格式不对');
+                    STATE.history = mergeHistory(STATE.history, entries);
+                    saveHistory();
+                    renderHistory();
+                    // 登录状态下顺带同步到云端
+                    if (STATE.user) {
+                        fetch('/api/history/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ entries: entries.slice(0, 200) }),
+                        }).catch(() => {});
+                    }
+                    showToast(i18n.t('history.imported', { n: entries.length }), 2000);
+                } catch (e) {
+                    showToast(i18n.t('history.importBad'), 2500);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ================================================================
+        //  v3.2：账号（登录 / 注册 / 登出）
+        // ================================================================
+        const authModal = $('authModal');
+        const accountModal = $('accountModal');
+        const authUserInput = $('authUser');
+        const authPassInput = $('authPass');
+        const authErr = $('authErr');
+        let authMode = 'login';
+
+        function setAuthMode(mode) {
+            authMode = mode;
+            $('authTabLogin').className = 'btn ' + (mode === 'login' ? 'primary' : 'outline');
+            $('authTabReg').className = 'btn ' + (mode === 'register' ? 'primary' : 'outline');
+            $('authTitle').textContent = mode === 'login' ? '👤 登录' : '✨ 注册新账号';
+            $('authSubmit').textContent = mode === 'login' ? '登录' : '注册';
+            authErr.textContent = '';
+        }
+
+        function openAuthModal(mode) {
+            setAuthMode(mode || 'login');
+            authUserInput.value = '';
+            authPassInput.value = '';
+            authErr.textContent = '';
+            authModal.classList.add('open');
+            setTimeout(() => authUserInput.focus(), 60);
+        }
+
+        function openAccountModal() {
+            $('accountName').textContent = STATE.user.username;
+            $('accountCount').textContent = `已同步 ${STATE.history.length} 条预警记录`;
+            accountModal.classList.add('open');
+        }
+
+        function updateAccountUI() {
+            const btn = $('btnAccount');
+            if (STATE.user) {
+                btn.textContent = STATE.user.username.slice(0, 2);
+                btn.title = STATE.user.username;
+            } else {
+                btn.textContent = '👤';
+                btn.title = i18n.t('nav.account');
+            }
+        }
+
+        async function submitAuth() {
+            const username = authUserInput.value.trim();
+            const password = authPassInput.value;
+            authErr.textContent = '';
+            if (!username || !password) {
+                authErr.textContent = i18n.t('auth.err.empty');
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/' + authMode, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.success) {
+                    authErr.textContent = data.error || i18n.t('auth.err.failed');
+                    return;
+                }
+                STATE.user = data.user;
+                authModal.classList.remove('open');
+                updateAccountUI();
+                showToast(i18n.t('auth.welcome', { name: STATE.user.username }), 2000);
+                // 拉取云端历史并与本地合并
+                loadCloudHistory();
+            } catch (e) {
+                authErr.textContent = i18n.t('error.network');
+            }
+        }
+
+        async function doLogout() {
+            try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { /* 忽略 */ }
+            STATE.user = null;
+            updateAccountUI();
+            accountModal.classList.remove('open');
+            showToast(i18n.t('auth.bye'), 1500);
+        }
+
+        // ================================================================
+        //  v3.2：检测报告 PDF 导出（打印样式，零依赖）
+        // ================================================================
+        let lastReportCtx = null;
+
+        function exportCurrentReport() {
+            if (!lastReportCtx) return;
+            const ctx = lastReportCtx;
+            const lvlColor = { 1: '#43a047', 2: '#fb8c00', 3: '#e65100', 4: '#d32f2f' }[ctx.maxLevel] || '#757575';
+            const rows = ctx.detections.map((d) => {
+                const masked = d.masked || desensitize(d.value, d.type);
+                const lv = getLevelName(TYPE_FLOOR[d.type] || ctx.maxLevel);
+                return `<tr><td>${escapeHtml(d.label)}</td><td>${escapeHtml(masked)}</td><td>${escapeHtml(lv)}</td></tr>`;
+            }).join('');
+            const target = ctx.fileInfo ? `${ctx.fileInfo.name || '上传文件'}` : '文本消息';
+            const engine = ctx.extra && ctx.extra.analysis ? (engineLabel(ctx.extra.analysis.source) || {}).text : '';
+            const transcript = (ctx.extra && ctx.extra.transcript ? String(ctx.extra.transcript) : '').slice(0, 800);
+
+            const html = `
+                <div class="pr-header">
+                    <span class="pr-brand">🛡️ ${i18n.t('report.title')}</span>
+                    <span class="pr-time">${ctx.date} ${ctx.time}</span>
+                </div>
+                <span class="pr-level" style="background:${lvlColor};">${i18n.t('report.level')}：${escapeHtml(ctx.levelName)}</span>
+                <div class="pr-section">
+                    <table>
+                        <tr><th style="width:22%">${i18n.t('report.target')}</th><td>${escapeHtml(target)}</td></tr>
+                        ${engine ? `<tr><th>${i18n.t('report.engine')}</th><td>${escapeHtml(engine)}</td></tr>` : ''}
+                        <tr><th>${i18n.t('report.action')}</th><td>${escapeHtml(ctx.action || '-')}</td></tr>
+                    </table>
+                </div>
+                <div class="pr-section">
+                    <h3>${i18n.t('report.items')}</h3>
+                    <table>
+                        <tr><th>${i18n.t('report.typeCol')}</th><th>${i18n.t('report.valueCol')}</th><th>${i18n.t('report.levelCol')}</th></tr>
+                        ${rows}
+                    </table>
+                </div>
+                <div class="pr-section"><h3>${i18n.t('report.reason')}</h3><p style="font-size:13px;">${escapeHtml(ctx.reason || '')}</p></div>
+                <div class="pr-section"><h3>💡 ${i18n.t('report.advice')}</h3><p style="font-size:13px;">${escapeHtml(ctx.suggestion || '')}</p></div>
+                ${transcript ? `<div class="pr-section"><h3>📝 ${i18n.t('report.transcript')}</h3><div class="pr-transcript">${escapeHtml(transcript)}…</div></div>` : ''}
+                <div class="pr-footer">
+                    ${i18n.t('report.footer')}<br>
+                    Privacy Sentinel v3.2 · ${new Date().toLocaleString()}
+                </div>
+            `;
+            let div = document.getElementById('printReport');
+            if (div) div.remove();
+            div = document.createElement('div');
+            div.id = 'printReport';
+            div.innerHTML = html;
+            document.body.appendChild(div);
+            window.print();
+        }
+        window.exportCurrentReport = exportCurrentReport;
 
         function renderHistory() {
             if (STATE.history.length === 0) {
@@ -2519,6 +2844,29 @@
             historyPanel.classList.remove('open');
         });
 
+        // ===== v3.2：账号 / 备份 / 报告 =====
+        $('btnAccount').addEventListener('click', () => {
+            if (STATE.user) openAccountModal();
+            else openAuthModal('login');
+        });
+        $('authTabLogin').addEventListener('click', () => setAuthMode('login'));
+        $('authTabReg').addEventListener('click', () => setAuthMode('register'));
+        $('authClose').addEventListener('click', () => authModal.classList.remove('open'));
+        $('authSubmit').addEventListener('click', submitAuth);
+        authPassInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
+        authUserInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') authPassInput.focus(); });
+        authModal.addEventListener('click', (e) => { if (e.target === authModal) authModal.classList.remove('open'); });
+        $('accountClose').addEventListener('click', () => accountModal.classList.remove('open'));
+        accountModal.addEventListener('click', (e) => { if (e.target === accountModal) accountModal.classList.remove('open'); });
+        $('btnLogout').addEventListener('click', doLogout);
+        $('historyExport').addEventListener('click', exportHistory);
+        $('historyImportBtn').addEventListener('click', () => $('historyImportFile').click());
+        $('historyImportFile').addEventListener('change', (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (f) importHistoryFile(f);
+            e.target.value = '';
+        });
+
         btnGuide.addEventListener('click', () => {
             guidePanel.classList.toggle('open');
         });
@@ -2549,6 +2897,15 @@
         STATE.history = loadHistory();
         renderHistory();
 
+        // v3.2：静默探测登录状态，已登录则拉取云端历史合并
+        fetch('/api/auth/me').then((r) => r.json()).then((d) => {
+            if (d && d.success && d.user) {
+                STATE.user = d.user;
+                updateAccountUI();
+                loadCloudHistory();
+            }
+        }).catch(() => {});
+
         // 预热：免费档服务 15 分钟无人访问会休眠，唤醒要 30-60 秒。
         // 页面一打开就发一个轻量健康检查，趁用户浏览界面时把服务唤醒，
         // 等他真正上传文件时服务已是热态，避免撞上唤醒窗口的 502。
@@ -2573,6 +2930,10 @@
             STATE.history = [];
             saveHistory();
             renderHistory();
+            // v3.2：登录状态下云端一并清空
+            if (STATE.user) {
+                fetch('/api/history', { method: 'DELETE' }).catch(() => {});
+            }
             showToast(i18n.t('history.cleared'), 1500);
         });
 
