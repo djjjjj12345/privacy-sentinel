@@ -1,0 +1,51 @@
+{
+  "name": "隐私哨兵 · Privacy Sentinel",
+  "short_name": "PrivacySentinel",
+  "description": "多模态敏感信息检测：文本/图片/音频/视频全通道，AI 识别 + 本地正则双引擎。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1d4ed8",
+  "theme_color": "#1d4ed8",
+  "lang": "zh-CN",
+  "categories": ["productivity", "utilities", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "文本检测",
+      "url": "/?action=text",
+      "description": "粘贴文本进行敏感信息检测"
+    },
+    {
+      "name": "上传素材",
+      "url": "/?action=upload",
+      "description": "上传图片/音频/视频进行多模态检测"
+    }
+  ]
+}

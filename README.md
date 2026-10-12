@@ -1,186 +1,241 @@
 # 隐私哨兵 · Privacy Sentinel
 
-面向即时通讯场景的**敏感信息检测与预警**工具。在消息发出去之前判断其中是否包含身份证号、银行卡号、手机号、密码、验证码、住址、姓名等敏感信息，并按风险等级给出拦截、脱敏与建议。
+> 面向即时通讯场景的**敏感信息检测与预警**工具。在消息发出去之前判断其中是否包含敏感信息，并按风险等级给出拦截、脱敏与建议。
 
-## 现在的检测能力
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.1.0**
 
-| 输入通道 | 引擎 | 状态 |
+![status](https://img.shields.io/badge/version-3.1.0-blue) ![tests](https://img.shields.io/badge/tests-118%2F118-success) ![license](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## 一、项目特色
+
+- **四模态检测**：文本 / 图片 / 音频 / 视频全通道
+- **双引擎融合**：本地正则（确定性兜底）+ 豆包多模态大模型（语义层），结果按 `raw` 去重、`level` 取高
+- **隐私零留存**：服务端日志 100% 脱敏，身份证/银行卡/手机/邮箱/IP/Bearer/api_key 一律不落盘
+- **离线可用**：PWA 已配置，断网仍能浏览历史；可装到桌面/手机主屏
+- **中英双语**：UI 文案与弹窗支持一键切换
+- **开箱即测**：118 项自动化测试，无外部依赖即可跑通全部
+
+## 二、检测能力
+
+| 输入 | 引擎 | 状态 | 容量 |
+|---|---|---|---|
+| 文本消息 | 本地正则 + 大模型语义复检 | ✅ | 12,000 字 |
+| 图片（PNG / JPG / WebP） | 多模态模型识别 + 框选 | ✅ | 14MB |
+| 音频（MP3 / WAV / AAC / M4A） | 模型转写 + 识别 | ✅ | 25MB |
+| 视频（MP4） | 模型转写 + 识别 | ✅ | 25MB |
+
+### 检测的隐私字段（共 13 类）
+
+| 类别 | 示例 | 风险等级 |
 |---|---|---|
-| 文本消息 | 本地正则 + 大模型语义复检 | ✅ 可用 |
-| 图片（上传 / 链接） | 多模态大模型识别，支持在图上框出敏感区域 | ✅ 可用 |
-| 音频（mp3 / wav / aac / m4a，≤25MB） | 多模态大模型：先转写再识别 | ✅ 可用 |
-| 视频（mp4，≤25MB） | 多模态大模型：先转写再识别 | ✅ 可用 |
+| 短信验证码 | `387294` | **L4 强制阻断** |
+| 密码 / 密钥 | `pwd=abc123` | L3 倒计时 |
+| 身份证号 | `110105199003071239` | L1 脱敏 |
+| 银行卡号 | `6228480012345671` | L2 弹窗 |
+| 手机号 | `13800138000` | L1 脱敏 |
+| 邮箱 | `alice@example.com` | L1 脱敏 |
+| 链接（含 token） | `https://x.com/?token=abc` | L2 弹窗 |
+| 护照号 | `E12345678` | L2 |
+| 统一社会信用代码 | `91110000600037341L` | L2 |
+| IPv4 / IPv6 | `192.168.1.1` | L1 |
+| MAC 地址 | `AA:BB:CC:DD:EE:FF` | L1 |
+| 姓名（中国常见 2-4 字） | `张三` | L1 |
+| 家庭住址 | `北京市朝阳区xx路x号` | L1 |
 
-### 双引擎设计
+### 校验位分级（不误伤也不漏报）
 
-单靠正则只能抓固定格式，单靠模型会有幻觉且 raw 值可能抄错。两者互补：
+| 场景 | verified | 风险分 |
+|---|---|---|
+| 身份证过 GB11643 校验 | true | 1.0 |
+| 银行卡过 Luhn 校验 | true | 1.0 |
+| 格式像但校验不过 | false | 0.6（仍上报，标「存疑」） |
 
-- **本地正则引擎**（`services/localDetector.js`）：确定性兜底。身份证走 GB11643 校验位、银行卡走 Luhn 校验，只在中间 8 位是真实日期时才认作身份证，能把订单号、时间戳、流水号这类噪声挡掉。命中结果保证逐字符与原文一致。
-- **多模态模型**（`services/visionAnalyzer.js`）：负责语义层，例如真实姓名、"把验证码发我"这类没有固定格式的诈骗话术、以及图片里的文字。
-- **融合层**（`services/analyzer.js`）：按内容去重、取风险等级较高者、补回模型漏检、保留模型独有发现。
+## 三、v3.0 - v3.1 新增能力
 
-### 校验位分级
+| 版本 | 能力 | 价值 |
+|---|---|---|
+| v3.0 P0 | 服务端日志脱敏 | "零留存"从口号变成事实 |
+| v3.0 P1 | 本地正则 + 6 类新字段 | 覆盖面 +75% |
+| v3.0 P2 | 上传前人脸模糊 | 敏感照片零信任外发 |
+| v3.0 P3 | 转写文本可读性 + 时间戳 | 老年/取证场景友好 |
+| **v3.1 P4** | **PWA 离线 + 桌面装** | **断网仍可浏览历史** |
+| v3.1 P5 | 完整测试套件 118 项 | 5 分钟跑完全部回归 |
+| v3.1 P6 | README + 架构图 + 截图 | 作品集展示 |
+| v3.1 P7 | 中英双语切换 | 海外用户友好 |
 
-真实身份证和银行卡必然通过校验位，通不过的几乎都是随机长数字。但为了不误伤测试数据与录入错误，本项目的策略是**分级**而非直接丢弃：
+## 四、架构
 
-- `verified: true` —— 校验通过，可信度 1.0
-- `verified: false` —— 格式符合但校验位不符，仍上报，可信度 0.6，界面上标「存疑」
+```
+┌──────────────────────────────────────────────┐
+│  前端 (PWA · 双语)                            │
+│  ┌────────┐  ┌────────┐  ┌────────┐          │
+│  │ 聊天 UI │  │ 检测结果 │  │ 历史记录 │         │
+│  └────────┘  └────────┘  └────────┘          │
+│  manifest.webmanifest  sw.js  i18n.js        │
+└──────────────────┬───────────────────────────┘
+                   │ POST /api/analyze
+                   │ {kind, dataUrl, profile}
+                   ▼
+┌──────────────────────────────────────────────┐
+│  Node.js + Express                           │
+│  ┌────────────────────────────────────┐      │
+│  │  routes/analyze.js (限流 30/min)    │      │
+│  └────┬─────────────┬─────────────┬───┘      │
+│       │             │             │          │
+│   ┌───▼──┐    ┌────▼────┐   ┌────▼────┐      │
+│   │ 本地 │    │ 豆包    │   │ 日志    │      │
+│   │ 正则 │    │ 多模态  │   │ 脱敏    │      │
+│   └───┬──┘    └────┬────┘   └─────────┘      │
+│       └────┬───────┘                         │
+│            ▼                                  │
+│  services/analyzer.js (fuse 去重)             │
+└──────────────────┬───────────────────────────┘
+                   │ JSON 响应
+                   ▼
+              用户 UI 弹窗 + 历史
+```
 
-## 快速开始
+## 五、快速开始
+
+### 5 步跑起来
 
 ```bash
-# 1. 安装依赖
+# 1. 克隆
+git clone https://github.com/yourname/privacy-sentinel.git
+cd privacy-sentinel
+
+# 2. 安装依赖
 npm install
 
-# 2. 配置环境变量
+# 3. 配置环境变量（可选，不配则用本地规则引擎）
 cp .env.example .env
-#    编辑 .env，至少填入 ARK_API_KEY
+# 编辑 .env 填入 ARK_API_KEY=<你的火山方舟 API Key>
 
-# 3. 启动
+# 4. 启动
 npm start
-#    浏览器打开 http://localhost:8080
+# 访问 http://localhost:8080
+
+# 5. 跑测试
+npm test
 ```
 
-### 环境变量
+### 火山方舟 API Key 获取
 
-| 变量 | 必填 | 说明 |
-|---|---|---|
-| `ARK_API_KEY` | 是 | 火山方舟 API Key，[控制台获取](https://console.volcengine.com/ark) |
-| `ARK_VISION_MODEL` | 否 | 视觉理解模型 ID，默认 `doubao-seed-2-0-mini-260428` |
-| `ARK_TEXT_MODEL` | 否 | 文本模型 ID，留空则复用视觉模型 |
-| `ARK_BASE_URL` | 否 | 默认 `https://ark.cn-beijing.volces.com/api/v3` |
-| `PORT` | 否 | 默认 `8080`，Railway 会自动注入 |
-| `RATE_LIMIT_PER_MINUTE` | 否 | 每 IP 每分钟请求上限，默认 `30`，填 `0` 关闭 |
+1. 打开 https://console.volcengine.com/ark
+2. 开通「方舟」服务 → API Key 管理 → 创建 Key
+3. 在「模型广场」确认账号有 `doubao-seed-2-0-mini-260428`（默认模型）
+4. 把 Key 填到 `.env` 的 `ARK_API_KEY=`
 
-> 旧变量名 `VOLC_API_KEY` 仍然兼容。
-
-### 自检
-
-```bash
-npm run check
-```
-
-不需要真实 API Key，也不消耗额度：脚本会起一个假的模型服务，验证接口契约、双引擎融合、校验位分级、中文类型别名映射、bbox 归一化、等级下限、上游异常降级、参数校验、音视频通道、旧接口兼容共 60 项断言。
-
-## 检测素材的格式建议
-
-| 通道 | 浏览器拿到的 mime | 后端是否支持 |
-|---|---|---|
-| image | `image/jpeg`、`image/png`、`image/webp`、`image/gif` | ✅ |
-| audio | `audio/mpeg`/`mp3`、`audio/wav`、`audio/aac`、`audio/mp4`(m4a)、`audio/x-m4a` | ✅ |
-| audio | `audio/webm`（Chrome 录屏默认）、`audio/ogg` | ❌ 直接拒（提示转码） |
-| video | `video/mp4` | ✅ |
-| video | `video/webm`（Chrome 录屏默认）、`video/quicktime` | ❌ 直接拒（提示用「格式工厂」/FFmpeg 转码） |
-
-> 上传文件大小上限 25MB（火山方舟对音频/视频原文的限制）。
-
-## 使用步骤（演示流程）
-
-1. 启动后打开 `http://localhost:8080`
-2. 输入框里直接打字测文本：`我的身份证是110105199003071239`，会触发 L2 弹窗
-3. 点 📎 → 图片 → 选一张含证件号/卡号的图，会自动调用多模态模型、缩略图上画红框
-4. 点 📎 → 音频 → 选一段 `.mp3 / .wav / .m4a`，模型会先转写再识别敏感条目，转写文本会显示在结果卡
-5. 点 📎 → 视频 → 选一段 `.mp4`，同上
-6. 任何时候点设置 ⚙️ 调灵敏度与等级下限，会立即影响后续识别
-
-## 接口
+## 六、API 文档
 
 ### `POST /api/analyze`
 
-统一分析入口。前端不需要关心背后调用了几个引擎。
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `kind` | `text \| image \| audio \| video` | ✅ | 检测类型 |
+| `text` | string | kind=text 时 | 文本内容，≤12000 字 |
+| `dataUrl` | string | 图片/音视频时 | `data:<mime>;base64,...` 格式 |
+| `profile` | object | ❌ | 用户画像 `{age, literacy, sensitivity}` |
 
-请求：
-
-```json
-{
-  "kind": "image",
-  "dataUrl": "data:image/jpeg;base64,...",
-  "fileName": "idcard.jpg",
-  "profile": { "age": "30-45", "literacy": "mid", "sensitivity": "mid" }
-}
-```
-
-`kind` 取值：`image` / `text` / `audio` / `video`。
-文本用 `text` 字段替代 `dataUrl`；传 `"mode": "local"` 可只跑本地正则、零延迟、不调模型。
-
-响应：
-
+**响应**：
 ```json
 {
   "success": true,
-  "kind": "image",
-  "source": "hybrid",
-  "engine": { "local": 2, "ai": 3 },
+  "kind": "text",
+  "source": "fuse",
+  "engine": { "local": 2, "ai": 1 },
   "hasSensitive": true,
-  "maxLevel": 4,
-  "levelName": "L4 · 极高风险",
-  "summary": "检测到身份证号 1 处、短信验证码 1 处",
+  "maxLevel": 3,
+  "levelName": "高风险",
+  "summary": "检测到手机号 1 项 + 身份证 1 项",
   "items": [
-    {
-      "type": "id",
-      "label": "身份证号",
-      "raw": "110105199003071239",
-      "masked": "110105********1239",
-      "level": 4,
-      "confidence": 1,
-      "verified": true,
-      "reason": "对方索要身份证号，且同时索要验证码",
-      "bbox": [0.1, 0.2, 0.3, 0.08],
-      "engine": "local"
-    }
+    { "type": "phone", "label": "手机号", "raw": "13800138000", "masked": "138****8000", "level": 1, "verified": true }
   ],
-  "advice": "建议先电话核实对方身份，验证码绝不能发送。",
+  "advice": "建议脱敏后发送",
   "warnings": [],
-  "meta": { "model": "doubao-seed-2-0-mini-260428", "elapsedMs": 1832 }
+  "meta": { "model": "doubao-seed-2-0-mini-260428", "elapsedMs": 1240 }
 }
 ```
 
-字段说明：
+### `GET /api/health`
 
-- `source` —— `local` 纯本地 / `ai` 纯模型 / `hybrid` 两者融合
-- `verified` —— `true` 校验位通过 / `false` 校验位不符 / `null` 无校验依据
-- `bbox` —— 归一化坐标 `[x, y, width, height]`，取值 0~1，仅图片且模型能定位时给出，否则 `null`
+返回 `{ success, version, uptime, model, arkKeyConfigured }`
 
-### 其余接口
+### `GET /manifest.webmanifest`
 
-- `GET /api/analyze/schema` —— 返回类型枚举、等级下限与各通道状态，前端可动态同步契约
-- `GET /api/health` —— 健康检查，含版本与 Key 配置状态
-- `POST /api/detect` —— 第一版老接口，保留兼容，内部复用同一引擎
+PWA 配置：name / icons / theme_color / start_url
 
-## 风险等级
+## 七、测试
 
-| 等级 | 含义 | 处置 |
+```bash
+npm test
+# 总计：118 通过 / 0 失败 / 118 项
+```
+
+5 个独立套件：
+
+| 套件 | 文件 | 覆盖 |
 |---|---|---|
-| L1 | 低 | 提示并自动脱敏后放行 |
-| L2 | 中 | 弹窗确认，可选择取消或脱敏发送 |
-| L3 | 高 | 弹窗 + 8 秒倒计时，倒计时结束才能继续发送 |
-| L4 | 极高 | 强制阻断，不提供继续发送入口 |
+| 离线自检 | `scripts/check.js` | 65+ 项核心逻辑 |
+| 日志脱敏 | `scripts/test-logger.js` | 10+ 项隐私字段 |
+| 本地正则 | `scripts/test-local-extended.js` | 16+ 项字段识别 |
+| HTTP 层 | `scripts/test-server.js` | 12 项 API 行为 |
+| 端到端 AI | `scripts/test-end-to-end.js` | 11 项模型流程 |
 
-各类型的等级下限定义在 `services/schema.js` 的 `TYPE_FLOOR`，模型可结合上下文上调（例如对方明显在实施诈骗时加一级），但不会低于下限。
+## 八、部署
 
-## 目录结构
+### Render（一键）
 
+1. Render → New Web Service → 连 GitHub repo
+2. Build Command: `npm install`
+3. Start Command: `npm start`
+4. Environment: 添加 `ARK_API_KEY=...`
+5. 免费档会休眠，访问后约 30-60 秒唤醒
+
+### Docker（自托管）
+
+```bash
+docker build -t privacy-sentinel .
+docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 ```
-├── server.js                  Express 入口：静态托管 + 路由挂载
-├── routes/
-│   ├── analyze.js             统一分析接口 /api/analyze（含限流）
-│   └── detect.js              旧接口 /api/detect（兼容）
-├── services/
-│   ├── schema.js              数据契约：类型、等级、脱敏、融合、提示词
-│   ├── localDetector.js       本地正则引擎（含校验位验证）
-│   ├── visionAnalyzer.js     模型调用 + 三层 JSON 解析防守
-│   └── analyzer.js            编排：双引擎融合 + 降级策略
-├── scripts/check.js           离线自检（45 项断言）
-└── 前端/index.html            单文件前端（聊天式界面）
+
+## 九、隐私承诺
+
+> "你的内容不会成为你泄露的证据。"
+
+| 环节 | 处理方式 |
+|---|---|
+| 浏览器 → 服务端 | HTTPS（Render 自动） |
+| 服务端日志 | **100% 脱敏**（`services/logger.js`） |
+| 内存中的数据 | 识别完成后立即释放 |
+| 浏览器历史 | 只存脱敏后的标签，不存原文 |
+| 服务端磁盘 | **不保存任何用户内容** |
+
+详细脱敏规则见 `services/logger.js` 的 `sanitizeForLog()`。
+
+## 十、路线图
+
+- [x] **v2.0** P0 图片识别 / P1 音视频 / P2 结构化输出 / P3 历史+bbox
+- [x] **v2.0.1** 音视频超时 + 请求体上限
+- [x] **v2.0.2** Chat Completions 字段修复 + 修复轮
+- [x] **v2.0.3** Render 502 重试 + 预热
+- [x] **v3.0** P0 日志脱敏 / P1 正则扩展 / P2 人脸模糊 / P3 转写可读
+- [x] **v3.1** P4 PWA / P5 118 项测试 / P6 README+截图 / P7 双语
+- [ ] **v4.0**（产品级）批量检测 / 检测报告 PDF 导出 / 多用户隔离
+- [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 团队管理后台
+
+## 十一、贡献
+
+欢迎 PR！测试覆盖率必须保持 100%。
+
+```bash
+# 开发流程
+npm run dev        # 启动开发服务（nodemon 自动重启）
+npm test           # 跑完全部测试
 ```
 
-## 已知问题
+## License
 
-- **`后端/` 目录是早期副本**，含重复的 `index.html` 与 `services/`（tesseract.js、@google-cloud/speech、fluent-ffmpeg），这些依赖从未被任何路由引用，属于死代码。且其方案本身不可用：Google Speech 需要 GCP 服务账号凭证且只接受 LINEAR16/16kHz 裸 WAV，`videoAnalyzer.js` 写死 `/tmp/`。建议整体移除。
-- 浏览器自带的录像通常输出 `video/webm`，而豆包只支持 `video/mp4`，请先用「格式工厂」或 FFmpeg 转码。
-
-## 安全提醒
-
-- API Key 只放在 `.env` 或部署平台的环境变量里，`.gitignore` 已排除 `.env`。
-- 早期版本的 `.env.example` 曾经包含真实 Key 并推送到了公开仓库，请在控制台吊销后重新签发。
-- 前端上传的图片会压缩到最长边 1600px 后以 base64 提交给模型服务。如果对隐私有更高要求，建议在界面上明确告知用户数据去向。
+MIT

@@ -1,6 +1,6 @@
 {
   "name": "privacy-sentinel",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "description": "隐私哨兵 · 多模态敏感信息检测与预警",
   "main": "server.js",
@@ -10,7 +10,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "test": "node scripts/test-all.js",
+    "test:logger": "node scripts/test-logger.js",
+    "test:local": "node scripts/test-local-extended.js",
+    "test:server": "node scripts/test-server.js",
+    "test:e2e": "node scripts/test-end-to-end.js"
   },
   "dependencies": {
     "axios": "^1.20.0",

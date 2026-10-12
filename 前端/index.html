@@ -3,7 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>隐私哨兵 - 敏感信息检测</title>
+    <title data-i18n="app.title">隐私哨兵 - 敏感信息检测</title>
+    <meta name="description" content="多模态敏感信息检测 · 文本/图片/音频/视频全通道 · 隐私零留存">
+    <meta name="theme-color" content="#1d4ed8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="隐私哨兵">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <style>
         /* ========== Reset & Base ========== */
         * {
@@ -880,11 +889,12 @@
         <div class="status-bar"><span id="currentTime">9:41</span><span>📶 🔋</span></div>
 
         <div class="chat-header">
-            <div class="title">🛡️ 隐私哨兵 <span class="badge">实时保护</span></div>
+            <div class="title"><span data-i18n="app.brand">🛡️ 隐私哨兵</span> <span class="badge">实时保护</span></div>
             <div class="actions">
-                <button id="btnGuide" title="防骗指南">📖</button>
-                <button id="btnHistory" title="预警历史">📋</button>
-                <button id="btnSettings" title="设置" class="active">⚙️</button>
+                <button id="btnGuide" title="防骗指南" data-i18n-title="nav.guide" data-i18n-aria="nav.guide">📖</button>
+                <button id="btnHistory" title="预警历史" data-i18n-title="nav.history" data-i18n-aria="nav.history">📋</button>
+                <button id="btnLang" title="中/EN" data-i18n-title="nav.lang" onclick="i18n.setLocale(i18n.getLocale()==='zh'?'en':'zh')" style="font-size:13px;">中/EN</button>
+                <button id="btnSettings" title="设置" data-i18n-title="nav.settings" data-i18n-aria="nav.settings" class="active">⚙️</button>
             </div>
         </div>
 
@@ -901,7 +911,7 @@
         <div class="input-area" id="inputArea">
             <button class="attach-btn" id="attachBtn">📎</button>
             <div class="input-wrap" id="inputWrap">
-                <textarea id="msgInput" rows="1" placeholder="输入消息或图片URL..." style="height:28px;" autofocus></textarea>
+                <textarea id="msgInput" rows="1" placeholder="输入消息或图片URL..." data-i18n-placeholder="input.placeholder" style="height:28px;" autofocus></textarea>
             </div>
             <button class="send-btn" id="sendBtn">➤</button>
 
@@ -1043,6 +1053,7 @@
         </div>
     </div>
 
+    <script src="/services/i18n.js"></script>
     <script>
         // ================================================================
         //  ⚙️ 配置
@@ -1975,7 +1986,7 @@
                 historyBody.innerHTML = `
                     <div class="empty">
                         <div class="icon">📭</div>
-                        <div>暂无预警记录</div>
+                        <div data-i18n="history.empty">暂无预警记录</div>
                         <div style="font-size:12px;color:#bbb;">发送含敏感信息的消息后将在此显示</div>
                     </div>
                 `;
@@ -2543,15 +2554,26 @@
         // 等他真正上传文件时服务已是热态，避免撞上唤醒窗口的 502。
         fetch('/api/health', { method: 'GET' }).catch(() => {});
 
+        // PWA：注册 service worker（仅在支持的环境：HTTPS 或 localhost）
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then((reg) => {
+                    console.log('[PWA] service worker 已注册，scope:', reg.scope);
+                }).catch((err) => {
+                    console.warn('[PWA] service worker 注册失败：', err.message);
+                });
+            });
+        }
+
         document.getElementById('historyClear').addEventListener('click', () => {
             if (!STATE.history.length) {
-                showToast('暂无预警记录', 1200);
+                showToast(i18n.t('history.empty'), 1200);
                 return;
             }
             STATE.history = [];
             saveHistory();
             renderHistory();
-            showToast('已清空预警历史', 1500);
+            showToast(i18n.t('history.cleared'), 1500);
         });
 
         // 更新时间显示
@@ -2559,8 +2581,8 @@
 
         console.log('🛡️ 隐私哨兵已启动（多模态识别已接入）');
         setTimeout(() => {
-            addMessage('🔍 试试发送 "我的身份证是110105199003071239" 或 "卡号6228480012345671"', 'bot', { time: getTime() });
-            addMessage('📷 点击左下角 📎 上传一张身份证 / 银行卡照片，体验真正的多模态识别', 'bot', { time: getTime() });
+            addMessage(i18n.t('boot.hint1'), 'bot', { time: getTime() });
+            addMessage(i18n.t('boot.hint2'), 'bot', { time: getTime() });
         }, 800);
     </script>
 </body>

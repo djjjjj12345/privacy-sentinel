@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="隐私哨兵">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#dbeafe" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆角背景 -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- 盾牌 -->
+  <path d="M256 60 L420 110 L420 256 C420 360 348 422 256 452 C164 422 92 360 92 256 L92 110 Z"
+        fill="url(#shield)" stroke="#1e3a8a" stroke-width="6"/>
+  <!-- 眼 -->
+  <ellipse cx="256" cy="246" rx="92" ry="56" fill="#1d4ed8"/>
+  <circle cx="256" cy="246" r="30" fill="#ffffff"/>
+  <circle cx="256" cy="246" r="14" fill="#1d4ed8"/>
+  <!-- 扫描线 -->
+  <path d="M120 320 L200 320 M312 320 L392 320" stroke="#1d4ed8" stroke-width="8" stroke-linecap="round"/>
+  <!-- 底部 PS 字样 -->
+  <text x="256" y="412" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="48" font-weight="700" fill="#1e3a8a" letter-spacing="2">PRIVACY</text>
+</svg>
