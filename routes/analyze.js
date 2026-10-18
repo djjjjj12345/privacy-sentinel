@@ -27,53 +27,15 @@ const logger = require('../services/logger');
 
 // ------------------------------------------------------------------
 //  轻量限流：保护 API Key 不被单页循环刷爆
+//  配置 REDIS_URL 时用 DCS 共享计数（多实例安全），否则退回进程内存。
 // ------------------------------------------------------------------
+const { createRateLimiter } = require('../services/rateLimiter');
 const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_MINUTE || 30);
-const WINDOW_MS = 60 * 1000;
-const hits = new Map();
-
-function clientKey(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
-  return req.ip || 'unknown';
-}
-
-function rateLimit(req, res, next) {
-  if (!RATE_LIMIT || RATE_LIMIT <= 0) return next();
-  const key = clientKey(req);
-  const now = Date.now();
-  const record = hits.get(key) || { count: 0, resetAt: now + WINDOW_MS };
-
-  if (now > record.resetAt) {
-    record.count = 0;
-    record.resetAt = now + WINDOW_MS;
-  }
-  record.count += 1;
-  hits.set(key, record);
-
-  res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT));
-  res.setHeader('X-RateLimit-Remaining', String(Math.max(0, RATE_LIMIT - record.count)));
-
-  if (record.count > RATE_LIMIT) {
-    const retryAfter = Math.ceil((record.resetAt - now) / 1000);
-    res.setHeader('Retry-After', String(retryAfter));
-    return res.status(429).json({
-      success: false,
-      error: `请求过于频繁，请 ${retryAfter} 秒后再试`,
-      retryAfter,
-    });
-  }
-  next();
-}
-
-// 定期清理过期的限流记录，避免内存无限增长
-const cleaner = setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of hits) {
-    if (now > record.resetAt) hits.delete(key);
-  }
-}, WINDOW_MS);
-if (cleaner.unref) cleaner.unref();
+const rateLimit = createRateLimiter({
+  limit: RATE_LIMIT,
+  windowMs: 60 * 1000,
+  prefix: 'ps:rl',
+});
 
 /**
  * 用户画像白名单过滤，避免外部传入任意字段污染提示词

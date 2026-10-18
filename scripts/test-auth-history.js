@@ -130,8 +130,8 @@ const srv = app.listen(0, '127.0.0.1', async () => {
     log(r.status === 200 && r.body?.user === null, '登出后 /me 返回 user=null');
 
     // ---- 密码是 scrypt 哈希存储（直接查库验证） ----
-    const db = require(path.join(__dirname, '..', 'services', 'db'));
-    const row = db.prepare('SELECT pass_hash, pass_salt FROM users WHERE username = ?').get('alice');
+    const store = require(path.join(__dirname, '..', 'services', 'store'));
+    const row = await store.findUserByUsername('alice');
     log(row && row.pass_hash !== 'hunter22' && row.pass_hash.length === 64 && row.pass_salt.length === 64,
       '数据库中密码为 64 位 scrypt 哈希 + 64 位盐', `hash=${row?.pass_hash?.slice(0, 8)}...`);
 

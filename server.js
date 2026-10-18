@@ -9,6 +9,9 @@ const detectRoutes = require('./routes/detect');
 const authRoutes = require('./routes/auth');
 const historyRoutes = require('./routes/history');
 const logger = require('./services/logger');
+const store = require('./services/store');
+const providers = require('./services/providers');
+const redis = require('./services/redis');
 
 const app = express();
 
@@ -31,23 +34,30 @@ app.use('/api', detectRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/history', historyRoutes);
 
-// 健康检查：便于确认部署版本与关键环境变量是否就绪
-app.get('/api/health', (req, res) => {
+// 健康检查：便于确认部署版本、模型供应商与存储驱动是否就绪
+app.get('/api/health', async (req, res) => {
   const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
   let dbStatus = 'ok';
   try {
-    // 轻量探活：能查库就说明 SQLite 正常
-    require('./services/db').prepare('SELECT 1 AS ok').get();
+    // 轻量探活：SQLite 查一条，MySQL 走 SELECT 1
+    await store.ping();
   } catch (e) {
     dbStatus = 'error: ' + e.message;
   }
+  const ai = providers.info();
   res.json({
     success: true,
     version: require('./package.json').version,
     uptime: Math.round(process.uptime()),
     model: process.env.ARK_VISION_MODEL || 'doubao-seed-2-0-mini-260428',
     arkKeyConfigured: hasKey,
+    aiProvider: ai.provider,
+    aiProviderLabel: ai.label,
+    aiProviderConfigured: ai.configured,
+    aiFallback: ai.fallback,
     db: dbStatus,
+    dbDriver: store.driver,
+    redis: redis.status(),
   });
 });
 
@@ -79,10 +89,27 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 8080;
-app.listen(port, '0.0.0.0', () => {
-  const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
-  logger.info(`隐私哨兵服务已启动: http://0.0.0.0:${port}`);
-  if (!hasKey) {
-    logger.warn('警告: 未检测到 ARK_API_KEY，AI 识别能力不可用（文本仍可用本地规则引擎）');
+
+async function start() {
+  try {
+    await store.init();
+  } catch (e) {
+    // 存储起不来时必须显式报错：静默降级会让「历史丢失」变成玄学问题
+    logger.error('[server] 存储初始化失败:', e.message);
   }
-});
+
+  app.listen(port, '0.0.0.0', () => {
+    const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
+    const ai = providers.info();
+    logger.info(`隐私哨兵服务已启动: http://0.0.0.0:${port}`);
+    logger.info(`模型通道: ${ai.label} (${ai.provider}) · 存储: ${store.label} · Redis: ${redis.status()}`);
+    if (!ai.configured) {
+      logger.warn(`警告: ${ai.provider} 通道未配置 Key，AI 识别能力不可用（文本仍可用本地规则引擎）`);
+    }
+    if (ai.provider === 'ark' && !hasKey) {
+      logger.warn('警告: 未检测到 ARK_API_KEY，AI 识别能力不可用（文本仍可用本地规则引擎）');
+    }
+  });
+}
+
+start();

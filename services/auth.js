@@ -1,22 +1,28 @@
 /**
- * auth.js — 零依赖账号体系
+ * auth.js — 账号与会话
  * ---------------------------------------------------------------
- * - 密码：crypto.scryptSync（32 字盐 + 32 字哈希），不存明文
- * - 会话：随机 256bit token 存 sessions 表，30 天有效期
+ * - 密码：crypto.scryptSync（32 字节盐 + 32 字节哈希），不存明文
+ * - 会话：随机 256bit token 存 sessions 表（SQLite 或 RDS MySQL），30 天有效期
+ * - 缓存：配置了 REDIS_URL 时，会话在 DCS 里做一层缓存（DB 仍是权威数据源）
  * - Cookie：ps_session=...; HttpOnly; SameSite=Lax（HTTPS 下自动加 Secure）
+ *
+ * v3.3 起所有函数改为 async：为了同时支持同步的 SQLite 与异步的 MySQL。
+ * 调用方（routes）必须 await。
  *
  * 对外导出：
  *   createUser / verifyLogin / createSession / destroySession
- *   getSessionUser(req) / requireAuth(中间件) / setSessionCookie / clearSessionCookie
+ *   getSessionUser / requireAuth / setSessionCookie / clearSessionCookie
  */
 'use strict';
 const crypto = require('crypto');
 const logger = require('./logger');
+const store = require('./store');
+const redis = require('./redis');
 
-const db = require('./db');
 const SESSION_COOKIE = 'ps_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
-const USERNAME_RE = /^[\w\u4e00-\u9fa5.-]{2,24}$/; // 字母数字下划线/中文/点/横线，2-24 字符
+const SESSION_CACHE_TTL_S = 24 * 60 * 60;        // Redis 缓存 1 天（DB 仍可校验）
+const USERNAME_RE = /^[\w\u4e00-\u9fa5.-]{2,24}$/;
 const MAX_HISTORY_PER_USER = 200;
 
 // ------------------------------------------------------------------
@@ -36,71 +42,124 @@ function validateCredentials(username, password) {
   return null;
 }
 
+function isDuplicate(e) {
+  return Boolean(e) && (
+    e.code === 'ER_DUP_ENTRY' ||
+    /UNIQUE constraint failed|Duplicate entry/i.test(String(e.message || ''))
+  );
+}
+
+// ------------------------------------------------------------------
+//  会话缓存（Redis 可选）
+// ------------------------------------------------------------------
+async function cacheSession(token, user) {
+  const client = await redis.getReadyClient();
+  if (!client) return;
+  try {
+    await client.set(
+      `ps:sess:${token}`,
+      JSON.stringify(user),
+      'EX', SESSION_CACHE_TTL_S
+    );
+  } catch (e) { /* 缓存失败不影响登录 */ }
+}
+
+async function readCachedSession(token) {
+  const client = await redis.getReadyClient();
+  if (!client) return null;
+  try {
+    const raw = await client.get(`ps:sess:${token}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function dropCachedSession(token) {
+  const client = await redis.getReadyClient();
+  if (!client) return;
+  try { await client.del(`ps:sess:${token}`); } catch (e) { /* 忽略 */ }
+}
+
 // ------------------------------------------------------------------
 //  用户
 // ------------------------------------------------------------------
-function createUser(username, password) {
+async function createUser(username, password) {
   const salt = crypto.randomBytes(32).toString('hex');
   const hash = hashPassword(password, salt);
   try {
-    const r = db.prepare('INSERT INTO users (username, pass_hash, pass_salt) VALUES (?, ?, ?)')
-      .run(String(username), hash, salt);
-    return { id: Number(r.lastInsertRowid), username: String(username) };
+    const r = await store.createUser(String(username), hash, salt);
+    return { id: r.id, username: String(username) };
   } catch (e) {
-    if (String(e.message).includes('UNIQUE')) return { error: '用户名已被注册' };
+    if (isDuplicate(e)) return { error: '用户名已被注册' };
     logger.error('[auth] 注册失败:', e.message);
     return { error: '注册失败，请稍后重试' };
   }
 }
 
-function verifyLogin(username, password) {
-  const row = db.prepare('SELECT id, username, pass_hash, pass_salt FROM users WHERE username = ?')
-    .get(String(username || ''));
+async function verifyLogin(username, password) {
+  const row = await store.findUserByUsername(String(username || ''));
   if (!row) return null;
   const hash = hashPassword(password, row.pass_salt);
   const a = Buffer.from(hash, 'hex');
   const b = Buffer.from(row.pass_hash, 'hex');
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return { id: row.id, username: row.username };
+  return { id: Number(row.id), username: row.username };
 }
 
 // ------------------------------------------------------------------
 //  会话
 // ------------------------------------------------------------------
-function createSession(userId) {
+async function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
-    .run(token, userId, Date.now() + SESSION_TTL_MS);
+  await store.createSession(token, userId, Date.now() + SESSION_TTL_MS);
+  await cacheSession(token, { id: Number(userId) });
   return token;
 }
 
-function destroySession(token) {
+async function destroySession(token) {
   if (!token) return;
-  db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  await store.deleteSession(token);
+  await dropCachedSession(token);
   // 顺手清掉全表过期会话（轻量 GC，无需定时器）
-  db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
+  try { await store.deleteExpiredSessions(Date.now()); } catch (e) { /* 忽略 */ }
 }
 
 /** 解析请求里的会话，返回 {id, username} 或 null */
-function getSessionUser(req) {
+async function getSessionUser(req) {
   const cookies = parseCookies(req.headers.cookie || '');
   const token = cookies[SESSION_COOKIE];
   if (!token) return null;
-  const row = db.prepare(`
-    SELECT u.id, u.username FROM sessions s
-    JOIN users u ON u.id = s.user_id
-    WHERE s.token = ? AND s.expires_at > ?
-  `).get(token, Date.now());
-  return row || null;
+
+  const cached = await readCachedSession(token);
+  if (cached && cached.id) {
+    // 缓存里可能只有 id，补一次用户名（命中率足够高，成本可接受）
+    if (cached.username) return cached;
+    const u = await store.findUserById(cached.id);
+    if (u) {
+      await cacheSession(token, { id: Number(u.id), username: u.username });
+      return { id: Number(u.id), username: u.username };
+    }
+    await dropCachedSession(token);
+    return null;
+  }
+
+  const row = await store.findUserBySession(token, Date.now());
+  if (row) await cacheSession(token, { id: Number(row.id), username: row.username });
+  return row ? { id: Number(row.id), username: row.username } : null;
 }
 
-function requireAuth(req, res, next) {
-  const user = getSessionUser(req);
-  if (!user) {
-    return res.status(401).json({ success: false, error: '请先登录' });
+async function requireAuth(req, res, next) {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) {
+      return res.status(401).json({ success: false, error: '请先登录' });
+    }
+    req.user = user;
+    next();
+  } catch (e) {
+    next(e);
   }
-  req.user = user;
-  next();
 }
 
 // ------------------------------------------------------------------

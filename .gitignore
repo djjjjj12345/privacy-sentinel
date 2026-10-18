@@ -26,3 +26,6 @@ Thumbs.db
 # 本地 SQLite 数据（用户账号与历史，绝不提交）
 data/
 *.db
+
+# 华为云能力探测报告（可能含账号侧报错信息，不提交）
+probe-report.json

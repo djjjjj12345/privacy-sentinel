@@ -2,9 +2,9 @@
 
 > 面向即时通讯场景的**敏感信息检测与预警**工具。在消息发出去之前判断其中是否包含敏感信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.1.0**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.3.0**
 
-![status](https://img.shields.io/badge/version-3.1.0-blue) ![tests](https://img.shields.io/badge/tests-118%2F118-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.3.0-blue) ![tests](https://img.shields.io/badge/tests-172%2F172-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -12,10 +12,11 @@
 
 - **四模态检测**：文本 / 图片 / 音频 / 视频全通道
 - **双引擎融合**：本地正则（确定性兜底）+ 豆包多模态大模型（语义层），结果按 `raw` 去重、`level` 取高
+- **国产化双通道**：`AI_PROVIDER=ark|huawei` 一键切换；华为云 MaaS（OpenAI 兼容）+ RDS MySQL + DCS Redis，能力不足时自动降级
 - **隐私零留存**：服务端日志 100% 脱敏，身份证/银行卡/手机/邮箱/IP/Bearer/api_key 一律不落盘
 - **离线可用**：PWA 已配置，断网仍能浏览历史；可装到桌面/手机主屏
 - **中英双语**：UI 文案与弹窗支持一键切换
-- **开箱即测**：118 项自动化测试，无外部依赖即可跑通全部
+- **开箱即测**：172 项自动化测试，无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -23,8 +24,8 @@
 |---|---|---|---|
 | 文本消息 | 本地正则 + 大模型语义复检 | ✅ | 12,000 字 |
 | 图片（PNG / JPG / WebP） | 多模态模型识别 + 框选 | ✅ | 14MB |
-| 音频（MP3 / WAV / AAC / M4A） | 模型转写 + 识别 | ✅ | 25MB |
-| 视频（MP4） | 模型转写 + 识别 | ✅ | 25MB |
+| 音频（MP3 / WAV / AAC / M4A） | 模型转写 + 识别 | ✅（华为云通道自动回退方舟；SIS 流水线待接入） | 25MB |
+| 视频（MP4） | 模型转写 + 识别 | ✅（同上） | 25MB |
 
 ### 检测的隐私字段（共 13 类）
 
@@ -52,7 +53,7 @@
 | 银行卡过 Luhn 校验 | true | 1.0 |
 | 格式像但校验不过 | false | 0.6（仍上报，标「存疑」） |
 
-## 三、v3.0 - v3.1 新增能力
+## 三、v3.0 - v3.3 新增能力
 
 | 版本 | 能力 | 价值 |
 |---|---|---|
@@ -68,6 +69,10 @@
 | **v3.2 A2** | **用户账号 + 登录** | **scrypt 哈希 + HttpOnly 会话 Cookie，30 天免登录** |
 | **v3.2 A3** | **检测报告 PDF 导出** | **一键打印/另存 PDF，含条目表/等级/建议，零依赖** |
 | v3.2 A4 | 历史 JSON 导出/导入备份 | 免费部署磁盘重置也不怕 |
+| **v3.3 B1** | **模型层 Provider 抽象** | **`AI_PROVIDER=ark\|huawei` 一键切换，140 项旧测试零回归** |
+| **v3.3 B2** | **RDS for MySQL 存储适配** | **`DB_DRIVER=sqlite\|mysql`，账号与历史迁云，异步仓储层** |
+| **v3.3 B3** | **DCS Redis 共享限流 + 会话缓存** | **多实例限流不再各算各的；连不上自动降级** |
+| v3.3 B4 | 华为云部署文档 + 32 项专项测试 | 一条 `curl /api/health` 验收整条云上链路 |
 
 > ⚠️ Render 免费档磁盘是**临时**的：重新部署会清空账号与历史。
 > 长期数据请定期用历史面板的 ⬇️ 按钮导出 JSON 备份，或为服务挂载持久磁盘（$7/月）。
@@ -88,16 +93,24 @@
 ┌──────────────────────────────────────────────┐
 │  Node.js + Express                           │
 │  ┌────────────────────────────────────┐      │
-│  │  routes/analyze.js (限流 30/min)    │      │
-│  └────┬─────────────┬─────────────┬───┘      │
-│       │             │             │          │
-│   ┌───▼──┐    ┌────▼────┐   ┌────▼────┐      │
-│   │ 本地 │    │ 豆包    │   │ 日志    │      │
-│   │ 正则 │    │ 多模态  │   │ 脱敏    │      │
-│   └───┬──┘    └────┬────┘   └─────────┘      │
-│       └────┬───────┘                         │
-│            ▼                                  │
-│  services/analyzer.js (fuse 去重)             │
+│  │ routes/analyze.js                  │      │
+│  │   └─ rateLimiter                   │      │
+│  │       Redis INCR → 内存兜底        │      │
+│  └────┬─────────────┬─────────────────┘      │
+│       │             │                        │
+│  ┌────▼─────┐  ┌────▼──────────────────┐     │
+│  │ 本地正则  │  │ providers/index.js    │     │
+│  │ 13 类字段 │  │  AI_PROVIDER 路由     │     │
+│  │ 国标校验  │  │   ├─ ark.js（方舟）   │     │
+│  └────┬─────┘  │   └─ huawei.js（MaaS） │     │
+│       │        └───────────┬───────────┘     │
+│       └────────┬───────────┘                 │
+│                ▼                              │
+│  services/analyzer.js（fuse 去重 · L1-L4）    │
+│                                              │
+│  services/auth.js                            │
+│    ├─ services/store（sqlite | RDS MySQL）   │
+│    └─ services/redis（DCS 会话缓存 · 可降级） │
 └──────────────────┬───────────────────────────┘
                    │ JSON 响应
                    ▼
@@ -168,7 +181,9 @@ npm test
 
 ### `GET /api/health`
 
-返回 `{ success, version, uptime, model, arkKeyConfigured, db }`
+返回 `{ success, version, uptime, model, arkKeyConfigured, aiProvider, aiProviderConfigured, aiFallback, db, dbDriver, redis }`
+
+`aiProvider` 为 `ark` / `huawei`，`dbDriver` 为 `sqlite` / `mysql`，`redis` 为 `ready` / `disabled` / `error` —— 一眼确认当前跑的是哪套底座。
 
 ### `POST /api/auth/register | /api/auth/login`（v3.2）
 
@@ -192,10 +207,10 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：140 通过 / 0 失败 / 140 项
+# 总计：172 通过 / 0 失败 / 172 项
 ```
 
-6 个独立套件：
+7 个独立套件：
 
 | 套件 | 文件 | 覆盖 |
 |---|---|---|
@@ -205,6 +220,7 @@ npm test
 | HTTP 层 | `scripts/test-server.js` | 12 项 API 行为 |
 | 端到端 AI | `scripts/test-end-to-end.js` | 11 项模型流程 |
 | 账号与历史 | `scripts/test-auth-history.js` | 22 项注册/登录/云同步 |
+| 华为云适配 | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis |
 
 ## 八、部署
 
@@ -215,6 +231,21 @@ npm test
 3. Start Command: `npm start`
 4. Environment: 添加 `ARK_API_KEY=...`
 5. 免费档会休眠，访问后约 30-60 秒唤醒
+
+### 华为云（MaaS + RDS + DCS）
+
+完整步骤见 **[docs/huawei-deploy.md](docs/huawei-deploy.md)**：区域选择、RDS 建库、DCS 连接串、Node 22 安装、PM2 守护、验收清单与回滚方式。
+
+```ini
+AI_PROVIDER=huawei
+HW_MAAS_BASE_URL=<控制台复制的地址>/v1
+HW_MAAS_API_KEY=<Key>
+DB_DRIVER=mysql
+MYSQL_HOST=<RDS 内网地址>
+REDIS_URL=redis://:<密码>@<DCS 内网地址>:6379/0
+```
+
+切换是**运行时**的：`AI_PROVIDER` 改回 `ark`、`DB_DRIVER` 改回 `sqlite`，即刻回到原架构，无需改代码。
 
 ### Docker（自托管）
 
@@ -245,8 +276,11 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [x] **v2.0.3** Render 502 重试 + 预热
 - [x] **v3.0** P0 日志脱敏 / P1 正则扩展 / P2 人脸模糊 / P3 转写可读
 - [x] **v3.1** P4 PWA / P5 118 项测试 / P6 README+截图 / P7 双语
-- [ ] **v4.0**（产品级）批量检测 / 检测报告 PDF 导出 / 多用户隔离
-- [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 团队管理后台
+- [x] **v3.2** 账号登录 / SQLite 云同步 / PDF 报告 / JSON 备份
+- [x] **v3.3** Provider 抽象 / RDS MySQL / DCS Redis / 华为云部署文档 / 172 项测试
+- [ ] **v3.4** SIS 音频转写流水线（国产化音视频闭环）
+- [ ] **v4.0**（产品级）批量检测 / 团队空间 / 更细的权限
+- [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 
 ## 十一、贡献
 
