@@ -8,6 +8,8 @@
  *   D. 主流程（上传 → 提交 → 轮询 → 删除，四步顺序与参数）
  *   E. 失败路径（OBS 上传失败、SIS 任务失败、轮询超时）
  *   F. 收尾语义（删除失败不覆盖结果、空转写不报错）
+ *   G. 轮询细节（多轮 WAITING/RUNNING/终态别名、extractText 边界值）
+ *   H. 上层集成（huawei.analyzeAudio：SIS 转写 → MaaS 文本模型 → items）
  *
  * 全程通过 setClients() 注入 mock，不触网、不需要真实凭证、不产生费用。
  * 用法：node scripts/test-huawei-sis.js
@@ -22,7 +24,13 @@ process.env.HW_REGION = 'cn-north-4';
 process.env.HW_SIS_ENDPOINT = 'https://sis.cn-north-4.myhuaweicloud.com';
 process.env.HW_OBS_BUCKET = 'ps-test-bucket';
 process.env.HW_OBS_ENDPOINT = 'https://obs.cn-north-4.myhuaweicloud.com';
+// 轮询间隔压到 1ms：多轮轮询测试不必真的等 1 秒
+process.env.HW_SIS_POLL_INTERVAL_MS = '1';
+// MaaS 配置：analyzeAudio 集成测试只需要"有配置"，网络由 axios mock 拦掉
+process.env.HW_MAAS_BASE_URL = 'https://maas.cn-southwest-2.myhuaweicloud.com/v1';
+process.env.HW_MAAS_API_KEY = 'test-maas-key';
 
+const axios = require('axios');
 const sis = require('../services/providers/huawei-sis');
 const huawei = require('../services/providers/huawei');
 
@@ -36,6 +44,8 @@ const log = (ok, name, info) => {
 /** 造一个可控的假云：记录调用顺序与参数 */
 function mkCloud(overrides = {}) {
   const calls = [];
+  // collectSeq：模拟多轮轮询（前 n-1 次返回值，最后一次之后固定重复最后一个）
+  const queue = Array.isArray(overrides.collectSeq) ? overrides.collectSeq.slice() : null;
   const cloud = {
     calls,
     obs: {
@@ -59,6 +69,7 @@ function mkCloud(overrides = {}) {
       collectTranscriberJob: async () => {
         calls.push(['collect']);
         if (overrides.collectError) throw new Error(overrides.collectError);
+        if (queue) return queue.length > 1 ? queue.shift() : queue[0];
         return overrides.collectResult || {
           status: 'FINISHED',
           audioDuration: 3.2,
@@ -204,6 +215,129 @@ const AUDIO = {
   sis.setClients(c6);
   const r6 = await sis.transcribe(AUDIO);
   log(r6.text === '' && r6.durationMs === null, '静音/空转写返回空字符串而非抛错');
+
+  // ================= G. 轮询细节与 extractText 边界 =================
+  const c7 = mkCloud({
+    collectSeq: [
+      { status: 'WAITING' },
+      { status: 'RUNNING' },
+      { status: 'FINISHED', audioDuration: 1.5, segments: [{ result: { text: '多轮' } }] },
+    ],
+  });
+  sis.setClients(c7);
+  const r7 = await sis.transcribe(AUDIO);
+  const collectTimes = c7.calls.filter((c) => c[0] === 'collect').length;
+  log(
+    r7.text === '多轮' && collectTimes === 3,
+    '多轮轮询 WAITING → RUNNING → FINISHED（collect 3 次）',
+    `collect×${collectTimes}`
+  );
+
+  let aliasOk = true;
+  for (const status of ['SUCCESS', 'SUCCEEDED', 'COMPLETED']) {
+    const ca = mkCloud({
+      collectResult: { status, audioDuration: 1, segments: [{ result: { text: status } }] },
+    });
+    sis.setClients(ca);
+    const ra = await sis.transcribe(AUDIO);
+    if (ra.text !== status) aliasOk = false;
+  }
+  log(aliasOk, '终态别名 SUCCESS / SUCCEEDED / COMPLETED 都能停止轮询');
+
+  log(
+    [null, undefined, 0, -1, '3.2'].every(
+      (v) => sis.extractText({ audioDuration: v, segments: [] }).durationMs === null
+    ),
+    'audioDuration 为 null/undefined/0/负数/字符串 → durationMs 为 null（不产出 NaN）'
+  );
+
+  log(
+    sis.extractText({
+      audioDuration: 1,
+      segments: [null, { result: null }, { result: { text: '' } }, { result: { text: '甲' } }],
+    }).text === '甲' && sis.extractText({}).text === '',
+    'segments 含 null / result 为空 / text 空串时跳过，缺 segments 不报错'
+  );
+
+  // ================= H. analyzeAudio 集成（SIS → MaaS 文本模型） =================
+  const realPost = axios.post;
+  const requests = [];
+  axios.post = async (url, body) => {
+    requests.push({ url, body });
+    return {
+      status: 200,
+      data: {
+        id: 'chatcmpl-sis-test',
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              hasSensitive: true,
+              items: [{ type: 'id', text: '110105199003071234', level: 'L3' }],
+              transcript: '我的身份证号是110105199003071234',
+              advice: '不要在聊天中发送身份证号',
+              summary: '含 1 项敏感信息',
+            }),
+          },
+        }],
+      },
+    };
+  };
+
+  const DATA_URL = `data:audio/wav;base64,${AUDIO.buffer.toString('base64')}`;
+
+  // H1. 未配置 SIS → 501，且不浪费一次模型调用
+  const akBackup = process.env.HW_AK;
+  delete process.env.HW_AK;
+  let e8 = null;
+  try { await huawei.analyzeAudio(DATA_URL); } catch (e) { e8 = e; }
+  process.env.HW_AK = akBackup;
+  log(e8 && e8.status === 501 && /SIS/.test(e8.message), '未配置 SIS 时 analyzeAudio 抛 501 并指向 SIS');
+  log(requests.length === 0, '未配置 SIS 时不会调用 MaaS');
+
+  // H2. 正常链路：SIS 转写 → MaaS 文本模型 → items
+  const c8 = mkCloud();
+  sis.setClients(c8);
+  const r8 = await huawei.analyzeAudio(DATA_URL);
+  log(
+    r8.ok === true && r8.items.length === 1 && r8.items[0].type === 'id',
+    'analyzeAudio 返回 MaaS 解析后的 items',
+    r8.items[0] && r8.items[0].masked
+  );
+  log(r8.transcript === '我的身份证号是110105199003071234', 'analyzeAudio 把 SIS 转写原文带回 transcript');
+  log(
+    r8.audioDurationMs === 3200 && r8.transcribeProvider === 'huawei-sis',
+    'analyzeAudio 标注音频时长与转写来源'
+  );
+  log(
+    requests.length === 1 &&
+    /\/chat\/completions$/.test(requests[0].url) &&
+    requests[0].body.model === huawei.TEXT_MODEL,
+    '转写文本交给 MaaS 文本模型（不是视觉模型）',
+    requests[0] && requests[0].body.model
+  );
+  const sent = JSON.stringify(requests[0].body.messages);
+  log(
+    sent.includes('---转写开始---') && sent.includes('110105199003071234'),
+    'prompt 里带的是转写文本原文'
+  );
+  log(c8.calls.some((c) => c[0] === 'delete'), '集成链路结束后 OBS 临时对象已删除');
+
+  // H3. 空转写：不调用模型
+  requests.length = 0;
+  const c9 = mkCloud({ collectResult: { status: 'FINISHED', segments: [] } });
+  sis.setClients(c9);
+  const r9 = await huawei.analyzeAudio(DATA_URL);
+  log(r9.ok === true && r9.items.length === 0 && /为空/.test(r9.advice), '空转写返回空结果与提示');
+  log(requests.length === 0, '空转写不调用 MaaS（避免无意义计费）');
+
+  // H4. 转写失败要向上抛，不能伪装成"没检测到"
+  const c10 = mkCloud({ collectResult: { status: 'FAILED' } });
+  sis.setClients(c10);
+  let e10 = null;
+  try { await huawei.analyzeAudio(DATA_URL); } catch (e) { e10 = e; }
+  log(e10 && e10.status === 502, 'SIS 转写失败时 analyzeAudio 抛 502（不静默吞）');
+
+  axios.post = realPost;
 
   // ================= 收尾 =================
   sis.resetClients();
