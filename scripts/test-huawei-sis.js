@@ -21,7 +21,7 @@ process.env.HW_AK = 'test-ak';
 process.env.HW_SK = 'test-sk';
 process.env.HW_PROJECT_ID = 'test-project';
 process.env.HW_REGION = 'cn-north-4';
-process.env.HW_SIS_ENDPOINT = 'https://sis.cn-north-4.myhuaweicloud.com';
+process.env.HW_SIS_ENDPOINT = 'https://sis-ext.cn-north-4.myhuaweicloud.com';
 process.env.HW_OBS_BUCKET = 'ps-test-bucket';
 process.env.HW_OBS_ENDPOINT = 'https://obs.cn-north-4.myhuaweicloud.com';
 // 轮询间隔压到 1ms：多轮轮询测试不必真的等 1 秒

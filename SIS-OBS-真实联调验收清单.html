@@ -82,7 +82,7 @@
   <ol>
     <li>区域下拉选 <b>华北-北京四</b>（若页面让你选项目，保持默认）。</li>
     <li>点「开通 / 立即使用」，不需要额外审批，即时生效。免费额度通常按分钟给，够做几十次验证。</li>
-    <li>开通后记住端点：<code>https://sis.cn-north-4.myhuaweicloud.com</code>，这就是 <code>HW_SIS_ENDPOINT</code>。</li>
+    <li>开通后记住端点：<code>https://sis-ext.cn-north-4.myhuaweicloud.com</code>（注意是 <b>sis-ext</b>，不是 sis），这就是 <code>HW_SIS_ENDPOINT</code>。</li>
   </ol>
   <div class="note info">如果列表里找不到 SIS，直接在控制台顶部搜索框输入「语音交互」或「SIS」即可。</div>
 
@@ -113,7 +113,7 @@
 HW_SK=你的SecretAccessKey        # 只在 csv 里出现一次
 HW_PROJECT_ID=华北-北京四的项目ID
 HW_REGION=cn-north-4
-HW_SIS_ENDPOINT=https://sis.cn-north-4.myhuaweicloud.com
+HW_SIS_ENDPOINT=https://sis-ext.cn-north-4.myhuaweicloud.com
 HW_OBS_BUCKET=privacy-sentinel-audio-8f3a
 HW_OBS_ENDPOINT=https://obs.cn-north-4.myhuaweicloud.com</code></pre>
   <div class="note danger"><b>AK/SK 只进 .env，不要写进代码、不要发到对话里、不要提交 git。</b><code>.env</code> 已在 <code>.gitignore</code> 中；填完用 <code>git status</code> 确认它没被跟踪。</div>

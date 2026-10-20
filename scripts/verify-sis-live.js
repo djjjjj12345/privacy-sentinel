@@ -122,15 +122,36 @@ const EXT_MIME = {
 
 function hintFor(errMsg) {
   const m = String(errMsg || '');
+  if (/APIG\.0602/i.test(m)) {
+    return 'SIS 网关拒绝了请求，最常见的是 HW_PROJECT_ID 不是本区域真实项目 ID'
+      + '（去「我的凭证 → 项目列表 → cn-north-4」重抄一遍）。';
+  }
+  if (/APIGW\.0301|verify ak sk signature failed/i.test(m)) {
+    return 'AK/SK 签名失败：确认 HW_AK/HW_SK 没有多余空格、没有互换；主账号与子账号的密钥不能混用。';
+  }
+  if (/APIGW\.0101/i.test(m)) {
+    return '这个端点上没有该 API：HW_SIS_ENDPOINT 要用 sis-ext.<region>.myhuaweicloud.com（注意 -ext）。';
+  }
+  if (/SIS\.0001|audio_format is not match model/i.test(m)) {
+    return '音频格式/采样率与模型不匹配：HW_SIS_PROPERTY 的采样率要和录音一致（16k 模型配 16k 音频）。';
+  }
   if (/InvalidAccessKeyId/i.test(m)) return 'AK 不对：到「我的凭证 → 访问密钥」核对，注意别把 SK 填进 AK';
   if (/SignatureDoesNotMatch/i.test(m)) return 'SK 不对：SK 只在创建时显示一次，错了只能重建访问密钥';
   if (/NoSuchBucket/i.test(m)) return '桶名或区域不对：桶名要全局唯一，且必须与 HW_OBS_ENDPOINT 同区域';
-  if (/AccessDenied|403/i.test(m)) return '没权限：检查账号是否实名/欠费，以及 AK 所在账号是否有该桶的读写权限（建议用 IAM 子账号并授予 OBS Buckets Viewer/Editor）';
+  if (/AccessDenied|403/i.test(m)) {
+    return '没权限：先看是 OBS 还是 SIS 报的。SIS 读私有桶需要「服务授权」（SIS 控制台第 4 步给 SIS 授予 OBS 读取权限）；'
+      + 'OBS 侧则检查账号是否实名/欠费、密钥是否有桶读写权限。';
+  }
   if (/NoSuchKey/i.test(m)) return '对象不存在：可能在别的前缀下，去控制台确认';
-  if (/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNREFUSED/i.test(m)) return '网络/端点不通：检查 HW_OBS_ENDPOINT 拼写（要带 https://，不能带桶名）';
+  if (/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNREFUSED/i.test(m)) {
+    return '网络/端点不通：SIS 端点必须是 sis-ext.<region>.myhuaweicloud.com（带 -ext），OBS 端点是 obs.<region>.myhuaweicloud.com。';
+  }
   if (/Cannot find module 'uuid'/.test(m)) return "官方 SIS SDK 漏声明依赖，执行 npm i uuid";
   return '看上面的原始报错，对照 docs/huawei-deploy.md 第 6 节';
 }
+
+/** .env 里如果留着文档示例值，直接指出来——它格式合法，光看格式校验发现不了 */
+const DOC_EXAMPLE_PROJECT_ID = '0f2c1a3bd4e84b0e9a7c5d6e8f1a2b3c';
 
 (async () => {
   console.log('========================================');
@@ -146,6 +167,11 @@ function hintFor(errMsg) {
   console.log(`  OBS  HW_OBS_ENDPOINT= ${process.env.HW_OBS_ENDPOINT || '(空)'}`);
   console.log(`  AK/SK               = ${process.env.HW_AK ? '已设置(前4位 ' + process.env.HW_AK.slice(0, 4) + '…)' : '未设置'}`);
   console.log(`  Project ID          = ${process.env.HW_PROJECT_ID ? '已设置' : '未设置'}`);
+  if ((process.env.HW_PROJECT_ID || '') === DOC_EXAMPLE_PROJECT_ID) {
+    warn('HW_PROJECT_ID 还是文档里的示例值 0f2c…b3c，不是你的真实项目 ID。');
+    console.log('     到控制台「我的凭证 → 项目列表 → 区域 cn-north-4」复制真实项目 ID，再运行：');
+    console.log('     npm run setup:credentials -- --project-id <真实值>');
+  }
 
   const missing = REQUIRED.filter((k) => !process.env[k]);
   if (missing.length) {

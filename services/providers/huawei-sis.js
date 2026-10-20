@@ -22,7 +22,7 @@
  * 环境变量：
  *   HW_AK / HW_SK / HW_PROJECT_ID   访问密钥与项目 ID（IAM）
  *   HW_REGION                       区域，如 cn-north-4
- *   HW_SIS_ENDPOINT                 SIS 服务端点，如 https://sis.cn-north-4.myhuaweicloud.com
+ *   HW_SIS_ENDPOINT                 SIS 服务端点，如 https://sis-ext.cn-north-4.myhuaweicloud.com
  *   HW_OBS_BUCKET                   临时落地的 OBS 桶名
  *   HW_OBS_ENDPOINT                 OBS 服务端点，如 https://obs.cn-north-4.myhuaweicloud.com
  *   HW_SIS_PROPERTY                 模型特征串（默认 chinese_16k_media）
@@ -147,8 +147,12 @@ async function submitJob(sis, obsUrl) {
   try {
     resp = await sis.pushTranscriberJobs(req);
   } catch (e) {
+    // 把错误码一起带出来：SIS 的原始 message 常常只有 "Bad request: bad request"，
+    // 真正能定位问题的是 errorCode（如 APIG.0602 = 项目 ID/路径不合法，APIGW.0301 = 签名失败）。
+    const code = e && (e.errorCode || e.error_code);
+    const detail = (e && (e.errorMsg || e.message)) || String(e);
     throw new UpstreamError(
-      `SIS 提交识别任务失败：${(e && e.message) || String(e)}`,
+      `SIS 提交识别任务失败：${detail}${code ? ` (${code})` : ''}`,
       502
     );
   }

@@ -147,11 +147,16 @@ const mask = (v) => (!v ? '(空)' : `${v.slice(0, 4)}…${v.slice(-2)}（共 ${v
     const clean = projectId.trim();
     const looksPlaceholder = /粘贴|你的|xxx|todo|请填|<|>/i.test(clean);
     const looksValid = /^[0-9a-f]{32}$/i.test(clean);
+    // 文档里用过的示例值，格式合法但一定不是真实项目 ID —— 只靠正则拦不住
+    const isDocExample = clean.toLowerCase() === '0f2c1a3bd4e84b0e9a7c5d6e8f1a2b3c';
 
-    if (!looksValid) {
+    if (!looksValid || isDocExample) {
       console.error(`\n❌ 这不是合法的项目 ID：${clean}（${clean.length} 位）`);
       if (looksPlaceholder) {
         console.error('   看起来是把说明文字当成了 ID —— 要填的是控制台里复制出来的真实值。');
+      }
+      if (isDocExample) {
+        console.error('   这是文档里的示例值，不是你的项目 ID。');
       }
       console.error('   正确来源：控制台 → 我的凭证 → 项目列表 → 「华北-北京四」那一行的「项目 ID」');
       console.error('   它是一串 32 位十六进制字符（0-9 / a-f），不含空格和中文。');

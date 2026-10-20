@@ -171,7 +171,7 @@ Node 版本低于 22.13。用 `node -v` 确认，必要时按 3.1 重装。
 | `HW_AK` / `HW_SK` | 我的凭证 → 访问密钥（明文只显示一次） |
 | `HW_PROJECT_ID` | 我的凭证 → 项目列表里对应区域的项目 ID |
 | `HW_REGION` | 如 `cn-north-4`，需与 SIS、OBS 同区域 |
-| `HW_SIS_ENDPOINT` | 如 `https://sis.cn-north-4.myhuaweicloud.com` |
+| `HW_SIS_ENDPOINT` | 如 `https://sis-ext.cn-north-4.myhuaweicloud.com` |
 | `HW_OBS_BUCKET` / `HW_OBS_ENDPOINT` | 临时落地的桶与端点，如 `https://obs.cn-north-4.myhuaweicloud.com` |
 | `HW_SIS_PROPERTY` | 选填，默认 `chinese_16k_media` |
 
