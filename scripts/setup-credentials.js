@@ -145,8 +145,20 @@ const mask = (v) => (!v ? '(空)' : `${v.slice(0, 4)}…${v.slice(-2)}（共 ${v
 
   if (projectId) {
     const clean = projectId.trim();
-    if (!/^[0-9a-f]{32}$/i.test(clean)) {
-      console.warn(`⚠️  项目 ID 通常是 32 位十六进制，你给的是 ${clean.length} 位，确认没复制错（不要复制成项目编号或账号 ID）`);
+    const looksPlaceholder = /粘贴|你的|xxx|todo|请填|<|>/i.test(clean);
+    const looksValid = /^[0-9a-f]{32}$/i.test(clean);
+
+    if (!looksValid) {
+      console.error(`\n❌ 这不是合法的项目 ID：${clean}（${clean.length} 位）`);
+      if (looksPlaceholder) {
+        console.error('   看起来是把说明文字当成了 ID —— 要填的是控制台里复制出来的真实值。');
+      }
+      console.error('   正确来源：控制台 → 我的凭证 → 项目列表 → 「华北-北京四」那一行的「项目 ID」');
+      console.error('   它是一串 32 位十六进制字符（0-9 / a-f），不含空格和中文。');
+      if (!args.includes('--force')) {
+        console.error('\n已中止，.env 未被修改。确实要写入这个值请加 --force。');
+        process.exit(1);
+      }
     }
     pairs.HW_PROJECT_ID = clean;
     console.log(`项目 ID：${mask(clean)}`);
