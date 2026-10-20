@@ -79,6 +79,36 @@ function extFromMime(mimeType, filename) {
 }
 
 /**
+ * 按文件头判断真实音频格式。
+ * 为什么需要：SIS 用 audio_format=auto 时会看文件/扩展名，用户把 mp3 存成 .m4a
+ * 是常见情况，光信文件名会拿到 SIS.0535 [wrong audio format]。
+ * @returns {{ext:string, mime:string}|null} 认不出返回 null，交给调用方兜底
+ */
+function sniffAudioFormat(buffer) {
+  if (!buffer || buffer.length < 12) return null;
+  const b = buffer;
+  const ascii = (start, len) => b.toString('latin1', start, start + len);
+
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WAVE') {
+    return { ext: 'wav', mime: 'audio/wav' };
+  }
+  // MP3：ID3v2 标签，或裸 MPEG 帧同步字 0xFF Ex/Fx
+  if (ascii(0, 3) === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) {
+    return { ext: 'mp3', mime: 'audio/mpeg' };
+  }
+  if (ascii(4, 4) === 'ftyp') {
+    const brand = ascii(8, 4);
+    return brand.startsWith('M4A')
+      ? { ext: 'm4a', mime: 'audio/mp4' }
+      : { ext: 'mp4', mime: 'audio/mp4' };
+  }
+  if (ascii(0, 5) === '#!AMR') return { ext: 'amr', mime: 'audio/amr' };
+  if (ascii(0, 4) === 'OggS') return { ext: 'ogg', mime: 'audio/ogg' };
+  if (ascii(0, 4) === 'fLaC') return { ext: 'flac', mime: 'audio/flac' };
+  return null;
+}
+
+/**
  * 构造 SIS 要读的 OBS 对象 URL（虚拟主机风格）。
  * 例：bucket=ps-audio, endpoint=https://obs.cn-north-4.myhuaweicloud.com, key=tmp/sis/x.wav
  *   → https://ps-audio.obs.cn-north-4.myhuaweicloud.com/tmp/sis/x.wav
@@ -156,7 +186,8 @@ async function submitJob(sis, obsUrl) {
       502
     );
   }
-  const jobId = resp && resp.jobId;
+  // 注意：SDK 把响应原样透传，字段是蛇形的 job_id（不是驼峰 jobId）
+  const jobId = resp && (resp.jobId || resp.job_id);
   if (!jobId) {
     throw new UpstreamError('SIS 提交识别任务未返回 job_id', 502);
   }
@@ -186,7 +217,19 @@ async function pollUntilDone(sis, jobId) {
     const status = String((resp && resp.status) || '').toUpperCase();
     if (STATUS_DONE.has(status)) return resp;
     if (STATUS_FAILED.has(status)) {
-      throw new UpstreamError(`SIS 转写失败（status=${status}，job_id=${jobId}）`, 502);
+      // 带上 error_code / error_msg：SIS 失败原因全在这两个字段里（如 SIS.0535 格式不对）
+      const code = (resp && resp.error_code) || '';
+      const msg = (resp && resp.error_msg) || '';
+      // SIS.0534/0535 表面是「文件打不开/格式不对」，实际最常见的是 SIS 没有读 OBS 的委托权限
+      const hint = /SIS\.053[45]/.test(code)
+        ? '（该错误也可能是 SIS 无权读取私有 OBS 桶：到 SIS 控制台完成「服务授权」，'
+          + '给录音文件识别创建读取 OBS 的委托）'
+        : '';
+      throw new UpstreamError(
+        `SIS 转写失败（status=${status}，job_id=${jobId}`
+          + `${code ? `，error_code=${code}` : ''}${msg ? `，error_msg=${msg}` : ''}）${hint}`,
+        502
+      );
     }
     if (Date.now() >= deadline) {
       throw new UpstreamError(
@@ -228,7 +271,10 @@ async function transcribe({ buffer, mimeType, filename } = {}) {
   const obsEndpoint = requireEnv('HW_OBS_ENDPOINT');
   const { sis, obs } = getClients();
 
-  const ext = extFromMime(mimeType, filename);
+  // 先按文件头判断真实格式；认不出再退回 mime/文件名
+  const sniffed = sniffAudioFormat(buffer);
+  const ext = sniffed ? sniffed.ext : extFromMime(mimeType, filename);
+  const contentType = sniffed ? sniffed.mime : (mimeType || 'application/octet-stream');
   const key = `tmp/sis/${crypto.randomUUID()}.${ext}`;
   const obsUrl = buildObsUrl(bucket, key, obsEndpoint);
 
@@ -239,7 +285,7 @@ async function transcribe({ buffer, mimeType, filename } = {}) {
         Bucket: bucket,
         Key: key,
         Body: buffer,
-        ContentType: mimeType || 'application/octet-stream',
+        ContentType: contentType,
       });
       uploaded = true;
     } catch (e) {
@@ -278,5 +324,6 @@ module.exports = {
   POLL_TIMEOUT_MS,
   buildObsUrl,
   extFromMime,
+  sniffAudioFormat,
   extractText,
 };

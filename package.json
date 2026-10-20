@@ -21,6 +21,7 @@
     "test:sis": "node scripts/test-huawei-sis.js",
     "probe:huawei": "node scripts/probe-huawei.js",
     "verify:sis": "node scripts/verify-sis-live.js",
+    "resolve:project": "node scripts/resolve-project-id.js",
     "setup:credentials": "node scripts/setup-credentials.js"
   },
   "dependencies": {

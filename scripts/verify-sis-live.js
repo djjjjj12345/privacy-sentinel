@@ -123,16 +123,20 @@ const EXT_MIME = {
 function hintFor(errMsg) {
   const m = String(errMsg || '');
   if (/APIG\.0602/i.test(m)) {
-    return 'SIS 网关判为非法请求（已排除 URL/参数问题：换空 body、换接口都报同一个错）。'
-      + '按官方说明只有两类原因：① SIS 没有在 HW_REGION 这个区域开通——'
-      + '控制台左上角切到 cn-north-4，「录音文件识别」页签应是「已开通/商用」，否则点「开通管理」选按需计费；'
-      + '② 开通 SIS 的账号和这把 AK/SK 所属账号不是同一个。';
+    return 'SIS 网关判为非法请求。按实测经验，最常见是 HW_PROJECT_ID 填成了「账号 ID」而不是「项目 ID」'
+      + '（两者都是 32 位十六进制）。执行 npm run resolve:project -- --write 可自动纠正；'
+      + '其次确认 SIS 已在 HW_REGION 开通（控制台左上角区域要一致）。';
   }
   if (/APIGW\.0301|verify ak sk signature failed/i.test(m)) {
     return 'AK/SK 签名失败：确认 HW_AK/HW_SK 没有多余空格、没有互换；主账号与子账号的密钥不能混用。';
   }
   if (/APIGW\.0101/i.test(m)) {
     return '这个端点上没有该 API：HW_SIS_ENDPOINT 要用 sis-ext.<region>.myhuaweicloud.com（注意 -ext）。';
+  }
+  if (/SIS\.053[45]/i.test(m)) {
+    return 'SIS 打不开录音文件。表面是「格式不对/地址不可达」，实际九成是 SIS 没有读取私有 OBS 桶的权限：'
+      + '到 SIS 控制台完成「服务授权」（创建读取 OBS 的委托）。授权后重跑；'
+      + '若确实是格式问题，代码已按文件头自动纠正扩展名，可换一段 16k WAV 再试。';
   }
   if (/SIS\.0001|audio_format is not match model/i.test(m)) {
     return '音频格式/采样率与模型不匹配：HW_SIS_PROPERTY 的采样率要和录音一致（16k 模型配 16k 音频）。';

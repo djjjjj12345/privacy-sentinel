@@ -188,6 +188,17 @@ Node 版本低于 22.13。用 `node -v` 确认，必要时按 3.1 重装。
 3. **AK/SK**：我的凭证 → 访问密钥 → 新增访问密钥，**csv 只在下载时显示一次**。
    建议用 IAM 子账号并只授予 `SIS FullAccess` + `OBS Buckets Viewer/Editor`，不要用主账号 AK。
 4. 把 7 个值填进项目根目录的 `.env`，重启服务。
+5. **服务授权（必做，否则转写一定失败）**：SIS 控制台 → 左侧「服务授权」→ 创建委托，授予语音识别读取 OBS 的权限。
+   桶是私有的，SIS 没有这个委托就拿不到音频；表现在返回上却是 `SIS.0535 [wrong audio format]`，
+   极易误判成音频格式问题（本项目实际踩过，别被它骗）。
+
+**项目 ID 别抄错**：控制台「账号 ID（domain_id）」和「项目 ID」都是 32 位十六进制。填成账号 ID 时 SIS 报
+`APIG.0602 Bad request`，看不出原因。用下面的命令直接查，避免手抄：
+
+```bash
+npm run resolve:project              # 列出当前账号所有区域的项目 ID
+npm run resolve:project -- --write   # 把 HW_REGION 对应的项目 ID 写进 .env
+```
 
 ### 6.1 三步验收（脚本自动跑）
 
