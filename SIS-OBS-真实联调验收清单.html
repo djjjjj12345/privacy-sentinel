@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隐私哨兵 · SIS + OBS 真实联调验收清单</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --ink2:#5b6572; --line:#e3e7ec;
+    --brand:#0a6cff; --brand-soft:#eaf2ff; --ok:#0f9d58; --warn:#b7791f; --warn-bg:#fff8e6;
+    --danger:#c0392b; --danger-bg:#fdecea; --mono:#0f172a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px}
+  header{background:linear-gradient(135deg,#0a6cff,#0a4fb8);color:#fff;border-radius:14px;padding:26px 28px;margin-bottom:24px}
+  header h1{margin:0 0 6px;font-size:24px;letter-spacing:.5px}
+  header p{margin:0;opacity:.92;font-size:14px}
+  .meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px}
+  .meta span{background:rgba(255,255,255,.18);border-radius:999px;padding:4px 12px;font-size:12.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin-bottom:18px}
+  h2{font-size:18px;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  h2 .num{background:var(--brand);color:#fff;width:26px;height:26px;border-radius:8px;display:inline-flex;
+          align-items:center;justify-content:center;font-size:14px;flex:none}
+  h3{font-size:15px;margin:18px 0 8px;color:var(--ink)}
+  ol,ul{margin:8px 0;padding-left:22px}
+  li{margin:6px 0}
+  code{background:#f0f2f5;border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+       font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;font-size:13px;color:var(--mono)}
+  pre{background:#0f172a;color:#e6edf3;border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;margin:10px 0}
+  pre code{background:none;border:none;color:inherit;padding:0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f3f7;font-weight:600}
+  .note{border-radius:10px;padding:12px 14px;margin:12px 0;font-size:14px;border-left:4px solid}
+  .note.warn{background:var(--warn-bg);border-color:var(--warn)}
+  .note.danger{background:var(--danger-bg);border-color:var(--danger)}
+  .note.info{background:var(--brand-soft);border-color:var(--brand)}
+  .path{background:#fff;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:13.5px;margin:8px 0}
+  .path b{color:var(--brand)}
+  .chk{list-style:none;padding:0;margin:12px 0 0}
+  .chk li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);
+          border-radius:9px;margin-bottom:8px;background:#fcfdfe;cursor:pointer}
+  .chk li input{margin-top:4px;width:16px;height:16px;flex:none;accent-color:var(--brand)}
+  .chk li span{font-size:14px}
+  .chk li:has(input:checked){background:#f1f8f4;border-color:#bfe3cd}
+  .chk li:has(input:checked) span{color:#3c6b4f;text-decoration:line-through}
+  .prog{font-size:13px;color:var(--ink2);margin-top:10px}
+  .tag{display:inline-block;font-size:12px;padding:1px 7px;border-radius:5px;margin-right:6px}
+  .tag.free{background:#e8f5ee;color:#0f9d58}
+  .tag.paid{background:#fff1e6;color:#b7791f}
+  footer{text-align:center;color:var(--ink2);font-size:12.5px;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>隐私哨兵 · SIS + OBS 真实联调验收清单</h1>
+  <p>把「代码链路已通」推进到「真实云资源跑通一次」——开通 SIS、建 OBS 桶、填 7 个变量、跑通真实录音、确认无残留。</p>
+  <div class="meta">
+    <span>预计 30–40 分钟</span>
+    <span>需要：已实名华为云账号</span>
+    <span><span class="tag free">SIS 有免费额度</span><span class="tag paid">OBS 标准存储约 ¥0.099/GB/月</span></span>
+  </div>
+</header>
+
+<div class="card">
+  <h2><span class="num">0</span>开始前必须知道的三件事</h2>
+  <ol>
+    <li><b>区域规则</b>：MaaS 只在「西南-贵阳一」，但 SIS 与 OBS 可以选别的区域——唯一硬约束是 <b>SIS 与 OBS 必须同区域</b>。本清单统一用 <code>华北-北京四 cn-north-4</code>。</li>
+    <li><b>不要用主账号 AK</b>：在 IAM 里建一个子账号，只授予 <code>SIS FullAccess</code> 和 <code>OBS Buckets Viewer/Editor</code>，用它的 AK/SK。泄露时影响面可控。</li>
+    <li><b>桶必须私有</b>：音频是高度敏感数据，绝不开启公共读。代码里转写完成会立刻删除对象，另建议配生命周期兜底。</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2><span class="num">1</span>开通 SIS 语音交互服务</h2>
+  <div class="path"><b>控制台</b> → 左上角「服务列表」 → 人工智能 > 语音交互服务 SIS → 开通服务</div>
+  <ol>
+    <li>区域下拉选 <b>华北-北京四</b>（若页面让你选项目，保持默认）。</li>
+    <li>点「开通 / 立即使用」，不需要额外审批，即时生效。免费额度通常按分钟给，够做几十次验证。</li>
+    <li>开通后记住端点：<code>https://sis.cn-north-4.myhuaweicloud.com</code>，这就是 <code>HW_SIS_ENDPOINT</code>。</li>
+  </ol>
+  <div class="note info">如果列表里找不到 SIS，直接在控制台顶部搜索框输入「语音交互」或「SIS」即可。</div>
+
+  <h3>建 OBS 桶</h3>
+  <div class="path"><b>控制台</b> → 对象存储服务 OBS → 桶列表 → 右上角「创建桶」</div>
+  <table>
+    <tr><th style="width:130px">配置项</th><th>怎么填</th></tr>
+    <tr><td>区域</td><td>华北-北京四（<b>必须与 SIS 一致</b>）</td></tr>
+    <tr><td>桶名称</td><td>全局唯一，建议 <code>privacy-sentinel-audio-8f3a</code>（后 4 位随机）</td></tr>
+    <tr><td>存储类别</td><td>标准存储（音频读写频繁，低频存储反而更贵）</td></tr>
+    <tr><td>桶策略</td><td><b>私有</b>（不要选公共读）</td></tr>
+    <tr><td>服务端加密 / 归档</td><td>全关，省事也省钱</td></tr>
+  </table>
+  <h3>配生命周期（断网崩溃时的兜底）</h3>
+  <div class="path">进桶 → 基础配置 → 生命周期规则 → 创建 → 前缀填 <code>tmp/sis/</code> → 规则：对象创建 <b>1 天后</b> 删除</div>
+  <div class="note warn">代码里转写完成会立即 <code>deleteObject</code>，这条规则只是防止服务崩溃时留下孤儿对象。别把前缀写错成 <code>tmp/</code>，否则可能误删别的数据。</div>
+</div>
+
+<div class="card">
+  <h2><span class="num">2</span>拿 AK / SK 与项目 ID，填进 .env</h2>
+  <div class="path"><b>控制台</b> → 右上角账号名 → 我的凭证 → 访问密钥 → 新增访问密钥</div>
+  <ol>
+    <li>点「新增访问密钥」，下载 <code>credentials.csv</code>。<b>AK/SK 明文只显示这一次</b>，关掉窗口就找不回来了。</li>
+    <li>同一页面切到「项目列表」页签，找到「华北-北京四」那一行，复制右侧的<b>项目 ID</b>（不是项目编号，也不是账号 ID）。</li>
+    <li>打开项目根目录的 <code>.env</code>（没有就从 <code>.env.example</code> 复制），填这 7 个：</li>
+  </ol>
+<pre><code>HW_AK=你的AccessKeyId
+HW_SK=你的SecretAccessKey        # 只在 csv 里出现一次
+HW_PROJECT_ID=华北-北京四的项目ID
+HW_REGION=cn-north-4
+HW_SIS_ENDPOINT=https://sis.cn-north-4.myhuaweicloud.com
+HW_OBS_BUCKET=privacy-sentinel-audio-8f3a
+HW_OBS_ENDPOINT=https://obs.cn-north-4.myhuaweicloud.com</code></pre>
+  <div class="note danger"><b>AK/SK 只进 .env，不要写进代码、不要发到对话里、不要提交 git。</b><code>.env</code> 已在 <code>.gitignore</code> 中；填完用 <code>git status</code> 确认它没被跟踪。</div>
+
+  <h3>重启并自检</h3>
+<pre><code>npm start                                  # 重启服务
+curl -s http://localhost:8080/api/health    # 端口按你的实际值</code></pre>
+  <p>返回里应该出现 <code>"aiProvider":"huawei"</code>，并且（配齐 SIS 后）音频能力为可用。若仍是 <code>ark</code>，检查 <code>AI_PROVIDER=huawei</code> 是否设置。</p>
+</div>
+
+<div class="card">
+  <h2><span class="num">3</span>跑验收脚本（A + C，不花钱）</h2>
+  <p>这一段只验证凭证、桶名、区域、读写权限，<b>不提交 SIS 任务、不产生费用</b>：</p>
+<pre><code>npm run verify:sis</code></pre>
+  <ul>
+    <li>✅ 上传临时对象成功 —— AK/SK 与桶写权限 OK</li>
+    <li>✅ 能在 <code>tmp/sis/</code> 前缀下列到刚传的对象</li>
+    <li>✅ 删除后立即查不到 —— <code>deleteObject</code> 生效</li>
+    <li>✅ <code>tmp/sis/</code> 下无残留对象</li>
+  </ul>
+  <p>任一项红叉，脚本会直接给出定位提示（见第 5 节对照表）。</p>
+</div>
+
+<div class="card">
+  <h2><span class="num">4</span>录 5–10 秒真实录音，跑完整链路</h2>
+  <h3>录什么</h3>
+  <p>用手机录音机或电脑自带录音，安静环境下念一句，<b>数字要逐个念清楚</b>：</p>
+  <div class="path">「我的手机号是 138 0013 8000，我的身份证号是 110105 19900307 1234」</div>
+  <ul>
+    <li>时长 5–10 秒即可；采样率 16kHz 最佳，44.1kHz 也能识别。</li>
+    <li>格式用 <code>.wav</code> 或 <code>.mp3</code>（<code>.m4a</code>、<code>.aac</code> 也支持）。传到项目根目录，比如 <code>录音.m4a</code>。</li>
+  </ul>
+  <h3>跑端到端转写</h3>
+<pre><code>npm run verify:sis -- --audio 录音.m4a</code></pre>
+  <ul>
+    <li>✅ 转写来源为 <code>huawei-sis</code></li>
+    <li>✅ 拿到转写文本（脚本会打印原文，逐字核对是否准确）</li>
+    <li>✅ 转写文本里识别出身份证号或手机号</li>
+  </ul>
+  <div class="note warn">若「都没匹配到」：先确认念的是数字而非「幺三八」；再试 <code>HW_SIS_PROPERTY=chinese_8k_common</code>（默认 <code>chinese_16k_media</code>），或重录一段更清楚的。</div>
+
+  <h3>再从服务端接口验一次（确认 transcribeProvider）</h3>
+<pre><code>node -e "const fs=require('fs');const b=fs.readFileSync('录音.wav').toString('base64');
+fs.writeFileSync('payload.json',JSON.stringify({kind:'audio',dataUrl:'data:audio/wav;base64,'+b}))"
+
+curl -s -X POST http://localhost:8080/api/analyze \
+  -H "Content-Type: application/json" -d @payload.json</code></pre>
+  <p>返回 JSON 里重点看这两项：</p>
+  <table>
+    <tr><th style="width:200px">字段</th><th>期望值</th></tr>
+    <tr><td><code>transcribeProvider</code></td><td><code>"huawei-sis"</code>。若是 <code>"ark"</code> 说明走了回退通道，SIS 没生效</td></tr>
+    <tr><td><code>transcript</code></td><td>转写出的完整文本</td></tr>
+    <tr><td><code>items</code></td><td>识别到的敏感信息条目（身份证/手机号）</td></tr>
+    <tr><td><code>audioDurationMs</code></td><td>音频时长（毫秒）</td></tr>
+  </table>
+  <div class="note info">前端页面上传音频后，在浏览器开发者工具的 Network → <code>/api/analyze</code> → Response 里同样能看到这些字段，不用每次都敲命令。</div>
+</div>
+
+<div class="card">
+  <h2><span class="num">5</span>到 OBS 控制台确认无残留</h2>
+  <div class="path"><b>控制台</b> → 对象存储服务 OBS → 你的桶 → 对象 → 前缀搜索框输入 <code>tmp/sis/</code> → 查询</div>
+  <ul>
+    <li>期望结果：<b>空列表</b>。转写完成后代码已在 <code>finally</code> 里删除对象。</li>
+    <li>如果看到残留对象，说明某次请求在删除前崩了。用脚本一次清掉：</li>
+  </ul>
+<pre><code>npm run verify:sis -- --purge</code></pre>
+  <div class="note warn">残留不为 0 时，交付材料里不要写「音频用完即删」——先查日志里的 <code>[sis] 删除 OBS 临时对象失败</code>，定位是哪一步失败，修好再跑一遍。</div>
+
+  <h3>常见报错对照</h3>
+  <table>
+    <tr><th style="width:220px">报错关键词</th><th>原因与处理</th></tr>
+    <tr><td><code>NoSuchBucket</code></td><td>桶名拼错，或桶在别的区域（与 <code>HW_OBS_ENDPOINT</code> 不一致）</td></tr>
+    <tr><td><code>AccessDenied</code> / <code>403</code></td><td>账号未实名或欠费；或子账号没被授予该桶的读写权限</td></tr>
+    <tr><td><code>SignatureDoesNotMatch</code></td><td>SK 填错。SK 找不回来，只能删掉重建访问密钥</td></tr>
+    <tr><td><code>InvalidAccessKeyId</code></td><td>AK 填错，或把 SK 填进了 AK 的位置</td></tr>
+    <tr><td><code>Cannot find module 'uuid'</code></td><td>官方 SIS SDK 漏声明依赖，执行 <code>npm i uuid</code></td></tr>
+    <tr><td><code>ENOTFOUND</code> / <code>ETIMEDOUT</code></td><td>端点写错。要带 <code>https://</code>，且<b>不能</b>把桶名拼进 OBS 端点</td></tr>
+    <tr><td><code>504 轮询超时</code></td><td>音频太长或 SIS 拥塞。先试 10 秒以内的小文件</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2><span class="num">✓</span>勾完即完成</h2>
+  <ul class="chk" id="chk">
+    <li><input type="checkbox"><span>SIS 已开通（华北-北京四）</span></li>
+    <li><input type="checkbox"><span>OBS 桶已建：私有标准存储</span></li>
+    <li><input type="checkbox"><span>生命周期规则已配：tmp/sis/ 1 天后删除</span></li>
+    <li><input type="checkbox"><span>子账号 AK/SK 已建，csv 已备份到安全位置</span></li>
+    <li><input type="checkbox"><span>.env 里 7 个 HW_* 变量已填，且 git status 看不到 .env</span></li>
+    <li><input type="checkbox"><span>npm run verify:sis：A 阶段四项全绿</span></li>
+    <li><input type="checkbox"><span>npm run verify:sis -- --audio：转写出数字且来源为 huawei-sis</span></li>
+    <li><input type="checkbox"><span>/api/analyze 返回 transcribeProvider = huawei-sis</span></li>
+    <li><input type="checkbox"><span>OBS 控制台 tmp/sis/ 前缀下无对象</span></li>
+  </ul>
+  <div class="prog" id="prog">已完成 0 / 9</div>
+</div>
+
+<footer>隐私哨兵 · v3.4 · 与 docs/huawei-deploy.md 第 6 节配套使用</footer>
+</div>
+
+<script>
+  const box = document.getElementById('chk');
+  const prog = document.getElementById('prog');
+  const update = () => {
+    const all = box.querySelectorAll('input');
+    const done = box.querySelectorAll('input:checked').length;
+    prog.textContent = `已完成 ${done} / ${all.length}` + (done === all.length ? '  🎉 全部通过，可以写进交付材料了' : '');
+  };
+  box.addEventListener('change', update);
+  update();
+</script>
+</body>
+</html>
