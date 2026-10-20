@@ -89,11 +89,31 @@ function createObs() {
   };
 }
 
-/** listObjects 的返回里 Contents 可能只有一个对象而不是数组，统一成数组 */
+/**
+ * 取 listObjects 结果里的对象 key 列表。
+ * 注意：esdk-obs-nodejs 的返回是 { CommonMsg, InterfaceResult }，
+ * 对象列表在 InterfaceResult.Contents，不在顶层 —— 读错字段会得到空数组，
+ * 让"无残留"这类断言变成假通过。
+ */
 function listKeys(res) {
-  const c = res && res.Contents;
+  const iface = res && res.InterfaceResult;
+  if (!iface) throw new Error('listObjects 返回结构异常：缺少 InterfaceResult');
+  const c = iface.Contents;
   const arr = Array.isArray(c) ? c : (c ? [c] : []);
   return arr.map((o) => o && o.Key).filter(Boolean);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 列表接口偶有毫秒级延迟，命中即返回，最多试 3 次 */
+async function listKeysUntil(obs, bucket, prefix, predicate) {
+  let keys = [];
+  for (let i = 0; i < 3; i++) {
+    keys = listKeys(await obs.listObjects({ Bucket: bucket, Prefix: prefix, MaxKeys: 100 }));
+    if (predicate(keys)) return keys;
+    await sleep(200);
+  }
+  return keys;
 }
 
 const EXT_MIME = {
@@ -151,13 +171,11 @@ function hintFor(errMsg) {
     });
     log(true, '上传临时对象成功（AK/SK + 桶写权限 OK）', probeKey);
 
-    const listed = await obs.listObjects({ Bucket: bucket, Prefix: 'tmp/sis/', MaxKeys: 100 });
-    const keys1 = listKeys(listed);
-    log(keys1.includes(probeKey), '能在 tmp/sis/ 前缀下列到刚传的对象');
+    const keys1 = await listKeysUntil(obs, bucket, 'tmp/sis/', (ks) => ks.includes(probeKey));
+    log(keys1.includes(probeKey), '能在 tmp/sis/ 前缀下列到刚传的对象', `共 ${keys1.length} 个对象`);
 
     await obs.deleteObject({ Bucket: bucket, Key: probeKey });
-    const after = await obs.listObjects({ Bucket: bucket, Prefix: 'tmp/sis/', MaxKeys: 100 });
-    const keys2 = listKeys(after);
+    const keys2 = await listKeysUntil(obs, bucket, 'tmp/sis/', (ks) => !ks.includes(probeKey));
     log(!keys2.includes(probeKey), '删除后立即查不到了（deleteObject 生效）');
   } catch (e) {
     log(false, 'OBS 连通性', (e && e.message) || String(e));
