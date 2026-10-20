@@ -123,8 +123,10 @@ const EXT_MIME = {
 function hintFor(errMsg) {
   const m = String(errMsg || '');
   if (/APIG\.0602/i.test(m)) {
-    return 'SIS 网关拒绝了请求，最常见的是 HW_PROJECT_ID 不是本区域真实项目 ID'
-      + '（去「我的凭证 → 项目列表 → cn-north-4」重抄一遍）。';
+    return 'SIS 网关判为非法请求（已排除 URL/参数问题：换空 body、换接口都报同一个错）。'
+      + '按官方说明只有两类原因：① SIS 没有在 HW_REGION 这个区域开通——'
+      + '控制台左上角切到 cn-north-4，「录音文件识别」页签应是「已开通/商用」，否则点「开通管理」选按需计费；'
+      + '② 开通 SIS 的账号和这把 AK/SK 所属账号不是同一个。';
   }
   if (/APIGW\.0301|verify ak sk signature failed/i.test(m)) {
     return 'AK/SK 签名失败：确认 HW_AK/HW_SK 没有多余空格、没有互换；主账号与子账号的密钥不能混用。';
