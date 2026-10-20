@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>使用文档 · 隐私哨兵</title>
+    <meta name="description" content="隐私哨兵使用文档：识别规则、判定逻辑、风险等级、脱敏方式与适用场景，以及能力边界说明。">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="隐私哨兵 · 使用文档">
+    <meta property="og:description" content="识别规则、判定逻辑、风险等级与适用场景的完整说明，包含能力边界的如实披露。">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <style>
+        :root {
+            --primary: #3b7cff;
+            --primary-light: #e8eeff;
+            --danger: #f44336;
+            --danger-light: #ffebee;
+            --warning: #ff9800;
+            --success: #4caf50;
+            --success-light: #e8f5e9;
+            --gray: #6b7280;
+            --gray-light: #f5f6f8;
+            --gray-border: #e5e7eb;
+            --bg: #ffffff;
+            --surface: #f9fafb;
+            --text: #1a1a2e;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+        }
+        [data-theme="dark"] {
+            --primary: #5b93ff;
+            --primary-light: #1c2b4a;
+            --danger: #ff6b6b;
+            --danger-light: #3a1f1f;
+            --warning: #ffb547;
+            --success: #5ddb7a;
+            --success-light: #17321f;
+            --gray: #9aa3b5;
+            --gray-light: #1c2230;
+            --gray-border: #2c3244;
+            --bg: #0e1117;
+            --surface: #151a23;
+            --text: #e6e9f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.75;
+            font-size: 15px;
+            overflow-x: hidden;
+        }
+        .wrap { max-width: 820px; margin: 0 auto; padding: 0 16px 60px; }
+
+        header {
+            position: sticky; top: 0; z-index: 10;
+            background: var(--bg); border-bottom: 1px solid var(--gray-border);
+            padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+        }
+        header .brand { font-weight: 700; font-size: 16px; }
+        header .spacer { flex: 1; }
+        header a, header button {
+            font-size: 13px; color: var(--text); text-decoration: none;
+            border: 1px solid var(--gray-border); border-radius: 8px;
+            padding: 6px 11px; background: transparent; min-height: 36px;
+            display: inline-flex; align-items: center;
+        }
+        header a:hover, header button:hover { border-color: var(--primary); color: var(--primary); }
+
+        h1 { font-size: 24px; margin: 28px 0 6px; line-height: 1.4; }
+        .sub { color: var(--gray); font-size: 14px; margin-bottom: 24px; }
+        h2 {
+            font-size: 18px; margin: 34px 0 12px; padding-bottom: 6px;
+            border-bottom: 2px solid var(--primary-light);
+        }
+        h3 { font-size: 15.5px; margin: 20px 0 8px; }
+        p { margin: 10px 0; }
+        ul, ol { margin: 10px 0 10px 22px; }
+        li { margin: 5px 0; }
+        code {
+            background: var(--gray-light); padding: 1px 6px; border-radius: 4px;
+            font-size: 13px; font-family: ui-monospace, Consolas, monospace;
+            word-break: break-all;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin: 12px 0;
+            font-size: 13.5px; display: block; overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        th, td { border: 1px solid var(--gray-border); padding: 8px 10px; text-align: left; vertical-align: top; }
+        th { background: var(--surface); font-weight: 600; white-space: nowrap; }
+        .card {
+            background: var(--surface); border: 1px solid var(--gray-border);
+            border-radius: 10px; padding: 14px; margin: 12px 0;
+        }
+        .note {
+            border-left: 4px solid var(--primary); background: var(--primary-light);
+            padding: 10px 12px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13.5px;
+        }
+        .warn {
+            border-left: 4px solid var(--warning); background: #fff8e1;
+            padding: 10px 12px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13.5px;
+        }
+        [data-theme="dark"] .warn { background: #3d2f14; }
+        .lv { display: inline-block; padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 12px; font-weight: 600; }
+        .lv1 { background: #f9a825; }
+        .lv2 { background: #ef6c00; }
+        .lv3 { background: #d32f2f; }
+        .lv4 { background: #b71c1c; }
+        .steps { counter-reset: s; list-style: none; margin-left: 0; }
+        .steps li { counter-increment: s; position: relative; padding-left: 34px; margin: 10px 0; }
+        .steps li::before {
+            content: counter(s); position: absolute; left: 0; top: 2px;
+            width: 24px; height: 24px; border-radius: 50%; background: var(--primary);
+            color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center;
+        }
+        footer {
+            margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--gray-border);
+            font-size: 12.5px; color: var(--gray);
+        }
+        footer a { color: var(--primary); }
+        @media (max-width: 600px) {
+            h1 { font-size: 20px; }
+            h2 { font-size: 16.5px; }
+            body { font-size: 14.5px; }
+            .wrap { padding: 0 12px 40px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <span class="brand">🛡️ 隐私哨兵</span>
+        <span class="spacer"></span>
+        <button id="btnTheme" type="button">🌙</button>
+        <a href="/">← 回到检测</a>
+    </header>
+
+    <div class="wrap">
+        <h1>使用文档</h1>
+        <p class="sub">识别规则 · 判定逻辑 · 风险等级 · 适用场景，以及这个工具做不到的地方。</p>
+
+        <div class="note">
+            <b>一句话说明</b>：隐私哨兵是一个敏感信息检测工具。你把文本、图片、音频或视频交给它，
+            它找出其中可能泄露的隐私字段，告诉你为什么危险、该怎么处理，并给出脱敏后的版本。
+        </div>
+
+        <h2>1. 三步开始使用</h2>
+        <ol class="steps">
+            <li><b>粘贴内容</b>：在输入框里粘贴一段文字，或点击 📎 上传图片 / 音频 / 视频。</li>
+            <li><b>查看报告</b>：点击发送后会自动检测，给出风险评分、风险清单和整改建议。</li>
+            <li><b>一键处理</b>：复制脱敏后的文本，或导出 JSON 报告留存。</li>
+        </ol>
+        <p>不确定效果？点首页的 <b>✨ 填示例</b>，会自动填入一段示例文本，点发送即可看到完整报告。</p>
+
+        <h2>2. 支持识别的类型</h2>
+        <p>下表是全部内置规则。等级是该类型的<b>最低判定等级</b>，实际等级会结合上下文上调。</p>
+        <table>
+            <thead>
+                <tr><th>类型</th><th>等级</th><th>判定方式</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>身份证号</td><td><span class="lv lv1">L1</span></td>
+                    <td>格式 + 日期校验 + GB 11643 校验位</td>
+                    <td>18 位校验位通过才算确认；15 位老号无校验位，标为「存疑」</td>
+                </tr>
+                <tr>
+                    <td>银行卡号</td><td><span class="lv lv2">L2</span></td>
+                    <td>发卡行前缀 + Luhn 校验</td>
+                    <td>首位必须是 3/4/5/6，否则不判定为卡号，可滤掉大量随机长数字</td>
+                </tr>
+                <tr>
+                    <td>手机号</td><td><span class="lv lv1">L1</span></td>
+                    <td>号段匹配（1[3-9] 开头 11 位）</td>
+                    <td>中国大陆号段</td>
+                </tr>
+                <tr>
+                    <td>密码</td><td><span class="lv lv3">L3</span></td>
+                    <td>上下文关键词（密码 / password / pwd 等）</td>
+                    <td>需出现关键词才判定，避免把任意字符串当成密码</td>
+                </tr>
+                <tr>
+                    <td>短信验证码</td><td><span class="lv lv4">L4</span></td>
+                    <td>上下文关键词 + 4~8 位数字</td>
+                    <td>前后两种语序都支持（「验证码 8832」和「8832 是验证码」）</td>
+                </tr>
+                <tr>
+                    <td>API 密钥</td><td><span class="lv lv3">L3</span></td>
+                    <td>厂商前缀特征 + 上下文声明</td>
+                    <td>覆盖 OpenAI、AWS、阿里云、腾讯云、GitHub、GitLab、Slack、Stripe、JWT、PEM 私钥头等</td>
+                </tr>
+                <tr>
+                    <td>家庭住址</td><td><span class="lv lv1">L1</span></td>
+                    <td>城市名 + 路 / 街 / 小区 / 号等后缀</td>
+                    <td>支持国内主要城市</td>
+                </tr>
+                <tr>
+                    <td>电子邮箱</td><td><span class="lv lv1">L1</span></td>
+                    <td>RFC 宽松格式匹配</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td>链接地址</td><td><span class="lv lv1">L1</span></td>
+                    <td>URL 格式匹配</td>
+                    <td>会检查 query 中是否含 token / code 等凭据</td>
+                </tr>
+                <tr>
+                    <td>护照号</td><td><span class="lv lv1">L1</span></td>
+                    <td>上下文 + E/G/D 前缀</td>
+                    <td>需出现「护照」等关键词，避免误伤产品序列号</td>
+                </tr>
+                <tr>
+                    <td>统一社会信用代码</td><td><span class="lv lv2">L2</span></td>
+                    <td>上下文 + ISO 7064 MOD 31-3 校验</td>
+                    <td>GB 32100-2015</td>
+                </tr>
+                <tr>
+                    <td>IP / MAC 地址</td><td><span class="lv lv1">L1</span></td>
+                    <td>格式匹配</td>
+                    <td>IPv4、IPv6、MAC</td>
+                </tr>
+                <tr>
+                    <td>姓名、其他</td><td><span class="lv lv1">L1</span></td>
+                    <td>AI 语义判定</td>
+                    <td>无固定格式，由模型结合上下文给出</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="note">
+            <b>「存疑」标记</b>：格式像但校验位不通过时（例如随手编的测试号码），工具仍然会报告，
+            但标注为「存疑」。这是刻意的设计——<b>漏报比多报更危险</b>，
+            宁可让你多确认一次，也不让它悄悄放过。
+        </div>
+
+        <h2>3. 判定逻辑：两条通道如何配合</h2>
+        <p>工具同时运行两套引擎，结果融合后输出：</p>
+        <div class="card">
+            <h3>① 本地规则引擎（始终运行）</h3>
+            <p>纯正则 + 校验算法，在服务端本地完成，<b>不依赖任何外部服务</b>。
+            优点是快（毫秒级）、结果确定、逐字符准确；缺点是只能识别格式固定的信息。</p>
+            <h3>② AI 语义引擎（文本 / 图片 / 音视频）</h3>
+            <p>调用多模态模型理解语义，能识别姓名、话术风险、图片中的证件等「没有固定格式」的敏感信息。
+            优点覆盖面广；缺点是慢、有成本，且可能出现幻觉。</p>
+            <h3>融合策略</h3>
+            <ul>
+                <li>本地命中优先，保证 <code>raw</code> 逐字符准确（模型可能抄错数字）；</li>
+                <li>模型补出的新条目合并进来，标注来源；</li>
+                <li>同一位置冲突时，按「校验通过 &gt; 证据强度 &gt; 覆盖长度」取舍，避免一串数字被报成两类；</li>
+                <li>模型挂掉时自动退回纯本地结果，并明确提示「当前结果来自本地规则引擎」——<b>不假装一切正常</b>。</li>
+            </ul>
+        </div>
+
+        <h2>4. 风险等级</h2>
+        <table>
+            <thead><tr><th>等级</th><th>含义</th><th>典型场景</th></tr></thead>
+            <tbody>
+                <tr><td><span class="lv lv1">L1 低危</span></td><td>可识别到个人，但单独泄露危害有限</td><td>手机号、邮箱、住址</td></tr>
+                <tr><td><span class="lv lv2">L2 中危</span></td><td>可用于金融操作或主体冒用</td><td>银行卡号、统一社会信用代码</td></tr>
+                <tr><td><span class="lv lv3">L3 高危</span></td><td>可直接导致账号被接管</td><td>明文密码、API 密钥</td></tr>
+                <tr><td><span class="lv lv4">L4 极高危</span></td><td>可用于完成支付或身份冒用，时效性极强</td><td>短信验证码</td></tr>
+            </tbody>
+        </table>
+        <p>风险评分是 100 分制的直观换算：无风险 100 分，等级越高、条数越多，扣分越多，最低 5 分。
+        它只是为了让非技术用户一眼看出严重程度，<b>不代表精确的数学概率</b>。</p>
+
+        <h2>5. 脱敏规则</h2>
+        <p>结果默认展示脱敏后的形式，原始值不在页面上回传：</p>
+        <table>
+            <thead><tr><th>类型</th><th>脱敏示例</th></tr></thead>
+            <tbody>
+                <tr><td>身份证号</td><td><code>110105********002X</code></td></tr>
+                <tr><td>银行卡号</td><td><code>6222 **** **** 1234</code></td></tr>
+                <tr><td>手机号</td><td><code>138****8000</code></td></tr>
+                <tr><td>密码 / 验证码</td><td><code>******</code> / <code>****</code></td></tr>
+                <tr><td>邮箱</td><td><code>z***@example.com</code></td></tr>
+                <tr><td>API 密钥</td><td><code>sk-****3456</code>（保留厂商前缀便于辨认）</td></tr>
+                <tr><td>IP 地址</td><td><code>192.168.*.*</code></td></tr>
+            </tbody>
+        </table>
+
+        <h2>6. 适用场景</h2>
+        <ul>
+            <li>发送聊天消息、邮件前，检查有没有把身份证号、卡号发出去；</li>
+            <li>截图分享前，检查图片里有没有证件、手机号、住址；</li>
+            <li>提交代码 / 配置文件前，检查有没有把 API 密钥、数据库密码写进去；</li>
+            <li>批量检查一批文本（如客服记录、日志、表单导出）中的敏感字段；</li>
+            <li>给家人（尤其是长辈）做一次「这条消息能不能发」的确认。</li>
+        </ul>
+
+        <div class="warn">
+            <b>能力边界（请务必了解）</b>
+            <ul style="margin-top:6px;">
+                <li><b>它不是杀毒软件，也不是合规审计工具。</b>它能降低「不小心发出去」的概率，
+                    不能保证 100% 不漏报。涉及合同、公文、对外发布的内容，仍需人工复核。</li>
+                <li><b>图片识别依赖模型</b>，手写体、严重模糊、强反光、极小字号可能识别不出。</li>
+                <li><b>只识别中国大陆的号码规则</b>。境外身份证、护照格式、国际银行卡覆盖有限。</li>
+                <li><b>姓名识别准确率有限</b>：中文姓名没有固定格式，模型可能把普通词语误判为姓名，
+                    也可能漏掉不常见的姓名。</li>
+                <li><b>不要用它检测他人的隐私信息</b>。工具设计目的是保护你自己的信息，
+                    拿来批量扫描他人数据既不合适也可能违法。</li>
+            </ul>
+        </div>
+
+        <h2>7. 隐私承诺</h2>
+        <div class="card">
+            <ul>
+                <li>提交的内容<b>仅用于本次检测</b>，检测完成后服务端不保留原始数据。</li>
+                <li>不转发给第三方，不出售，不用于模型训练。</li>
+                <li>结果中的敏感字段默认脱敏展示，完整原文不回传页面。</li>
+                <li>音频检测所需的临时文件，转写完成后立即从对象存储删除。</li>
+                <li>登录仅用于同步你自己的历史记录，密码以 scrypt 哈希存储。</li>
+                <li>全站启用 HTTPS 与安全响应头（CSP / HSTS / nosniff），不投放第三方追踪脚本。</li>
+            </ul>
+            <p style="font-size:13px;color:var(--gray);margin-top:8px;">
+                本项目开源，你可以自行审计源码确认以上承诺。若你使用的是他人部署的实例，
+                承诺由该实例的部署配置决定。
+            </p>
+        </div>
+
+        <h2>8. 常见问题</h2>
+        <h3>为什么第一次访问要等十几秒？</h3>
+        <p>服务部署在按需运行的实例上，长时间无人访问后会自动休眠。首次访问需要冷启动，
+        通常会看到「服务正在唤醒」的提示，等待 15~30 秒后自动重试即可。</p>
+
+        <h3>检测会花钱吗？</h3>
+        <p>本地规则引擎完全免费且不限次。只有调用 AI 语义引擎（文本复检、图片、音视频）才有成本，
+        由服务提供方承担。批量检测默认走本地引擎，不消耗 AI 额度。</p>
+
+        <h3>可以只检测某几类信息吗？</h3>
+        <p>可以。点首页的 <b>🎛 检测规则</b>，勾选你关心的类型，未勾选的会完全跳过检测。</p>
+
+        <h3>结果能保存吗？</h3>
+        <p>最近一次检测结果会存在浏览器本地（localStorage），刷新页面不丢失，24 小时后自动失效。
+        登录后可同步到云端。也可以导出 JSON 或复制报告文本自行保存。</p>
+
+        <footer>
+            隐私哨兵 · 使用文档 &nbsp;·&nbsp;
+            <a href="/">开始检测</a> &nbsp;·&nbsp;
+            <a href="/status.html">服务状态</a> &nbsp;·&nbsp;
+            <a href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener">GitHub 源码</a> &nbsp;·&nbsp;
+            <a href="https://github.com/djjjjj12345/privacy-sentinel/issues/new" target="_blank" rel="noopener">提交反馈</a>
+        </footer>
+    </div>
+
+    <script>
+        // 主题：跟随系统偏好，可手动切换并记住选择
+        (function () {
+            var KEY = 'privacy-sentinel:theme';
+            function apply(t) {
+                document.documentElement.setAttribute('data-theme', t);
+                var b = document.getElementById('btnTheme');
+                if (b) b.textContent = t === 'dark' ? '☀️' : '🌙';
+            }
+            var saved = null;
+            try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { /* 忽略 */ }
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            apply(saved || (prefersDark ? 'dark' : 'light'));
+            var btn = document.getElementById('btnTheme');
+            if (btn) btn.addEventListener('click', function () {
+                var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                apply(next);
+                try { localStorage.setItem(KEY, JSON.stringify(next)); } catch (e) { /* 隐私模式下忽略 */ }
+            });
+        })();
+    </script>
+</body>
+</html>

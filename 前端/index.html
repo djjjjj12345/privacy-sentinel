@@ -2,9 +2,28 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title data-i18n="app.title">隐私哨兵 - 敏感信息检测</title>
-    <meta name="description" content="多模态敏感信息检测 · 文本/图片/音频/视频全通道 · 隐私零留存">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>隐私哨兵 · 敏感信息检测工具 —— 识别身份证 / 手机号 / 银行卡 / API 密钥</title>
+    <meta name="description" content="免费在线隐私检测工具：一键识别文本、图片、音频、视频中的身份证号、手机号、银行卡号、密码、验证码、API 密钥等敏感信息，自动脱敏并给出整改建议。检测完成不留存原始数据。">
+    <meta name="keywords" content="隐私检测,敏感信息识别,身份证检测,手机号脱敏,API密钥泄露检测,数据脱敏,个人信息保护">
+    <meta name="author" content="隐私哨兵 Privacy Sentinel">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="/">
+
+    <!-- Open Graph：分享链接带预览卡片 -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="隐私哨兵 Privacy Sentinel">
+    <meta property="og:title" content="隐私哨兵 · 敏感信息检测工具">
+    <meta property="og:description" content="一键识别文本 / 图片 / 音频 / 视频中的身份证、手机号、银行卡、API 密钥等敏感信息，自动脱敏。检测完成不留存原始数据。">
+    <meta property="og:image" content="/icons/og-cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="隐私哨兵 —— 敏感信息检测工具">
+    <meta property="og:locale" content="zh_CN">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="隐私哨兵 · 敏感信息检测工具">
+    <meta name="twitter:description" content="一键识别身份证、手机号、银行卡、API 密钥等敏感信息，自动脱敏，检测完成不留存原始数据。">
+    <meta name="twitter:image" content="/icons/og-cover.png">
     <meta name="theme-color" content="#1d4ed8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -918,6 +937,257 @@
         #printReport .pr-section h3 { font-size: 14px; margin: 0 0 6px; color: #1565c0; }
         #printReport .pr-footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 11px; color: #888; line-height: 1.6; }
         #printReport .pr-transcript { background: #f9fbf9; border-left: 3px solid #43a047; padding: 10px 12px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+
+        /* ==================================================================
+           v3.5 新增：主题切换 / 隐私声明 / 唤醒提示 / 分层报告 / 批量
+           ================================================================== */
+
+        /* ---------- 深色主题 ---------- */
+        /* 只覆盖语义色变量，不动布局，避免两套样式各自漂移 */
+        [data-theme="dark"] {
+            --primary: #5b93ff;
+            --primary-light: #1c2b4a;
+            --danger: #ff6b6b;
+            --danger-light: #3a1f1f;
+            --warning: #ffb547;
+            --warning-light: #3d2f14;
+            --success: #5ddb7a;
+            --success-light: #17321f;
+            --gray: #8b93a7;
+            --gray-light: #1c2030;
+            --gray-border: #2c3244;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        [data-theme="dark"] html, [data-theme="dark"] body { background: #0e1117; color: #e6e9f0; }
+        [data-theme="dark"] #app { background: #151a23; }
+        [data-theme="dark"] .chat-header { background: #151a23; border-bottom-color: var(--gray-border); }
+        [data-theme="dark"] .messages { background: #0e1117; }
+        [data-theme="dark"] .msg.bot .bubble,
+        [data-theme="dark"] .msg.bot > div { background: #1c2230; color: #e6e9f0; }
+        [data-theme="dark"] .msg.user .bubble { background: var(--primary); color: #fff; }
+        [data-theme="dark"] .input-area { background: #151a23; border-top-color: var(--gray-border); }
+        [data-theme="dark"] #msgInput { background: #1c2230; color: #e6e9f0; }
+        [data-theme="dark"] .modal, [data-theme="dark"] .settings-panel,
+        [data-theme="dark"] .history-panel, [data-theme="dark"] .guide-panel { background: #151a23; color: #e6e9f0; }
+        [data-theme="dark"] .card { background: #1c2230; border-color: var(--gray-border); }
+        [data-theme="dark"] .row { border-bottom-color: var(--gray-border); }
+        [data-theme="dark"] .analysis-card { background: #1c2230; border-color: var(--gray-border); }
+        [data-theme="dark"] .ac-item { background: #232a3a; }
+        [data-theme="dark"] input.auth-input,
+        [data-theme="dark"] textarea#msgInput { background: #1c2230; color: #e6e9f0; border-color: var(--gray-border); }
+        [data-theme="dark"] .btn.outline { border-color: var(--gray-border); color: #e6e9f0; }
+        [data-theme="dark"] .tag, [data-theme="dark"] .chip { background: #232a3a; color: #e6e9f0; }
+        [data-theme="dark"] .status-bar { background: #0e1117; color: var(--gray); }
+        /* 主题切换按钮 */
+        .theme-toggle { font-size: 14px; }
+
+        /* ---------- 首页一句话简介 ---------- */
+        .tagline {
+            padding: 8px 14px 10px;
+            font-size: 12.5px;
+            line-height: 1.6;
+            color: var(--gray);
+            background: var(--gray-light);
+            border-bottom: 1px solid var(--gray-border);
+        }
+        [data-theme="dark"] .tagline { background: #10151d; }
+        .tagline b { color: var(--primary); font-weight: 600; }
+        .tagline .tagline-types { margin-top: 4px; font-size: 11.5px; }
+        .tagline .tagline-types span {
+            display: inline-block; margin-right: 4px; padding: 1px 6px;
+            background: var(--primary-light); color: var(--primary);
+            border-radius: 8px; font-size: 11px;
+        }
+
+        /* ---------- 隐私声明 ---------- */
+        .privacy-list { text-align: left; font-size: 12.5px; line-height: 1.75; color: inherit; }
+        .privacy-list li { margin-bottom: 5px; padding-left: 2px; }
+        .privacy-note {
+            margin-top: 10px; padding: 8px 10px; font-size: 11.5px; line-height: 1.6;
+            background: var(--success-light); border-radius: 8px; color: inherit;
+        }
+        .privacy-checkline { display: flex; align-items: flex-start; gap: 7px; margin-top: 10px; font-size: 12px; }
+        .privacy-checkline input { margin-top: 2px; width: 15px; height: 15px; flex: none; }
+
+        /* ---------- 唤醒 / 加载提示 ---------- */
+        .wake-mask {
+            position: fixed; inset: 0; z-index: 9000;
+            background: rgba(0, 0, 0, 0.42);
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .wake-mask[hidden] { display: none; }
+        .wake-card {
+            background: #fff; border-radius: 14px; padding: 20px 18px;
+            max-width: 320px; width: 100%; text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .wake-card { background: #1c2230; color: #e6e9f0; }
+        .wake-spinner {
+            width: 34px; height: 34px; margin: 0 auto 12px;
+            border: 3px solid var(--primary-light); border-top-color: var(--primary);
+            border-radius: 50%; animation: wake-spin 0.9s linear infinite;
+        }
+        @keyframes wake-spin { to { transform: rotate(360deg); } }
+        .wake-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        .wake-desc { font-size: 12.5px; line-height: 1.7; color: var(--gray); }
+        .wake-progress {
+            margin-top: 12px; height: 4px; background: var(--gray-light);
+            border-radius: 3px; overflow: hidden;
+        }
+        .wake-progress > i { display: block; height: 100%; background: var(--primary); width: 0; transition: width .5s linear; }
+        .wake-count { margin-top: 8px; font-size: 11.5px; color: var(--gray); }
+
+        /* ---------- 错误提示卡（分类后） ---------- */
+        .err-card {
+            border-left: 4px solid var(--danger);
+            background: var(--danger-light);
+            border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 12.5px; line-height: 1.7;
+        }
+        [data-theme="dark"] .err-card { background: #2a1a1e; }
+        .err-card .err-title { font-weight: 600; margin-bottom: 3px; }
+        .err-card .err-msg { color: var(--gray); }
+        [data-theme="dark"] .err-card .err-msg { color: #b9c0d0; }
+        .err-card .err-action { margin-top: 6px; color: var(--primary); }
+        .err-card .err-retry {
+            margin-top: 8px; font-size: 12px; padding: 5px 12px;
+            border: 1px solid var(--primary); color: var(--primary);
+            border-radius: 6px; background: transparent;
+        }
+
+        /* ---------- 分层报告 ---------- */
+        .rp-wrap { margin: 8px 0; }
+        .rp-score {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px; border-radius: 10px; background: var(--gray-light);
+        }
+        [data-theme="dark"] .rp-score { background: #232a3a; }
+        .rp-score-num { font-size: 26px; font-weight: 700; line-height: 1; }
+        .rp-score-meta { flex: 1; font-size: 12px; line-height: 1.6; }
+        .rp-score-bar { height: 5px; background: var(--gray-border); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+        .rp-score-bar > i { display: block; height: 100%; border-radius: 3px; }
+        .rp-legend { display: flex; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--gray); flex-wrap: wrap; }
+        .rp-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; }
+        /* 风险等级标色：红=高危 橙=中危 黄=低危 */
+        .lv-high { color: #d32f2f; }
+        .lv-mid { color: #ef6c00; }
+        .lv-low { color: #f9a825; }
+        .lv-none { color: #43a047; }
+        .rp-chip {
+            display: inline-block; padding: 1px 7px; border-radius: 9px;
+            font-size: 11px; font-weight: 600; color: #fff;
+        }
+        .rp-chip.lv-high { background: #d32f2f; }
+        .rp-chip.lv-mid { background: #ef6c00; }
+        .rp-chip.lv-low { background: #f9a825; }
+        .rp-chip.lv-none { background: #43a047; }
+        .rp-item {
+            display: flex; align-items: flex-start; gap: 8px;
+            padding: 8px 10px; margin-top: 6px; border-radius: 8px;
+            background: var(--gray-light); border-left: 3px solid var(--gray-border);
+        }
+        [data-theme="dark"] .rp-item { background: #232a3a; }
+        .rp-item.rp-high { border-left-color: #d32f2f; }
+        .rp-item.rp-mid { border-left-color: #ef6c00; }
+        .rp-item.rp-low { border-left-color: #f9a825; }
+        .rp-item-main { flex: 1; min-width: 0; }
+        .rp-item-label { font-size: 12.5px; font-weight: 600; }
+        .rp-item-value { font-size: 12px; color: var(--gray); word-break: break-all; margin-top: 2px; }
+        [data-theme="dark"] .rp-item-value { color: #b9c0d0; }
+        .rp-item-why { font-size: 11.5px; line-height: 1.6; margin-top: 4px; color: var(--gray); }
+        [data-theme="dark"] .rp-item-why { color: #b9c0d0; }
+        .rp-item-fix { font-size: 11.5px; line-height: 1.6; margin-top: 3px; color: var(--primary); }
+        .rp-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+        .rp-actions button {
+            font-size: 11.5px; padding: 5px 10px; border-radius: 6px;
+            border: 1px solid var(--gray-border); background: transparent; color: inherit;
+        }
+        .rp-actions button:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* ---------- 示例样本 ---------- */
+        .sample-row { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; }
+        .sample-chip {
+            font-size: 11.5px; padding: 4px 10px; border-radius: 12px;
+            border: 1px solid var(--primary); color: var(--primary); background: transparent;
+        }
+        .sample-chip:hover { background: var(--primary-light); }
+
+        /* ---------- 批量 / 规则面板 ---------- */
+        .tool-panel {
+            position: absolute; inset: 0; z-index: 60; background: #fff;
+            display: flex; flex-direction: column; transform: translateX(100%);
+            transition: transform .25s ease;
+        }
+        [data-theme="dark"] .tool-panel { background: #151a23; color: #e6e9f0; }
+        .tool-panel.open { transform: translateX(0); }
+        .tool-panel .header {
+            display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+            border-bottom: 1px solid var(--gray-border); font-weight: 600;
+        }
+        .tool-panel .body { flex: 1; overflow-y: auto; padding: 12px 14px 24px; -webkit-overflow-scrolling: touch; }
+        .tool-hint { font-size: 11.5px; color: var(--gray); line-height: 1.7; margin-bottom: 8px; }
+        #batchInput {
+            width: 100%; min-height: 150px; resize: vertical;
+            border: 1px solid var(--gray-border); border-radius: 8px; padding: 10px;
+            font-size: 13px; line-height: 1.7; font-family: inherit; background: transparent; color: inherit;
+        }
+        .rule-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 6px; }
+        .rule-item {
+            display: flex; align-items: center; gap: 6px; font-size: 12.5px;
+            padding: 7px 9px; border: 1px solid var(--gray-border); border-radius: 8px;
+        }
+        .rule-item input { width: 15px; height: 15px; flex: none; }
+        .rule-item .rule-lv { margin-left: auto; font-size: 10.5px; color: var(--gray); }
+        .batch-row {
+            padding: 9px 10px; margin-top: 6px; border-radius: 8px;
+            background: var(--gray-light); border-left: 3px solid var(--gray-border);
+        }
+        [data-theme="dark"] .batch-row { background: #232a3a; }
+        .batch-row.b-has { border-left-color: var(--danger); }
+        .batch-row.b-free { border-left-color: var(--success); }
+        .batch-row .b-head { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .batch-row .b-text {
+            font-size: 11.5px; color: var(--gray); margin-top: 3px;
+            word-break: break-all; max-height: 3.2em; overflow: hidden;
+        }
+        .batch-row .b-items { font-size: 11.5px; margin-top: 4px; }
+        .batch-stat {
+            display: flex; gap: 10px; flex-wrap: wrap; padding: 10px;
+            background: var(--primary-light); border-radius: 8px; font-size: 12px; margin-top: 8px;
+        }
+        /* 移动端：最小点击区域 44px */
+        @media (max-width: 480px) {
+            .rule-item { padding: 10px; font-size: 13.5px; }
+            .rule-item input { width: 18px; height: 18px; }
+            .rp-actions button { padding: 9px 12px; font-size: 12.5px; }
+            .sample-chip { padding: 7px 12px; font-size: 12.5px; }
+            .chat-header .actions button { min-width: 34px; min-height: 34px; }
+            .btn { min-height: 40px; }
+        }
+
+        /* ---------- 移动端适配修复 ---------- */
+        /* 1) 结果表格与长文本不再撑破容器 */
+        .analysis-card, .msg > div, .ac-items, .rp-wrap { max-width: 100%; overflow-wrap: anywhere; }
+        /* 2) 禁止横向滚动条（此前表格类内容会溢出） */
+        html, body { overflow-x: hidden; }
+        #app { overflow-x: hidden; }
+        /* 3) 输入框在 iOS 上聚焦时不会被键盘顶出可视区 */
+        .input-area { padding-bottom: env(safe-area-inset-bottom, 0); }
+        /* 4) 桌面端不再是被截断的窄条：居中卡片，最大宽度放宽 */
+        @media (min-width: 700px) {
+            #app { max-width: 560px; box-shadow: 0 0 40px rgba(0, 0, 0, 0.12); }
+            .tagline { font-size: 13px; }
+        }
+        /* 5) 小屏上按钮不再挤成一排导致误触 */
+        @media (max-width: 360px) {
+            .chat-header .actions { gap: 2px; }
+            .chat-header .actions button { padding: 4px; font-size: 13px; }
+            .tagline { padding: 6px 10px 8px; }
+        }
+        /* 6) 尊重「减少动效」偏好 */
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
     </style>
 </head>
 <body>
@@ -930,12 +1200,33 @@
         <div class="chat-header">
             <div class="title"><span data-i18n="app.brand">🛡️ 隐私哨兵</span> <span class="badge">实时保护</span></div>
             <div class="actions">
+                <button id="btnTheme" class="theme-toggle" title="切换浅色/深色" aria-label="切换浅色或深色主题">🌙</button>
                 <button id="btnGuide" title="防骗指南" data-i18n-title="nav.guide" data-i18n-aria="nav.guide">📖</button>
                 <button id="btnHistory" title="预警历史" data-i18n-title="nav.history" data-i18n-aria="nav.history">📋</button>
                 <button id="btnAccount" title="账号" data-i18n-title="nav.account" data-i18n-aria="nav.account">👤</button>
-                <button id="btnLang" title="中/EN" data-i18n-title="nav.lang" onclick="i18n.setLocale(i18n.getLocale()==='zh'?'en':'zh')" style="font-size:13px;">中/EN</button>
+                <button id="btnLang" title="中/EN" data-i18n-title="nav.lang" data-action="toggle-lang" style="font-size:13px;">中/EN</button>
                 <button id="btnSettings" title="设置" data-i18n-title="nav.settings" data-i18n-aria="nav.settings" class="active">⚙️</button>
             </div>
+        </div>
+
+        <!-- 一句话简介：告诉新用户这个工具是干什么的 -->
+        <div class="tagline">
+            <b>隐私哨兵</b>是一个文本 / 图片 / 音频 / 视频的<b>敏感信息检测工具</b>——
+            粘贴内容即可自动识别其中可能泄露的隐私字段并给出脱敏建议。
+            <div class="tagline-types">
+                <span>身份证</span><span>手机号</span><span>银行卡</span><span>密码</span>
+                <span>验证码</span><span>邮箱</span><span>地址</span><span>API 密钥</span>
+            </div>
+        </div>
+
+        <!-- 常用入口：批量检测 / 检测规则 / 示例 / 文档 / 反馈 -->
+        <div class="sample-row">
+            <button class="sample-chip" data-action="open-batch">📦 批量检测</button>
+            <button class="sample-chip" data-action="open-rules">🎛 检测规则</button>
+            <button class="sample-chip" data-action="fill-sample">✨ 填示例</button>
+            <button class="sample-chip" data-action="open-privacy">🔒 隐私说明</button>
+            <a class="sample-chip" href="/docs.html" style="text-decoration:none;">📖 使用文档</a>
+            <a class="sample-chip" href="/status.html" style="text-decoration:none;">📡 服务状态</a>
         </div>
 
         <div class="messages" id="messages">
@@ -943,7 +1234,7 @@
                 <div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span> 在线</div>
                 你好！我已开启敏感信息检测。<br>
                 发送消息、图片、音频或视频，我将自动检测其中的身份证、银行卡、密码、验证码等敏感信息。<br>
-                <span style="font-size:13px;color:var(--gray);">💡 试试输入 "我的身份证号是110105199003071234"</span><br>
+                <span style="font-size:13px;color:var(--gray);">💡 试试输入 "我的身份证号是11010519491231002X"</span><br>
                 <span style="font-size:13px;color:var(--primary);">📂 输入图片URL（以http开头）将使用AI视觉识别</span>
             </div>
         </div>
@@ -1091,6 +1382,26 @@
                     </div>
                 </div>
                 <button class="btn-add" id="resetDefaults" style="border-color:var(--danger);color:var(--danger);margin-top:8px;">↺ 恢复默认设置</button>
+
+                <!-- 开源与反馈：工具本身接受监督，是隐私类产品建立信任的前提 -->
+                <div class="section" style="margin-top:14px;">
+                    <div class="section-title">🌐 开源与反馈</div>
+                    <div class="card">
+                        <div class="row">
+                            <span class="label">本项目已开源</span>
+                            <span class="value" style="color:var(--primary);">可自行审计</span>
+                        </div>
+                        <div style="font-size:11.5px;color:var(--gray);line-height:1.7;padding:8px 0 2px;">
+                            声称保护隐私的工具，自己必须是可审查的。你可以查看源码确认它「真的没有偷偷上传」。
+                        </div>
+                        <div class="rp-actions" style="margin-top:6px;">
+                            <a class="sample-chip" href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener" style="text-decoration:none;">⭐ GitHub 源码</a>
+                            <a class="sample-chip" href="https://github.com/djjjjj12345/privacy-sentinel/issues/new" target="_blank" rel="noopener" style="text-decoration:none;">🐛 提交反馈</a>
+                            <a class="sample-chip" href="/docs.html" style="text-decoration:none;">📖 使用文档</a>
+                            <a class="sample-chip" href="/status.html" style="text-decoration:none;">📡 服务状态</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1138,6 +1449,95 @@
                     <div class="detail">🔹 防范：不点击陌生链接，手动输入官方网址。<br>🔹 案例：赵先生收到「银行」短信称账户异常，点击链接输入卡号和密码后，卡内 5 万元被转走。</div>
                 </div>
             </div>
+        </div>
+
+        <!-- ========== v3.5 隐私声明弹窗 ========== -->
+        <div class="overlay" id="privacyModal">
+            <div class="modal">
+                <div class="modal-title">🔒 隐私承诺</div>
+                <div class="modal-sub">检测前请花 10 秒了解一下你的数据会去哪</div>
+                <div class="modal-body">
+                    <ul class="privacy-list">
+                        <li>你提交的内容<b>仅用于本次检测</b>，检测完成后服务端<b>不保留原始数据</b>。</li>
+                        <li><b>不转发给第三方</b>，不出售，不用于模型训练。</li>
+                        <li>结果中的敏感字段默认<b>以脱敏形式展示</b>（如 110105********1234）。</li>
+                        <li>音频检测所需的临时文件，转写完成后<b>立即从对象存储删除</b>。</li>
+                        <li>登录仅用于同步你自己的历史记录，密码以哈希存储。</li>
+                        <li>全站启用 HTTPS 与安全响应头，<b>不投放第三方追踪脚本</b>。</li>
+                    </ul>
+                    <div class="privacy-note">
+                        本工具开源可自建。若你使用的是他人部署的实例，以上承诺由该实例的部署配置决定。
+                    </div>
+                    <label class="privacy-checkline">
+                        <input type="checkbox" id="privacyDontShow">
+                        <span>我已了解，下次不再提示</span>
+                    </label>
+                    <div class="modal-actions">
+                        <button class="btn outline" id="privacyGithub">⭐ GitHub</button>
+                        <button class="btn primary" id="privacyAgree">我已了解，开始使用</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== v3.5 批量检测面板 ========== -->
+        <div class="tool-panel" id="batchPanel">
+            <div class="header">
+                <button class="back-btn" id="batchBack">‹</button>
+                <span>📦 批量检测</span>
+                <span style="margin-left:auto;font-size:11.5px;color:var(--gray);" id="batchMeta">每行一条</span>
+            </div>
+            <div class="body">
+                <div class="tool-hint">
+                    每行一条内容，最多 50 行、每行 5000 字。默认使用<b>本地规则引擎</b>（秒出结果、不消耗 AI 额度），
+                    号码类信息识别准确率与 AI 模式一致。
+                </div>
+                <textarea id="batchInput" placeholder="每行一条，例如：&#10;张三 身份证11010519491231002X&#10;李四 手机13800138000 邮箱 lisi@example.com&#10;aws_secret = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"></textarea>
+                <div class="rp-actions" style="margin-top:10px;">
+                    <button type="button" data-action="batch-run">▶ 开始批量检测</button>
+                    <button type="button" data-action="batch-sample">✨ 填充示例</button>
+                    <button type="button" data-action="batch-clear">清空</button>
+                    <button type="button" data-action="batch-export">⬇ 导出结果 JSON</button>
+                </div>
+                <div id="batchResult"></div>
+            </div>
+        </div>
+
+        <!-- ========== v3.5 检测规则自定义面板 ========== -->
+        <div class="tool-panel" id="rulesPanel">
+            <div class="header">
+                <button class="back-btn" id="rulesBack">‹</button>
+                <span>🎛 检测规则</span>
+                <span style="margin-left:auto;font-size:11.5px;color:var(--gray);" id="rulesCount">全部</span>
+            </div>
+            <div class="body">
+                <div class="tool-hint">
+                    勾选需要识别的敏感类型，未勾选的类型将<b>完全跳过检测</b>。
+                    默认全选，等价于「全部规则」。
+                </div>
+                <div class="rp-actions">
+                    <button type="button" data-action="rules-all">全选</button>
+                    <button type="button" data-action="rules-none">全不选</button>
+                    <button type="button" data-action="rules-reset">恢复默认</button>
+                </div>
+                <div class="rule-grid" id="ruleGrid"></div>
+                <div class="privacy-note" style="margin-top:14px;">
+                    L1 低风险 · L2 中风险 · L3 高风险 · L4 极高风险。等级为该类信息的<b>最低判定等级</b>，
+                    实际等级会结合上下文上调。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 冷启动唤醒提示：服务休眠时首个请求会拿到 502/503，
+         这里给一个明确的等待反馈，而不是让用户看到原生错误页 -->
+    <div class="wake-mask" id="wakeMask" hidden>
+        <div class="wake-card">
+            <div class="wake-spinner"></div>
+            <div class="wake-title" id="wakeTitle">服务正在唤醒</div>
+            <div class="wake-desc" id="wakeDesc">服务部署在按需运行的实例上，长时间无人访问后会休眠，首次访问需要冷启动。请等待 15~30 秒，正在自动重试。</div>
+            <div class="wake-progress"><i id="wakeBar"></i></div>
+            <div class="wake-count" id="wakeCount">已等待 0 秒</div>
         </div>
     </div>
 
@@ -1449,6 +1849,15 @@
          * 这类错误几乎都来自 Render 部署重启或休眠唤醒窗口，属瞬时故障，
          * 服务通常在十几秒内恢复，直接报错会让用户误以为功能坏了。
          */
+        /**
+         * 统一分析请求入口。
+         *
+         * v3.5 相比旧版的三处改进：
+         *   1. 自动带上用户勾选的检测类型（types）；
+         *   2. 502/503/504 与网络断连时展示「服务正在唤醒」提示并自动重试，
+         *      而不是让用户盯着一个没有反馈的转圈；
+         *   3. 所有失败都归一化为带 code 的错误，调用方据此渲染分类提示卡。
+         */
         async function callAnalyze(payload, timeoutMs = AI_TIMEOUT_MS, kindLabel, _retry) {
             const retry = _retry || 0;
             const controller = new AbortController();
@@ -1457,39 +1866,61 @@
                 const resp = await fetch(API_ANALYZE_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(Object.assign({ profile: getProfile() }, payload)),
+                    // types 为 null 时后端不过滤（等价全选）
+                    body: JSON.stringify(Object.assign({ profile: getProfile() }, payload, { types: activeTypes() })),
                     signal: controller.signal,
                 });
                 let data = null;
                 try { data = await resp.json(); } catch (e) { data = null; }
                 if (!data) {
-                    // 非 JSON 响应体 = Render 代理层错误页（服务重启/唤醒/崩溃中）
-                    if ((resp.status === 502 || resp.status === 503 || resp.status === 504) && retry < 2) {
+                    // 非 JSON 响应体 = 代理层错误页（服务重启 / 唤醒 / 崩溃中）
+                    const gw = resp.status === 502 || resp.status === 503 || resp.status === 504;
+                    if (gw && retry < 2) {
+                        showWake(retry);
                         await new Promise(r => setTimeout(r, 8000 + retry * 9000));
                         return callAnalyze(payload, timeoutMs, kindLabel, retry + 1);
                     }
-                    if (resp.status === 502 || resp.status === 503 || resp.status === 504) {
-                        throw new Error('服务暂时不可用（正在部署或休眠唤醒中），已自动重试仍失败。请约 1 分钟后再试');
-                    }
-                    throw new Error(`服务返回异常（HTTP ${resp.status}）`);
+                    hideWake();
+                    if (gw) throw mkError('服务暂时不可用：已自动重试 2 次仍未恢复，请约 1 分钟后再试', 'service_waking', resp.status);
+                    throw mkError(`服务返回异常（HTTP ${resp.status}）`, 'server_error', resp.status);
                 }
-                if (!resp.ok || data.success === false) throw new Error(data.error || `HTTP ${resp.status}`);
+                hideWake();
+                if (!resp.ok || data.success === false) {
+                    // 后端已给出分类码时优先用它，前端目录与之对齐
+                    throw mkError(data.title || data.error || `HTTP ${resp.status}`, data.code, resp.status, data);
+                }
                 return data;
             } catch (err) {
                 if (err.name === 'AbortError') {
-                    throw new Error(kindLabel
+                    hideWake();
+                    throw mkError(kindLabel
                         ? `${kindLabel}识别超时：模型处理超时（大文件常需 1-2 分钟）。请剪短或压缩后再试`
-                        : '识别超时，请检查网络后重试');
+                        : '识别超时，请检查网络后重试', 'upstream_timeout', 504);
                 }
                 // 网络层断连（服务重启时连接被掐）同样走自动重试
-                if (err.name === 'TypeError' && retry < 2) {
+                if (err && err.name === 'TypeError' && retry < 2) {
+                    showWake(retry);
                     await new Promise(r => setTimeout(r, 8000 + retry * 9000));
                     return callAnalyze(payload, timeoutMs, kindLabel, retry + 1);
                 }
-                throw err;
+                // 已是结构化错误就直接抛，否则补分类信息
+                if (err && err.errCode) { hideWake(); throw err; }
+                hideWake();
+                const c = classifyError(err, 0);
+                throw mkError(c.title + '。' + c.action, c.code, 0, null, err);
             } finally {
                 clearTimeout(timer);
             }
+        }
+
+        /** 构造携带分类信息的 Error，让调用方能区分错误类型 */
+        function mkError(message, code, status, body, cause) {
+            const e = new Error(message);
+            e.errCode = code || 'server_error';
+            e.errStatus = status || 0;
+            if (body) e.errBody = body;
+            if (cause) e.cause = cause;
+            return e;
         }
 
         /** 服务端条目 → 前端风险条目（本地的灵敏度设置作为等级下限） */
@@ -1656,6 +2087,20 @@
             // 结构化识别结果卡片
             if (extra.analysis) {
                 addBotCard(extra.analysis);
+                // v3.5：分层报告（总分 + 等级标色 + 通俗解释 + 整改建议 + 导出）
+                const dets = (extra.analysis && extra.analysis.detections) || [];
+                renderLayeredReport(dets, { text: safeText || text || '' });
+                cacheLastResult({
+                    time: new Date().toISOString(),
+                    score: riskScore(dets),
+                    maxLevel: dets.length ? Math.max.apply(null, dets.map((d) => Number(d.level) || 1)) : 0,
+                    levelName: LEVEL_NAME_FULL[dets.length ? Math.max.apply(null, dets.map((d) => Number(d.level) || 1)) : 0],
+                    items: dets.map((d) => ({
+                        type: d.type, label: d.label, level: Number(d.level) || 1,
+                        masked: d.masked, reason: d.reason || '', engine: d.engine || '',
+                    })),
+                    text: safeText || '',
+                });
             }
 
             let reply = '✅ 消息已发送。';
@@ -1723,7 +2168,9 @@
                 reason: reason, suggestion: suggestion, fileInfo: fileInfo, extra: extra,
                 text: text || '', action: '', time: getTime(), date: new Date().toLocaleDateString(),
             };
-            const exportBtnHtml = `<div style="margin-top:10px;text-align:right;"><button type="button" class="btn outline" style="font-size:12px;" onclick="exportCurrentReport()">📄 ${i18n.t('report.button')}</button></div>`;
+            // 用 data-action 代替内联 onclick：CSP 启用了 nonce，
+            // 内联事件处理器会被拦掉，统一走 document 层的事件委托
+            const exportBtnHtml = `<div style="margin-top:10px;text-align:right;"><button type="button" class="btn outline" style="font-size:12px;" data-action="export-report">📄 ${i18n.t('report.button')}</button></div>`;
 
             if (maxLevel === 1) {
                 showToast(`🟢 ${levelName} · ${reason}`, 3000);
@@ -1860,11 +2307,7 @@
             if (long) {
                 html2 += `
                     <div id="${foldId}-tail" class="transcript-text" style="font-size:16px;line-height:1.7;color:#222;display:none;">${tail}</div>
-                    <button type="button" onclick="
-                        document.getElementById('${foldId}-head').style.display='none';
-                        document.getElementById('${foldId}-tail').style.display='block';
-                        this.style.display='none';
-                    " style="margin-top:8px;background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;">展开全文 ↓</button>
+                    <button type="button" data-action="expand-transcript" data-fold-id="${foldId}" style="margin-top:8px;background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;">展开全文 ↓</button>
                 `;
             }
             html2 += `</div>`;
@@ -2417,7 +2860,8 @@
                 });
             } catch (err) {
                 if (card) card.remove();
-                addMessage(`❌ 图片识别失败：${escapeHtml(err.message)}`, 'bot', { time: getTime() });
+                // v3.5：分类提示 + 一键重试
+                addErrorCard(err, err.errStatus || 0, () => handleImageSource(source, opts));
                 if (opts.fileInfo) {
                     addHistory(1, [{ label: '识别失败', value: opts.fileInfo.name, level: 1 }], '识别失败', opts.fileInfo.name);
                 }
@@ -2674,10 +3118,8 @@
             } catch (err) {
                 stopTimer();
                 if (card) card.remove();
-                addMessage(
-                    `❌ ${kindLabel}识别失败：${escapeHtml(err.message)}`,
-                    'bot', { time: getTime() }
-                );
+                // v3.5：按错误类型给出中文提示与解决办法，并支持一键重试
+                addErrorCard(err, err.errStatus || 0, () => analyzeFile(file, kind));
                 addHistory(1, [{ label: '识别失败', value: file.name, level: 1 }], '识别失败', file.name);
             }
         }
@@ -2945,6 +3387,676 @@
             addMessage(i18n.t('boot.hint1'), 'bot', { time: getTime() });
             addMessage(i18n.t('boot.hint2'), 'bot', { time: getTime() });
         }, 800);
+
+        /* ================================================================
+           v3.5 体验加固
+           ================================================================ */
+
+        const LS = {
+            theme: 'privacy-sentinel:theme',
+            privacyAck: 'privacy-sentinel:privacy-ack',
+            lastResult: 'privacy-sentinel:last-result',
+            rules: 'privacy-sentinel:rules',
+        };
+        const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+        const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 隐私模式下写入失败，忽略 */ } };
+
+        // ------------------------------------------------------------------
+        //  1. 主题切换
+        // ------------------------------------------------------------------
+        function applyTheme(t) {
+            document.documentElement.setAttribute('data-theme', t);
+            const btn = document.getElementById('btnTheme');
+            if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', t === 'dark' ? '#0e1117' : '#1d4ed8');
+        }
+        function initTheme() {
+            // 未手动选择过则跟随系统偏好
+            const saved = lsGet(LS.theme, null);
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+            const btn = document.getElementById('btnTheme');
+            if (btn) btn.addEventListener('click', () => {
+                const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                applyTheme(next);
+                lsSet(LS.theme, next);
+            });
+        }
+
+        // ------------------------------------------------------------------
+        //  2. 隐私声明弹窗
+        // ------------------------------------------------------------------
+        function openPrivacy() { document.getElementById('privacyModal').classList.add('show'); }
+        function closePrivacy() { document.getElementById('privacyModal').classList.remove('show'); }
+        function initPrivacy() {
+            const modal = document.getElementById('privacyModal');
+            document.getElementById('privacyAgree').addEventListener('click', () => {
+                if (document.getElementById('privacyDontShow').checked) lsSet(LS.privacyAck, true);
+                closePrivacy();
+            });
+            document.getElementById('privacyGithub').addEventListener('click', () => {
+                window.open(GITHUB_REPO, '_blank', 'noopener');
+            });
+            modal.addEventListener('click', (e) => { if (e.target === modal) closePrivacy(); });
+            // 首次访问自动弹出一次
+            if (!lsGet(LS.privacyAck, false)) setTimeout(openPrivacy, 600);
+        }
+
+        // ------------------------------------------------------------------
+        //  3. 错误分类 + 冷启动唤醒提示
+        // ------------------------------------------------------------------
+        const GITHUB_REPO = 'https://github.com/djjjjj12345/privacy-sentinel';
+        const GITHUB_ISSUE = GITHUB_REPO + '/issues/new';
+
+        /**
+         * 前端错误目录。与后端 services/errors.js 的 code 一一对应，
+         * 但这里额外包含只有前端才能观察到的两类：
+         *   - service_waking：fetch 拿到网关代答的 502/503（实例休眠）
+         *   - network_error：请求根本没发出去（断网 / DNS 失败）
+         */
+        const ERR_CATALOG = {
+            empty_input: { title: '没有可检测的内容', message: '你提交的内容是空的，或只包含空格和换行。', action: '输入一段文字，或上传图片 / 音频 / 视频后再检测。', retryable: false },
+            invalid_kind: { title: '不支持的内容类型', message: '当前支持文本、图片、音频、视频四种检测对象。', action: '请确认提交的是上述类型之一。', retryable: false },
+            invalid_format: { title: '内容格式不对', message: '提交的内容无法解析，可能是文件损坏、编码异常，或不是有效的媒体文件。', action: '换一个文件试试；图片建议用 JPG / PNG，音频建议用 MP3 / WAV。', retryable: false },
+            payload_too_large: { title: '内容太大了', message: '单次提交的大小超出上限。', action: '压缩图片（长边 1600px 以内），或把音视频剪到 1 分钟以内再上传。', retryable: false },
+            unsupported_media: { title: '这个文件格式不支持', message: '上传的音频或视频格式不在支持范围内。', action: '音频用 MP3 / WAV / AAC / M4A，视频用 MP4 / MOV，先转格式再试。', retryable: false },
+            rate_limited: { title: '操作太频繁了', message: '为保护服务不被刷爆，每分钟的请求次数有上限。', action: '稍等 30 秒后重试。批量内容建议用「批量检测」一次提交。', retryable: true },
+            upstream_timeout: { title: '识别服务响应超时', message: '已提交给识别引擎，但它在规定时间内没有返回结果。', action: '稍后重试。若持续超时，可用「本地规则」模式，它不依赖任何外部服务。', retryable: true },
+            upstream_error: { title: '识别服务暂时不可用', message: '上游识别服务返回了异常，可能是额度用尽、密钥失效或服务侧故障。', action: '稍后重试；文本检测可切到「本地规则」模式，仍可识别号码类信息。', retryable: true },
+            apikey_invalid: { title: '识别服务密钥无效', message: '调用识别服务被拒绝，通常是服务端密钥未配置或已失效。', action: '自建实例请检查部署环境变量中的 API Key；托管实例请联系服务方。', retryable: false },
+            service_waking: { title: '服务正在唤醒', message: '服务部署在按需运行的实例上，长时间无人访问后会自动休眠，首次访问需要冷启动。', action: '请等待 15~30 秒后自动重试，或手动再点一次检测。', retryable: true },
+            network_error: { title: '网络连接失败', message: '没有连上服务，可能是网络中断、代理拦截，或服务正在重启。', action: '检查网络后重试；若刚打开页面就报错，多半是服务在冷启动，等 15~30 秒再试。', retryable: true },
+            auth_required: { title: '需要登录', message: '这个功能需要登录后才能使用。', action: '点击右上角头像登录或注册。仅用于同步历史，不收集其他信息。', retryable: false },
+            not_found: { title: '接口不存在', message: '请求的接口地址已变更或不存在。', action: '刷新页面后重试。', retryable: false },
+            server_error: { title: '服务内部错误', message: '服务处理这个请求时出错了，这属于程序问题，不是你的操作问题。', action: '请稍后重试。若反复出现，欢迎到 GitHub 提 issue 附上时间与内容类型。', retryable: true },
+        };
+
+        /**
+         * 把任意错误归一化为可展示的结构。
+         * 优先级：后端返回的 code > HTTP 状态推断 > 消息关键字 > 兜底。
+         */
+        function classifyError(err, status) {
+            const code = err && (err.code || err.errorCode);
+            if (code && ERR_CATALOG[code]) return Object.assign({ code }, ERR_CATALOG[code]);
+
+            const st = Number(status || (err && (err.status || err.statusCode)) || 0);
+            // 关键：只有前端能观察到「实例休眠」——网关在实例没起来时直接代答 502/503。
+            // 服务端自己返回 502 则是上游故障，不能混为一谈。
+            if (st === 502 || st === 503) return Object.assign({ code: 'service_waking' }, ERR_CATALOG.service_waking);
+            if (st === 504) return Object.assign({ code: 'upstream_timeout' }, ERR_CATALOG.upstream_timeout);
+            if (st === 429) return Object.assign({ code: 'rate_limited' }, ERR_CATALOG.rate_limited);
+            if (st === 413) return Object.assign({ code: 'payload_too_large' }, ERR_CATALOG.payload_too_large);
+            if (st === 415) return Object.assign({ code: 'unsupported_media' }, ERR_CATALOG.unsupported_media);
+            if (st === 401 || st === 403) return Object.assign({ code: 'apikey_invalid' }, ERR_CATALOG.apikey_invalid);
+            if (st === 404) return Object.assign({ code: 'not_found' }, ERR_CATALOG.not_found);
+
+            const msg = String((err && err.message) || err || '');
+            if (err && err.name === 'AbortError') return Object.assign({ code: 'upstream_timeout' }, ERR_CATALOG.upstream_timeout);
+            if (err && err.name === 'TypeError') return Object.assign({ code: 'network_error' }, ERR_CATALOG.network_error);
+            if (/ETIMEDOUT|超时|timeout/i.test(msg)) return Object.assign({ code: 'upstream_timeout' }, ERR_CATALOG.upstream_timeout);
+            if (/ENOTFOUND|ECONNREFUSED|Failed to fetch|NetworkError|网络/i.test(msg)) {
+                return Object.assign({ code: 'network_error' }, ERR_CATALOG.network_error);
+            }
+            return Object.assign({ code: 'server_error' }, ERR_CATALOG.server_error);
+        }
+
+        // ---- 唤醒提示 UI ----
+        let wakeTimer = null;
+        function showWake(attempt) {
+            const mask = document.getElementById('wakeMask');
+            const bar = document.getElementById('wakeBar');
+            const count = document.getElementById('wakeCount');
+            document.getElementById('wakeTitle').textContent =
+                attempt > 0 ? `服务正在唤醒（第 ${attempt + 1} 次尝试）` : '服务正在唤醒';
+            document.getElementById('wakeDesc').textContent =
+                '服务部署在按需运行的实例上，长时间无人访问后会休眠，首次访问需要冷启动。请等待 15~30 秒，正在自动重试。';
+            mask.hidden = false;
+            let sec = 0;
+            clearInterval(wakeTimer);
+            wakeTimer = setInterval(() => {
+                sec += 1;
+                count.textContent = `已等待 ${sec} 秒`;
+                // 进度条按 30 秒一个冷启动周期推进
+                bar.style.width = Math.min(100, (sec / 30) * 100) + '%';
+            }, 1000);
+        }
+        function hideWake() {
+            clearInterval(wakeTimer);
+            document.getElementById('wakeMask').hidden = true;
+        }
+
+        /**
+         * 渲染一条分类错误到会话流里，并给出「重试」按钮。
+         * 比 toast 更适合严重错误：toast 一闪而过，用户来不及读。
+         */
+        function addErrorCard(err, status, retryFn) {
+            const c = classifyError(err, status);
+            const detail = String((err && (err.title || err.message)) || '');
+            const html = `<div class="err-card">
+                <div class="err-title">⚠️ ${escapeHtml(c.title)}</div>
+                <div class="err-msg">${escapeHtml(c.message)}</div>
+                ${detail && detail !== c.title ? `<div class="err-msg" style="margin-top:3px;font-size:11.5px;opacity:.8;">${escapeHtml(detail.slice(0, 120))}</div>` : ''}
+                <div class="err-action">👉 ${escapeHtml(c.action)}</div>
+                ${c.retryable && retryFn ? '<button type="button" class="err-retry" data-action="err-retry">重试</button>' : ''}
+            </div>`;
+            const el = addMessage('', 'bot', { time: getTime(), html });
+            if (el && c.retryable && retryFn) {
+                const btn = el.querySelector('[data-action="err-retry"]');
+                if (btn) btn.addEventListener('click', retryFn);
+            }
+            return c;
+        }
+
+        // ------------------------------------------------------------------
+        //  4. 事件委托：替代内联 onclick（CSP 启用 nonce 后内联处理器会被拦）
+        // ------------------------------------------------------------------
+        const ACTIONS = {
+            'toggle-lang': () => i18n.setLocale(i18n.getLocale() === 'zh' ? 'en' : 'zh'),
+            'export-report': () => exportCurrentReport(),
+            'expand-transcript': (el) => {
+                const id = el.dataset.foldId;
+                const head = document.getElementById(id + '-head');
+                const tail = document.getElementById(id + '-tail');
+                if (head) head.style.display = 'none';
+                if (tail) tail.style.display = 'block';
+                el.style.display = 'none';
+            },
+            'open-batch': () => document.getElementById('batchPanel').classList.add('open'),
+            'open-rules': () => document.getElementById('rulesPanel').classList.add('open'),
+            'open-privacy': () => openPrivacy(),
+            'fill-sample': () => fillSample(),
+        };
+        document.addEventListener('click', (e) => {
+            const el = e.target.closest && e.target.closest('[data-action]');
+            if (!el) return;
+            const fn = ACTIONS[el.dataset.action];
+            if (fn) { e.preventDefault(); fn(el); }
+        });
+
+        // ------------------------------------------------------------------
+        //  5. 示例样本：让新用户 3 秒内看到效果
+        // ------------------------------------------------------------------
+        const SAMPLES = [
+            {
+                name: '个人信息',
+                text: '我叫张三，身份证号是11010519491231002X，手机号13800138000，家住北京市朝阳区建国路88号SOHO现代城3号楼1502室。',
+            },
+            {
+                name: '金融信息',
+                text: '我的银行卡号是4111111111111111，支付密码是 MyPass2024，刚收到的短信验证码是 883291。',
+            },
+            {
+                name: '密钥泄露',
+                // 示例里的密钥在运行时拼接，源码不出现完整字面量（避免被 GitHub 密钥扫描误判）
+                text: '配置文件里写了 api_key = sk-' + 'abcdefghijklmnop123456，还有 AWS 的 AKIA' + 'IOSFODNN7EXAMPLE，赶紧删掉。',
+            },
+            {
+                name: '日常聊天',
+                text: '你好，明天下午三点在公司楼下的星巴克见，地址是上海市浦东新区世纪大道100号。我的邮箱是 zhangsan@example.com。',
+            },
+        ];
+
+        function fillSample() {
+            // 轮播式填充：连点几次能看到不同场景，而不是反复同一个
+            const idx = (Number(lsGet('privacy-sentinel:sample-idx', -1)) + 1) % SAMPLES.length;
+            lsSet('privacy-sentinel:sample-idx', idx);
+            const s = SAMPLES[idx];
+            msgInput.value = s.text;
+            msgInput.dispatchEvent(new Event('input', { bubbles: true }));
+            msgInput.focus();
+            showToast(`已填充「${s.name}」示例，点发送即可检测`, 2200);
+        }
+
+        // ------------------------------------------------------------------
+        //  6. 分层报告：总分概览 + 风险点定位 + 等级标色 + 通俗解释 + 整改建议
+        // ------------------------------------------------------------------
+        const LV_CLASS = { 4: 'lv-high', 3: 'lv-high', 2: 'lv-mid', 1: 'lv-low', 0: 'lv-none' };
+        const LV_TEXT = { 4: '极高', 3: '高危', 2: '中危', 1: '低危', 0: '安全' };
+        const LV_COLOR = { 4: '#d32f2f', 3: '#d32f2f', 2: '#ef6c00', 1: '#f9a825', 0: '#43a047' };
+
+        /** 通俗解释：说清「为什么这是隐私」而不是复述类型名 */
+        const TYPE_WHY = {
+            id: '身份证号能直接定位到自然人，被用于冒名开户、办理贷款，是效力最强的一类个人标识。',
+            bankcard: '银行卡号配合有效期、CVV 即可完成扣款，泄露后存在直接资损风险。',
+            phone: '手机号可关联到实名身份，也是找回密码、接收验证码的入口，常被用于社工攻击。',
+            password: '明文密码一旦泄露，攻击者可能用同样的密码尝试登录你的其他账号（撞库）。',
+            otp: '验证码是最后一道防线，任何人索要验证码都是在实施诈骗。',
+            address: '详细住址结合其他信息可推断生活轨迹，带来线下安全风险。',
+            name: '姓名与号码、地址组合后，可拼出完整身份画像。',
+            email: '邮箱常作为账号名，也是钓鱼攻击的主要投递渠道。',
+            url: '链接可能包含 token、session 等凭据，转发后等于把访问权限给了别人。',
+            passport: '护照号可用于跨境身份冒用，影响出行与签证记录。',
+            uscc: '统一社会信用代码对应具体企业，泄露可能被用于冒充主体签署合同。',
+            ip: 'IP 可定位到大致地理位置与网络运营商，属于可关联信息。',
+            mac: 'MAC 地址是设备的硬件标识，可被用于长期追踪同一台设备。',
+            apikey: 'API 密钥等同于账号口令，拿到即可调用你的云资源，可能产生高额费用或数据泄露。',
+            other: '该内容被判定为可能涉及个人隐私，建议人工确认。',
+        };
+
+        /** 整改建议：按类型给出具体可执行的动作 */
+        const TYPE_FIX = {
+            id: '非必要不提供；确需提供时只给前 6 位后 4 位，并在复印件上注明用途。',
+            bankcard: '不要截图发送完整卡号；使用官方 App 的「卡号复制」功能，或只提供后 4 位。',
+            phone: '可用「138****8000」形式展示；避免在公开页面留真实号码。',
+            password: '立即修改为独立强密码，并开启二次验证；切勿在聊天中发送。',
+            otp: '任何情况下都不要告诉他人验证码，包括自称客服、平台人员。',
+            address: '写到区/街道即可，不要精确到门牌号。',
+            name: '对外可用昵称或姓氏代替全名。',
+            email: '公开场合建议用脱敏形式（z***@example.com）。',
+            url: '转发前删掉链接中 ? 后面的参数，尤其是 token、code。',
+            passport: '仅在必要的出入境、签证场景提供，传输时使用加密渠道。',
+            uscc: '对外公示时可只展示部分字段，或提供营业执照脱敏件。',
+            ip: '日志对外分享前做匿名化处理。',
+            mac: '设备维修、二手转让前注意清除设备标识信息。',
+            apikey: '立即在服务商控制台吊销该密钥并重新签发，检查账单有无异常调用。',
+            other: '删除或替换该内容后再发送。',
+        };
+
+        /**
+         * 计算风险总分：100 分制，分数越低风险越高。
+         * 取最高等级为主项，其余条目按数量与等级加权扣分。
+         */
+        function riskScore(detections) {
+            if (!detections || !detections.length) return 100;
+            const maxLevel = Math.max.apply(null, detections.map((d) => Number(d.level) || 1));
+            // 主项扣分：L4 扣 60，L3 扣 45，L2 扣 30，L1 扣 18
+            const mainPenalty = { 4: 60, 3: 45, 2: 30, 1: 18 }[maxLevel] || 18;
+            // 附加扣分：其余每条按等级累加，最多扣 35
+            const rest = detections.filter((d) => (Number(d.level) || 1) < maxLevel);
+            const extra = Math.min(35, rest.reduce((s, d) => s + ({ 4: 12, 3: 9, 2: 6, 1: 4 }[Number(d.level) || 1] || 4), 0));
+            return Math.max(5, 100 - mainPenalty - extra);
+        }
+
+        const LEVEL_NAME_FULL = { 0: '无风险', 1: 'L1 · 低风险', 2: 'L2 · 中风险', 3: 'L3 · 高风险', 4: 'L4 · 极高风险' };
+
+        /** 渲染分层报告 */
+        function renderLayeredReport(detections, ctx) {
+            const maxLevel = detections.length
+                ? Math.max.apply(null, detections.map((d) => Number(d.level) || 1))
+                : 0;
+            const score = riskScore(detections);
+            const lv = LV_CLASS[maxLevel] || 'lv-none';
+
+            let html = '<div class="rp-wrap">';
+
+            // ① 总分概览
+            html += `<div class="rp-score">
+                <div class="rp-score-num ${lv}">${score}</div>
+                <div class="rp-score-meta">
+                    <div>风险评分（100 = 无风险）· <span class="${lv}">${LV_TEXT[maxLevel] || '安全'}</span></div>
+                    <div style="color:var(--gray);">共检出 ${detections.length} 处敏感信息</div>
+                    <div class="rp-score-bar"><i style="width:${score}%;background:${LV_COLOR[maxLevel] || '#43a047'};"></i></div>
+                </div>
+            </div>
+            <div class="rp-legend">
+                <span><i style="background:#d32f2f;"></i>红 = 高危（L3/L4）</span>
+                <span><i style="background:#ef6c00;"></i>橙 = 中危（L2）</span>
+                <span><i style="background:#f9a825;"></i>黄 = 低危（L1）</span>
+                <span><i style="background:#43a047;"></i>绿 = 无风险</span>
+            </div>`;
+
+            // ② 风险点逐条定位 + ③ 等级标色 + ④ 通俗解释 + ⑤ 整改建议
+            if (detections.length) {
+                const sorted = detections.slice().sort((a, b) => (Number(b.level) || 1) - (Number(a.level) || 1));
+                html += sorted.map((d) => {
+                    const l = Number(d.level) || 1;
+                    const cls = LV_CLASS[l] || 'lv-low';
+                    const why = TYPE_WHY[d.type] || TYPE_WHY.other;
+                    const fix = TYPE_FIX[d.type] || TYPE_FIX.other;
+                    return `<div class="rp-item rp-${l >= 3 ? 'high' : l === 2 ? 'mid' : 'low'}">
+                        <div class="rp-item-main">
+                            <div class="rp-item-label">
+                                <span class="rp-chip ${cls}">L${l}</span>
+                                ${escapeHtml(d.label)}
+                            </div>
+                            <div class="rp-item-value">${escapeHtml(d.masked || d.value || '')}</div>
+                            <div class="rp-item-why">❓ ${escapeHtml(why)}</div>
+                            <div class="rp-item-fix">🛠 ${escapeHtml(fix)}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            // ⑥ 操作区：复制报告 / 导出 JSON
+            html += `<div class="rp-actions">
+                <button type="button" data-action="copy-report">📋 复制报告</button>
+                <button type="button" data-action="export-json">⬇ 导出 JSON</button>
+                <button type="button" data-action="copy-masked">🔒 复制脱敏文本</button>
+            </div>`;
+            html += '</div>';
+
+            const el = addMessage('', 'bot', { time: getTime(), html });
+            if (el) {
+                const payload = {
+                    time: new Date().toISOString(),
+                    score, maxLevel,
+                    levelName: (LEVEL_NAME_FULL && LEVEL_NAME_FULL[maxLevel]) || ('L' + maxLevel),
+                    items: detections.map((d) => ({
+                        type: d.type, label: d.label, level: Number(d.level) || 1,
+                        masked: d.masked, reason: d.reason || '', engine: d.engine || '',
+                    })),
+                    text: ctx && ctx.text ? ctx.text : '',
+                };
+                const copyBtn = el.querySelector('[data-action="copy-report"]');
+                if (copyBtn) copyBtn.addEventListener('click', () => copyReportText(payload));
+                const jsonBtn = el.querySelector('[data-action="export-json"]');
+                if (jsonBtn) jsonBtn.addEventListener('click', () => exportJson(payload));
+                const maskBtn = el.querySelector('[data-action="copy-masked"]');
+                if (maskBtn) maskBtn.addEventListener('click', () => copyMaskedText(payload));
+            }
+            return el;
+        }
+
+        /** 生成纯文本报告，便于复制与分享 */
+        function reportToText(p) {
+            const lines = [];
+            lines.push('隐私哨兵 · 敏感信息检测报告');
+            lines.push('────────────────────');
+            lines.push(`风险评分：${p.score} / 100（100 = 无风险）`);
+            lines.push(`风险等级：${p.levelName}`);
+            lines.push(`检出条数：${p.items.length}`);
+            lines.push('');
+            if (p.items.length) {
+                lines.push('【风险清单】');
+                p.items.forEach((it, i) => {
+                    lines.push(`${i + 1}. [L${it.level}] ${it.label}：${it.masked}`);
+                    if (TYPE_WHY[it.type]) lines.push(`   为什么危险：${TYPE_WHY[it.type]}`);
+                    if (TYPE_FIX[it.type]) lines.push(`   建议处理：${TYPE_FIX[it.type]}`);
+                });
+            } else {
+                lines.push('未检测到敏感信息。');
+            }
+            lines.push('');
+            lines.push('—— 本工具检测完成不留存原始数据，敏感字段已默认脱敏展示。');
+            return lines.join('\n');
+        }
+
+        /** 复制到剪贴板；不支持的浏览器退回到「选中提示」 */
+        function copyText(text, okMsg) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => showToast(okMsg || '已复制', 1800))
+                    .catch(() => showToast('复制失败，请手动选择文本', 2200));
+            } else {
+                // 降级：用临时 textarea + execCommand
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(okMsg || '已复制', 1800);
+                } catch (e) {
+                    showToast('复制失败，请手动选择文本', 2200);
+                }
+                document.body.removeChild(ta);
+            }
+        }
+        function copyReportText(p) { copyText(reportToText(p), '📋 报告已复制'); }
+        function copyMaskedText(p) { copyText(p.text || '', '🔒 脱敏文本已复制'); }
+
+        function exportJson(p) {
+            const blob = new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `隐私哨兵-检测报告-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            showToast('⬇ JSON 已导出', 1800);
+        }
+
+        // ------------------------------------------------------------------
+        //  7. 本地临时缓存：刷新页面不丢失最近一次结果
+        // ------------------------------------------------------------------
+        function cacheLastResult(payload) {
+            const items = (payload && payload.items) || [];
+            // 只有在检出过敏感项时才缓存文本——那种情况下传入的已是脱敏后的文本。
+            // 若一条都没检出，传进来的就是用户原文：把它写进 localStorage，
+            // 等于让原始内容在浏览器里留存 24 小时，与「不留存原始数据」的承诺相悖
+            // （漏检的场景尤其危险：没检出 ≠ 没敏感信息）。此时文本对报告展示
+            // 也没有价值，直接不落盘。
+            const text = items.length ? String((payload && payload.text) || '').slice(0, 500) : '';
+            lsSet(LS.lastResult, Object.assign({}, payload, {
+                items,
+                text,
+                cachedAt: Date.now(),
+            }));
+        }
+        function restoreLastResult() {
+            const p = lsGet(LS.lastResult, null);
+            if (!p || !p.items || !p.items.length) return false;
+            // 超过 24 小时的缓存不再展示，避免用户误以为是当前结果
+            if (Date.now() - (p.cachedAt || 0) > 24 * 3600 * 1000) return false;
+            addMessage('', 'bot', {
+                time: getTime(),
+                html: `<div class="analysis-card"><div class="ac-head">
+                    <span class="ac-title">🗂 上次检测结果（本地缓存）</span>
+                    <span class="engine-badge local">刷新前的记录</span>
+                </div>
+                <div class="ac-summary">风险评分 ${p.score} / 100 · ${escapeHtml(p.levelName || '')} · 检出 ${p.items.length} 处</div>
+                <div class="rp-actions">
+                    <button type="button" data-action="restore-report">查看完整报告</button>
+                </div></div>`,
+            });
+            const btns = document.querySelectorAll('[data-action="restore-report"]');
+            const last = btns[btns.length - 1];
+            if (last) last.addEventListener('click', () => renderLayeredReport(p.items.map(mapCachedItem), p));
+            return true;
+        }
+        function mapCachedItem(it) {
+            return {
+                type: it.type, label: it.label, level: it.level,
+                masked: it.masked, value: it.masked, reason: it.reason || '',
+                engine: it.engine || '',
+            };
+        }
+
+        // ------------------------------------------------------------------
+        //  8. 检测规则自定义
+        // ------------------------------------------------------------------
+        const RULE_TYPES = [
+            { key: 'id', label: '身份证号', lv: 1 },
+            { key: 'bankcard', label: '银行卡号', lv: 2 },
+            { key: 'phone', label: '手机号', lv: 1 },
+            { key: 'password', label: '密码', lv: 3 },
+            { key: 'otp', label: '短信验证码', lv: 4 },
+            { key: 'address', label: '家庭住址', lv: 1 },
+            { key: 'name', label: '姓名', lv: 1 },
+            { key: 'email', label: '电子邮箱', lv: 1 },
+            { key: 'url', label: '链接地址', lv: 1 },
+            { key: 'passport', label: '护照号', lv: 1 },
+            { key: 'uscc', label: '统一社会信用代码', lv: 2 },
+            { key: 'ip', label: 'IP 地址', lv: 1 },
+            { key: 'mac', label: 'MAC 地址', lv: 1 },
+            { key: 'apikey', label: 'API 密钥', lv: 3 },
+        ];
+
+        /** 当前勾选的类型；null 表示全选（默认） */
+        let selectedTypes = lsGet(LS.rules, null);
+
+        function activeTypes() {
+            // 返回 null 让后端不过滤（全选）；返回数组则只检测这些类型。
+            // try/catch 是为了防止在 selectedTypes 初始化前就被调用（TDZ），
+            // 那种情况下一律按全选处理，不能因为顺序问题让请求失败。
+            try {
+                if (!selectedTypes || !selectedTypes.length || selectedTypes.length === RULE_TYPES.length) return null;
+                return selectedTypes.slice();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function renderRuleGrid() {
+            const grid = document.getElementById('ruleGrid');
+            if (!grid) return;
+            const all = !selectedTypes || selectedTypes.length === 0;
+            grid.innerHTML = RULE_TYPES.map((t) => {
+                const checked = all || selectedTypes.indexOf(t.key) >= 0;
+                return `<label class="rule-item">
+                    <input type="checkbox" data-rule="${t.key}" ${checked ? 'checked' : ''}>
+                    <span>${t.label}</span>
+                    <span class="rule-lv">L${t.lv}</span>
+                </label>`;
+            }).join('');
+            const count = document.getElementById('rulesCount');
+            if (count) {
+                const n = all ? RULE_TYPES.length : selectedTypes.length;
+                count.textContent = n === RULE_TYPES.length ? '全部' : `已选 ${n} / ${RULE_TYPES.length}`;
+            }
+            grid.querySelectorAll('input[data-rule]').forEach((cb) => {
+                cb.addEventListener('change', () => {
+                    const picked = Array.prototype.slice.call(grid.querySelectorAll('input[data-rule]:checked'))
+                        .map((x) => x.dataset.rule);
+                    // 全选等价于不过滤，存 null 让请求更简洁
+                    selectedTypes = picked.length === RULE_TYPES.length ? null : picked;
+                    lsSet(LS.rules, selectedTypes);
+                    renderRuleGrid();
+                    showToast(selectedTypes ? `已选 ${picked.length} 类` : '已恢复全选', 1500);
+                });
+            });
+        }
+
+        // ------------------------------------------------------------------
+        //  9. 批量检测
+        // ------------------------------------------------------------------
+        let lastBatchResult = null;
+
+        async function runBatch() {
+            const input = document.getElementById('batchInput');
+            const lines = String(input.value || '').split('\n');
+            const items = lines.map((t) => ({ text: t }));
+            const out = document.getElementById('batchResult');
+            if (!lines.filter((t) => t.trim()).length) {
+                showToast('请先输入内容，每行一条', 2000);
+                return;
+            }
+            out.innerHTML = '<div class="tool-hint">⏳ 检测中…</div>';
+            try {
+                const resp = await fetch('/api/analyze/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items, mode: 'local', types: activeTypes() }),
+                });
+                const data = await resp.json().catch(() => null);
+                if (!resp.ok || !data || !data.success) {
+                    const c = classifyError(data, resp.status);
+                    out.innerHTML = `<div class="err-card">
+                        <div class="err-title">⚠️ ${escapeHtml(c.title)}</div>
+                        <div class="err-msg">${escapeHtml(c.message)}</div>
+                        <div class="err-action">👉 ${escapeHtml(c.action)}</div>
+                    </div>`;
+                    return;
+                }
+                lastBatchResult = data;
+                renderBatchResult(data, lines);
+                showToast(`完成：${data.scanned} 行，${data.riskyCount} 行含敏感信息`, 2500);
+            } catch (e) {
+                const c = classifyError(e, 0);
+                out.innerHTML = `<div class="err-card">
+                    <div class="err-title">⚠️ ${escapeHtml(c.title)}</div>
+                    <div class="err-msg">${escapeHtml(c.message)}</div>
+                    <div class="err-action">👉 ${escapeHtml(c.action)}</div>
+                </div>`;
+            }
+        }
+
+        function renderBatchResult(data, lines) {
+            const out = document.getElementById('batchResult');
+            const stat = `<div class="batch-stat">
+                <span>共 ${data.total} 行</span>
+                <span>已扫描 ${data.scanned} 行</span>
+                <span>⚠️ 命中 ${data.riskyCount} 行</span>
+                <span>最高等级 ${escapeHtml(data.levelName || '')}</span>
+                <span>耗时 ${data.meta && data.meta.elapsedMs} ms</span>
+            </div>`;
+            const rows = data.results.map((r) => {
+                const has = r.items && r.items.length;
+                const cls = r.skipped ? '' : has ? 'b-has' : 'b-free';
+                const badge = r.skipped
+                    ? '<span class="rp-chip lv-none">跳过</span>'
+                    : !r.success
+                        ? '<span class="rp-chip lv-mid">失败</span>'
+                        : has
+                            ? `<span class="rp-chip ${LV_CLASS[r.maxLevel] || 'lv-low'}">L${r.maxLevel}</span>`
+                            : '<span class="rp-chip lv-none">安全</span>';
+                const itemText = has
+                    ? r.items.map((i) => `${escapeHtml(i.label || i.type)}：${escapeHtml(i.masked)}`).join(' · ')
+                    : (r.summary || '');
+                return `<div class="batch-row ${cls}">
+                    <div class="b-head"><b>第 ${r.index + 1} 行</b>${badge}</div>
+                    <div class="b-text">${escapeHtml(String(lines[r.index] || '').slice(0, 120))}</div>
+                    <div class="b-items">${escapeHtml(itemText)}</div>
+                </div>`;
+            }).join('');
+            out.innerHTML = stat + rows;
+        }
+
+        function exportBatch() {
+            if (!lastBatchResult) { showToast('请先执行一次批量检测', 2000); return; }
+            const blob = new Blob([JSON.stringify(lastBatchResult, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `隐私哨兵-批量检测-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            showToast('⬇ 批量结果已导出', 1800);
+        }
+
+        // ------------------------------------------------------------------
+        //  10. 初始化
+        // ------------------------------------------------------------------
+        function initV35() {
+            initTheme();
+            initPrivacy();
+            renderRuleGrid();
+
+            const batchBack = document.getElementById('batchBack');
+            if (batchBack) batchBack.addEventListener('click', () => document.getElementById('batchPanel').classList.remove('open'));
+            const rulesBack = document.getElementById('rulesBack');
+            if (rulesBack) rulesBack.addEventListener('click', () => document.getElementById('rulesPanel').classList.remove('open'));
+
+            const runBtn = document.querySelector('[data-action="batch-run"]');
+            if (runBtn) runBtn.addEventListener('click', runBatch);
+            const sampleBtn = document.querySelector('[data-action="batch-sample"]');
+            if (sampleBtn) sampleBtn.addEventListener('click', () => {
+                document.getElementById('batchInput').value = SAMPLES.map((s) => s.text).join('\n');
+                showToast('已填充示例文本', 1600);
+            });
+            const clearBtn = document.querySelector('[data-action="batch-clear"]');
+            if (clearBtn) clearBtn.addEventListener('click', () => {
+                document.getElementById('batchInput').value = '';
+                document.getElementById('batchResult').innerHTML = '';
+                lastBatchResult = null;
+            });
+            const expBtn = document.querySelector('[data-action="batch-export"]');
+            if (expBtn) expBtn.addEventListener('click', exportBatch);
+
+            const allBtn = document.querySelector('[data-action="rules-all"]');
+            if (allBtn) allBtn.addEventListener('click', () => { selectedTypes = null; lsSet(LS.rules, null); renderRuleGrid(); });
+            const noneBtn = document.querySelector('[data-action="rules-none"]');
+            if (noneBtn) noneBtn.addEventListener('click', () => {
+                // 全不选时传空数组，后端会退回全量——这里改成只保留一个无害类型，
+                // 避免出现「用户以为关掉了但实际仍在检测」的欺骗性行为
+                showToast('至少需要保留一类，已为你保留身份证号', 2200);
+                selectedTypes = ['id'];
+                lsSet(LS.rules, selectedTypes);
+                renderRuleGrid();
+            });
+            const resetBtn = document.querySelector('[data-action="rules-reset"]');
+            if (resetBtn) resetBtn.addEventListener('click', () => { selectedTypes = null; lsSet(LS.rules, null); renderRuleGrid(); });
+
+            // 恢复上次检测结果（放在欢迎语之后）
+            setTimeout(restoreLastResult, 900);
+        }
+
+        initV35();
     </script>
 </body>
 </html>

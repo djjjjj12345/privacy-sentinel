@@ -2,9 +2,9 @@
 
 > 面向即时通讯场景的**敏感信息检测与预警**工具。在消息发出去之前判断其中是否包含敏感信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.4.0**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.5.0**
 
-![status](https://img.shields.io/badge/version-3.4.0-blue) ![tests](https://img.shields.io/badge/tests-305%2F305-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.5.0-blue) ![tests](https://img.shields.io/badge/tests-398%2F398-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -16,7 +16,9 @@
 - **隐私零留存**：服务端日志 100% 脱敏，身份证/银行卡/手机/邮箱/IP/Bearer/api_key 一律不落盘
 - **离线可用**：PWA 已配置，断网仍能浏览历史；可装到桌面/手机主屏
 - **中英双语**：UI 文案与弹窗支持一键切换
-- **开箱即测**：305 项自动化测试，无外部依赖即可跑通全部
+- **冷启动友好**：免费档休眠被唤醒时提示「服务正在唤醒，请等待 15~30 秒」，不再抛原生 502 页
+- **安全响应头**：CSP（nonce，非 `unsafe-inline`）/ HSTS / nosniff / X-Frame-Options / Permissions-Policy
+- **开箱即测**：398 项自动化测试（含 93 项 jsdom 前端交互），无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -27,12 +29,13 @@
 | 音频（MP3 / WAV / AAC / M4A） | SIS 转写 + 识别 | ✅（华为云走 SIS 两级流水线；未配置 SIS 时回退方舟） | 25MB |
 | 视频（MP4） | 模型转写 + 识别 | ✅（同上） | 25MB |
 
-### 检测的隐私字段（共 13 类）
+### 检测的隐私字段（共 14 类）
 
 | 类别 | 示例 | 风险等级 |
 |---|---|---|
 | 短信验证码 | `387294` | **L4 强制阻断** |
 | 密码 / 密钥 | `pwd=abc123` | L3 倒计时 |
+| API 密钥 | `sk-xxxx` / `AKIA...` / JWT / PEM | L3 倒计时 |
 | 身份证号 | `110105199003071239` | L1 脱敏 |
 | 银行卡号 | `6228480012345671` | L2 弹窗 |
 | 手机号 | `13800138000` | L1 脱敏 |
@@ -73,6 +76,29 @@
 | **v3.3 B2** | **RDS for MySQL 存储适配** | **`DB_DRIVER=sqlite\|mysql`，账号与历史迁云，异步仓储层** |
 | **v3.3 B3** | **DCS Redis 共享限流 + 会话缓存** | **多实例限流不再各算各的；连不上自动降级** |
 | v3.3 B4 | 华为云部署文档 + 32 项专项测试 | 一条 `curl /api/health` 验收整条云上链路 |
+
+### v3.5 新增能力（适用性与实用性）
+
+| 编号 | 能力 | 价值 |
+|---|---|---|
+| **C1** | **冷启动唤醒提示** | 免费档休眠时显示「服务正在唤醒，请等待 15~30 秒」并自动重试，不再白屏或原生 502 |
+| **C2** | **隐私声明弹窗** | 首次访问明确告知：仅用于本次检测 / 服务端不保留原始数据 / 不转发第三方 |
+| **C3** | **统一错误分类** | 空输入、格式错、超时、崩溃、限流各有中文提示 + 解决办法（14 类，前后端同一套 code） |
+| **C4** | **安全响应头** | CSP 用 nonce（已移除全部内联 `onclick`）、HSTS、nosniff、X-Frame-Options |
+| **C5** | **分层检测报告** | 总分概览 → 风险点逐条定位 → 红/橙/黄/绿等级标色 → 通俗解释 → 整改建议 |
+| **C6** | **结果导出** | 一键复制报告文本 / 导出 JSON；批量结果也可导出 |
+| **C7** | **示例样本** | 一键填充可校验的测试样例，新用户 3 秒看到效果 |
+| **C8** | **本地临时缓存** | localStorage 保存最近一次结果，刷新不丢；**只存脱敏值**，24 小时自动失效 |
+| **C9** | **接口限流** | 每分钟 N 次，返回 `X-RateLimit-*` 头，Redis 可用时分布式计数 |
+| **C10** | **批量检测** | 多行文本批量扫描，最多 50 行；默认本地引擎（秒出、不耗 AI 额度） |
+| **C11** | **检测规则自定义** | 勾选要识别的类型；**全不选时保留 1 类而非静默关闭**（避免欺骗性行为） |
+| **C12** | **移动端适配 + 深色主题** | 44px 触控目标、safe-area 适配、主题可切换并记忆 |
+| **C13** | **文档页 / 状态页** | `/docs.html` 写清规则与边界，`/status.html` 一眼看服务存活 |
+| **C14** | **OG 分享卡片** | 分享链接带 1200×630 预览图 |
+
+> API 密钥识别（v3.5）覆盖 OpenAI `sk-`、阿里云 `LTAI`、腾讯云 `AKID`、AWS `AKIA/ASIA/AIDA/AROA`、
+> GitHub `gh[pousr]_`、GitLab `glpat-`、Slack `xox[abprs]-`、Google `AIza`、Stripe、SendGrid、Twilio，
+> 以及 JWT、PEM 私钥头和「api_key: xxx」这类上下文声明。
 
 > ⚠️ Render 免费档磁盘是**临时**的：重新部署会清空账号与历史。
 > 长期数据请定期用历史面板的 ⬇️ 按钮导出 JSON 备份，或为服务挂载持久磁盘（$7/月）。
@@ -179,11 +205,51 @@ npm test
 }
 ```
 
+### `POST /api/analyze/batch`（v3.5）
+
+批量检测，一次最多 50 行、每行 5000 字；`mode: "local"` 走本地规则引擎（默认，秒出结果），
+`mode: "ai"` 最多 10 行。单条失败不影响整批，空行标记 `skipped`。
+
+```jsonc
+// 请求
+{ "items": [{ "text": "..." }, { "text": "..." }], "mode": "local", "types": ["id", "phone"] }
+// 响应
+{ "success": true, "total": 3, "scanned": 3, "riskyCount": 2, "maxLevel": 3,
+  "levelName": "高风险", "typeCounts": { "id": 1, "phone": 1 },
+  "results": [{ "index": 0, "success": true, "maxLevel": 1, "items": [...] }],
+  "meta": { "engine": "local", "elapsedMs": 4 } }
+```
+
+### `GET /api/privacy`（v3.5）
+
+返回 6 条隐私承诺（机器可读），供前端弹窗与第三方审计直接消费。
+
 ### `GET /api/health`
 
-返回 `{ success, version, uptime, model, arkKeyConfigured, aiProvider, aiProviderConfigured, aiFallback, db, dbDriver, redis }`
+返回 `{ success, version, uptime, booting, model, arkKeyConfigured, aiProvider, aiProviderConfigured, aiFallback, db, dbDriver, redis, rateLimitPerMinute, capabilities }`
 
 `aiProvider` 为 `ark` / `huawei`，`dbDriver` 为 `sqlite` / `mysql`，`redis` 为 `ready` / `disabled` / `error` —— 一眼确认当前跑的是哪套底座。
+`booting` 在进程启动 20 秒内为 `true`，可用于判断冷启动预热。
+
+### 统一错误码（v3.5）
+
+所有失败响应形如 `{ success:false, code, title, message, action, retryable }`。
+`code` 给机器分支，`title/message/action` 给人看——**业务抛出的具体消息会保留为 `title`**，
+不会被通用文案覆盖（例如「音频格式不支持（audio/webm）」仍是它自己）。
+
+| code | HTTP | 含义 |
+|---|---|---|
+| `empty_input` | 400 | 没有可检测的内容 |
+| `invalid_format` | 400 | 请求格式不对 |
+| `payload_too_large` | 413 | 内容超限 |
+| `unsupported_media` | 415 | 媒体类型不支持 |
+| `rate_limited` | 429 | 操作太频繁 |
+| `apikey_invalid` | 401/403 | 密钥无效或未登录 |
+| `not_found` | 404 | 接口不存在 |
+| `upstream_timeout` | 504 | 上游超时 |
+| `upstream_error` | 502/503 | 上游故障 |
+| `service_waking` | — | **仅前端可判定**：网关代答而实例仍在唤醒 |
+| `network_error` | — | 仅前端：请求根本没发出去 |
 
 ### `POST /api/auth/register | /api/auth/login`（v3.2）
 
@@ -207,10 +273,10 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：305 通过 / 0 失败 / 305 项
+# 总计：398 通过 / 0 失败 / 398 项
 ```
 
-8 个独立套件：
+10 个独立套件：
 
 | 套件 | 文件 | 覆盖 |
 |---|---|---|
@@ -222,6 +288,11 @@ npm test
 | 账号与历史 | `scripts/test-auth-history.js` | 22 项注册/登录/云同步 |
 | 华为云适配 | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis |
 | SIS 音频转写 | `scripts/test-huawei-sis.js` | 52 项 极速版/普通版双通道、音频转码、多轮轮询、失败路径、analyzeAudio 集成 |
+| 体验加固 | `scripts/test-ux-hardening.js` | 81 项 错误分类 / 安全头与 nonce / 规则过滤 / 批量检测 / API 密钥识别 |
+| 前端交互 | `scripts/test-frontend-dom.js` | 93 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、文档页、状态页 |
+
+> 前端交互套件用 jsdom 加载真实 `index.html` 并跑真实内联脚本——接口测试看不见的
+> 「按钮点了没反应」「弹窗没弹出来」这类问题，由它兜住。
 
 ## 八、部署
 
@@ -265,7 +336,9 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 | 服务端日志 | **100% 脱敏**（`services/logger.js`） |
 | 内存中的数据 | 识别完成后立即释放 |
 | 浏览器历史 | 只存脱敏后的标签，不存原文 |
+| 浏览器临时缓存（v3.5） | 只存脱敏结果与脱敏文本；**未检出敏感项时不缓存原文**（漏检 ≠ 没敏感信息），24 小时自动失效 |
 | 服务端磁盘 | **不保存任何用户内容** |
+| 第三方 | 不转发、不出售、不用于模型训练、不投放追踪脚本 |
 
 详细脱敏规则见 `services/logger.js` 的 `sanitizeForLog()`。
 
@@ -280,7 +353,8 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [x] **v3.2** 账号登录 / SQLite 云同步 / PDF 报告 / JSON 备份
 - [x] **v3.3** Provider 抽象 / RDS MySQL / DCS Redis / 华为云部署文档 / 172 项测试
 - [x] **v3.4** SIS 音频转写流水线（OBS 临时对象 + 录音文件识别 + 用完即删）/ 305 项测试
-- [ ] **v4.0**（产品级）批量检测 / 团队空间 / 更细的权限
+- [x] **v3.5** 冷启动提示 / 隐私声明 / 错误分类 / 安全头 / 分层报告 / 批量检测 / 规则自定义 / 文档页 / 状态页 / 398 项测试
+- [ ] **v4.0**（产品级）团队空间 / 更细的权限 / 自定义正则规则导入
 - [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 
 ## 十一、贡献

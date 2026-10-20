@@ -24,7 +24,8 @@
     "resolve:project": "node scripts/resolve-project-id.js",
     "check:agency": "node scripts/check-sis-agency.js",
     "setup:credentials": "node scripts/setup-credentials.js",
-    "test:ux": "node scripts/test-ux-hardening.js"
+    "test:ux": "node scripts/test-ux-hardening.js",
+    "test:frontend": "node scripts/test-frontend-dom.js"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -40,6 +41,7 @@
     "uuid": "^14.0.3"
   },
   "devDependencies": {
+    "jsdom": "^30.1.3",
     "nodemon": "^3.1.0"
   }
 }

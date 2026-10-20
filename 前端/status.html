@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>服务状态 · 隐私哨兵</title>
+    <meta name="description" content="隐私哨兵服务运行状态：接口存活、识别引擎、数据库与缓存连通性，以及当前部署版本。">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <meta http-equiv="refresh" content="60">
+    <style>
+        :root {
+            --primary: #3b7cff;
+            --primary-light: #e8eeff;
+            --danger: #f44336;
+            --danger-light: #ffebee;
+            --warning: #ff9800;
+            --success: #4caf50;
+            --success-light: #e8f5e9;
+            --gray: #6b7280;
+            --gray-light: #f5f6f8;
+            --gray-border: #e5e7eb;
+            --bg: #ffffff;
+            --surface: #f9fafb;
+            --text: #1a1a2e;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+        }
+        [data-theme="dark"] {
+            --primary: #5b93ff;
+            --primary-light: #1c2b4a;
+            --danger: #ff6b6b;
+            --danger-light: #3a1f1f;
+            --warning: #ffb547;
+            --success: #5ddb7a;
+            --success-light: #17321f;
+            --gray: #9aa3b5;
+            --gray-light: #1c2230;
+            --gray-border: #2c3244;
+            --bg: #0e1117;
+            --surface: #151a23;
+            --text: #e6e9f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font); background: var(--bg); color: var(--text);
+            line-height: 1.7; font-size: 15px; overflow-x: hidden;
+        }
+        .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+        header {
+            position: sticky; top: 0; z-index: 10; background: var(--bg);
+            border-bottom: 1px solid var(--gray-border);
+            padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+        }
+        header .brand { font-weight: 700; font-size: 16px; }
+        header .spacer { flex: 1; }
+        header a, header button {
+            font-size: 13px; color: var(--text); text-decoration: none;
+            border: 1px solid var(--gray-border); border-radius: 8px;
+            padding: 6px 11px; background: transparent; min-height: 36px;
+            display: inline-flex; align-items: center;
+        }
+        header a:hover, header button:hover { border-color: var(--primary); color: var(--primary); }
+
+        h1 { font-size: 22px; margin: 26px 0 6px; }
+        .sub { color: var(--gray); font-size: 13.5px; margin-bottom: 20px; }
+
+        .overall {
+            display: flex; align-items: center; gap: 14px;
+            padding: 16px; border-radius: 12px; margin: 16px 0 8px;
+            border: 1px solid var(--gray-border); background: var(--surface);
+        }
+        .overall .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; background: var(--gray); }
+        .overall.ok .dot { background: var(--success); box-shadow: 0 0 0 4px var(--success-light); }
+        .overall.degraded .dot { background: var(--warning); box-shadow: 0 0 0 4px #fff8e1; }
+        .overall.down .dot { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-light); }
+        .overall .txt { font-size: 17px; font-weight: 600; }
+        .overall .desc { font-size: 13px; color: var(--gray); }
+
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0; }
+        @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+        .item {
+            border: 1px solid var(--gray-border); border-radius: 10px;
+            padding: 12px; background: var(--surface);
+        }
+        .item .k { font-size: 12.5px; color: var(--gray); display: flex; align-items: center; gap: 6px; }
+        .item .v { font-size: 15px; font-weight: 600; margin-top: 3px; word-break: break-all; }
+        .item .n { font-size: 11.5px; color: var(--gray); margin-top: 3px; line-height: 1.5; }
+        .badge {
+            display: inline-block; padding: 1px 8px; border-radius: 10px;
+            font-size: 11.5px; font-weight: 600; color: #fff;
+        }
+        .b-ok { background: var(--success); }
+        .b-warn { background: var(--warning); }
+        .b-down { background: var(--danger); }
+        .b-idle { background: var(--gray); }
+
+        .rowline {
+            display: flex; justify-content: space-between; gap: 10px;
+            padding: 9px 0; border-bottom: 1px solid var(--gray-border); font-size: 13.5px;
+        }
+        .rowline:last-child { border-bottom: none; }
+        .rowline .rk { color: var(--gray); }
+        .rowline .rv { font-weight: 600; text-align: right; word-break: break-all; }
+
+        .card { background: var(--surface); border: 1px solid var(--gray-border); border-radius: 10px; padding: 14px; margin: 14px 0; }
+        .hint { font-size: 12.5px; color: var(--gray); line-height: 1.7; }
+        code { background: var(--gray-light); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+        footer {
+            margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--gray-border);
+            font-size: 12.5px; color: var(--gray);
+        }
+        footer a { color: var(--primary); }
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid var(--gray-border);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: sp .8s linear infinite; display: inline-block; vertical-align: -3px;
+        }
+        @keyframes sp { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <span class="brand">🛡️ 隐私哨兵</span>
+        <span class="spacer"></span>
+        <button id="btnTheme" type="button">🌙</button>
+        <a href="/">← 回到检测</a>
+    </header>
+
+    <div class="wrap">
+        <h1>服务状态</h1>
+        <p class="sub">每 60 秒自动刷新一次，也可点下方按钮手动刷新。</p>
+
+        <div class="overall" id="overall">
+            <span class="dot"></span>
+            <div>
+                <div class="txt"><span class="spinner"></span> 正在检查…</div>
+                <div class="desc">正在请求 /api/health</div>
+            </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <div class="card">
+            <div style="font-weight:600;margin-bottom:8px;">部署信息</div>
+            <div id="meta"></div>
+        </div>
+
+        <div class="card">
+            <div style="font-weight:600;margin-bottom:6px;">识别能力</div>
+            <div id="caps" class="hint">—</div>
+        </div>
+
+        <div class="card">
+            <div style="font-weight:600;margin-bottom:6px;">这一页是给谁看的</div>
+            <p class="hint">
+                如果你只是想用这个工具检测内容，直接回首页即可——这一页是运维与自建部署时判断服务是否存活用的。
+                自建实例时，把 <code>/status.html</code> 配到健康检查或监控里，可以在实例异常时第一时间发现。
+            </p>
+            <p class="hint" style="margin-top:8px;">
+                <b>「降级」不代表不可用</b>：识别引擎未配置 Key 时，文本检测仍可由本地规则引擎完成，
+                只是无法识别姓名这类无固定格式的信息。
+            </p>
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="btnRefresh" type="button" style="font-size:13px;padding:9px 14px;border:1px solid var(--gray-border);border-radius:8px;background:transparent;color:inherit;">🔄 立即刷新</button>
+            <a href="/docs.html" style="font-size:13px;padding:9px 14px;border:1px solid var(--gray-border);border-radius:8px;text-decoration:none;color:inherit;">📖 使用文档</a>
+        </div>
+
+        <footer>
+            隐私哨兵 · 服务状态 &nbsp;·&nbsp;
+            <a href="/">开始检测</a> &nbsp;·&nbsp;
+            <a href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener">GitHub 源码</a>
+        </footer>
+    </div>
+
+    <script>
+        (function () {
+            var KEY = 'privacy-sentinel:theme';
+            function apply(t) {
+                document.documentElement.setAttribute('data-theme', t);
+                var b = document.getElementById('btnTheme');
+                if (b) b.textContent = t === 'dark' ? '☀️' : '🌙';
+            }
+            var saved = null;
+            try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { /* 忽略 */ }
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            apply(saved || (prefersDark ? 'dark' : 'light'));
+            var btn = document.getElementById('btnTheme');
+            if (btn) btn.addEventListener('click', function () {
+                var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                apply(next);
+                try { localStorage.setItem(KEY, JSON.stringify(next)); } catch (e) { /* 忽略 */ }
+            });
+        })();
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        /** 单项状态卡 */
+        function card(k, v, note, kind) {
+            var cls = kind === 'ok' ? 'b-ok' : kind === 'warn' ? 'b-warn' : kind === 'down' ? 'b-down' : 'b-idle';
+            var label = kind === 'ok' ? '正常' : kind === 'warn' ? '降级' : kind === 'down' ? '异常' : '未启用';
+            return '<div class="item">' +
+                '<div class="k">' + esc(k) + ' <span class="badge ' + cls + '">' + label + '</span></div>' +
+                '<div class="v">' + esc(v) + '</div>' +
+                (note ? '<div class="n">' + esc(note) + '</div>' : '') +
+                '</div>';
+        }
+
+        function line(k, v) {
+            return '<div class="rowline"><span class="rk">' + esc(k) + '</span><span class="rv">' + esc(v) + '</span></div>';
+        }
+
+        async function load() {
+            var overall = document.getElementById('overall');
+            var grid = document.getElementById('grid');
+            var meta = document.getElementById('meta');
+            var caps = document.getElementById('caps');
+            overall.className = 'overall';
+            overall.innerHTML = '<span class="dot"></span><div><div class="txt"><span class="spinner"></span> 正在检查…</div><div class="desc">正在请求 /api/health</div></div>';
+
+            var t0 = Date.now();
+            var data = null, errMsg = '';
+            try {
+                var resp = await fetch('/api/health', { cache: 'no-store' });
+                data = await resp.json();
+                if (!resp.ok) errMsg = 'HTTP ' + resp.status;
+            } catch (e) {
+                // 请求都发不出去：可能是实例正在冷启动，或网络中断
+                errMsg = e && e.message ? e.message : '无法连接';
+            }
+            var rtt = Date.now() - t0;
+
+            if (!data || !data.success) {
+                overall.className = 'overall down';
+                overall.innerHTML = '<span class="dot"></span><div>' +
+                    '<div class="txt">无法连接服务</div>' +
+                    '<div class="desc">' + esc(errMsg || '未知原因') + ' · 若刚打开页面，可能是实例正在冷启动，请等待 15~30 秒后刷新</div></div>';
+                grid.innerHTML = '';
+                meta.innerHTML = line('检查时间', new Date().toLocaleString());
+                caps.textContent = '—';
+                return;
+            }
+
+            // 判定整体状态：接口通 = 可用；识别引擎或存储异常 = 降级
+            var dbOk = data.db === 'ok';
+            var aiOk = Boolean(data.aiProviderConfigured);
+            var dbKind = dbOk ? 'ok' : 'down';
+            var aiKind = aiOk ? 'ok' : 'warn';
+
+            var level = dbOk && aiOk ? 'ok' : dbOk ? 'degraded' : 'down';
+            var title = level === 'ok' ? '所有服务正常' : level === 'degraded' ? '部分能力降级' : '服务异常';
+            var desc = level === 'ok'
+                ? '接口、识别引擎、存储均可用'
+                : level === 'degraded'
+                    ? '接口正常，但识别引擎未配置——文本检测仍可用本地规则引擎'
+                    : '存储不可用，历史记录功能会受影响';
+            overall.className = 'overall ' + level;
+            overall.innerHTML = '<span class="dot"></span><div>' +
+                '<div class="txt">' + title + '</div><div class="desc">' + desc + '</div></div>';
+
+            grid.innerHTML =
+                card('接口连通性', rtt + ' ms', '响应时间', 'ok') +
+                card('识别引擎', (data.aiProviderLabel || data.aiProvider || '—'),
+                    aiOk ? '已配置 Key' : '未配置 Key，文本检测将退回本地规则引擎', aiKind) +
+                card('数据库', (data.dbDriver || '—'), dbOk ? '连通正常' : String(data.db || '异常'), dbKind) +
+                card('缓存', String(data.redis || '—'),
+                    data.redis && data.redis !== 'disabled' ? '分布式限流已启用' : '未启用，限流退回进程内存',
+                    data.redis && data.redis !== 'disabled' ? 'ok' : 'idle');
+
+            meta.innerHTML =
+                line('版本', 'v' + (data.version || '—')) +
+                line('运行时长', Math.round(data.uptime || 0) + ' 秒' + (data.booting ? '（刚启动，可能仍在预热）' : '')) +
+                line('限流', (data.rateLimitPerMinute || '—') + ' 次 / 分钟') +
+                line('回退通道', data.aiFallback || '未配置') +
+                line('检查时间', new Date().toLocaleString());
+
+            var c = data.capabilities || {};
+            var names = { text: '文本', image: '图片', audio: '音频', video: '视频' };
+            var parts = Object.keys(names).map(function (k) {
+                return names[k] + '：' + (c[k] ? '✅' : '❌');
+            });
+            caps.innerHTML = parts.join(' &nbsp;·&nbsp; ') +
+                '<br><span style="font-size:12px;">未开通的能力会在调用时返回明确提示，不会静默失败。</span>';
+        }
+
+        document.getElementById('btnRefresh').addEventListener('click', load);
+        load();
+    </script>
+</body>
+</html>
