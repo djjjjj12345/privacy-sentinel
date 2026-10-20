@@ -149,22 +149,37 @@ Node 版本低于 22.13。用 `node -v` 确认，必要时按 3.1 重装。
 **⑥ 中文乱码**
 数据库、表、连接三处都必须是 `utf8mb4`；RDS 建库语句见第 1 节。
 
-## 6. 音视频后续接入（SIS 两级流水线）
+## 6. 音频接入（SIS 两级流水线，已实现）
 
-当前状态：`providers/huawei.js` 明确声明 `audio/video = false`，不假装支持。要真正国产化，按下面改造：
+当前状态：`providers/huawei-sis.js` 已实现完整流水线，`providers/huawei.js` 在 SIS 配置齐全时把
+`capabilities.audio` 动态置为 `true`；未配置时仍为 `false`，按 `AI_FALLBACK_PROVIDER` 回退或返回 501，
+不存在"假成功"。
 
 ```
 音频 base64
-  → 上传 OBS（临时对象，生命周期 1 天）
-  → SIS 录音文件识别（只吃 URL，不吃 base64）
-  → 拿到转写文本，立即删除 OBS 对象
+  → 上传 OBS（tmp/sis/{uuid}.{ext}，建议给桶配 1 天生命周期兜底）
+  → SIS 录音文件识别（只吃 URL，不吃 base64；提交任务后 1s 间隔轮询，上限 60s）
+  → 拿到转写文本，finally 中立即删除 OBS 对象（删除失败只记日志，不覆盖结果）
   → 本地正则引擎先扫一遍（13 类字段，零成本）
-  → 转写稿再送华为云文本模型做语义兜底
+  → 转写稿再送华为云文本模型做语义兜底（复用 analyzeText 的 system prompt 与解析）
 ```
 
-需要的环境变量已在 `.env.example` 预留：`HW_SIS_AK` / `HW_SIS_SK` / `HW_SIS_REGION` / `HW_OBS_BUCKET` / `HW_OBS_REGION`。
+需要的环境变量（与 `.env.example` 一致）：
 
-**这条链路对隐私是升级而非妥协**：原始音视频只在 OBS 停留分钟级；送模型的是文本；可以先脱敏再送。
+| 变量 | 说明 |
+|---|---|
+| `HW_AK` / `HW_SK` | 我的凭证 → 访问密钥（明文只显示一次） |
+| `HW_PROJECT_ID` | 我的凭证 → 项目列表里对应区域的项目 ID |
+| `HW_REGION` | 如 `cn-north-4`，需与 SIS、OBS 同区域 |
+| `HW_SIS_ENDPOINT` | 如 `https://sis.cn-north-4.myhuaweicloud.com` |
+| `HW_OBS_BUCKET` / `HW_OBS_ENDPOINT` | 临时落地的桶与端点，如 `https://obs.cn-north-4.myhuaweicloud.com` |
+| `HW_SIS_PROPERTY` | 选填，默认 `chinese_16k_media` |
+
+> **必装 `uuid`**：官方 `@huaweicloud/huaweicloud-sdk-sis` 漏声明了传递依赖 `uuid`，不装的话服务能正常启动、
+> 测试也全绿，但**第一个音频请求**会抛 `Cannot find module 'uuid'`。`package.json` 已显式声明。
+
+**这条链路对隐私是升级而非妥协**：原始音频只在 OBS 停留分钟级（且用完即删）；送模型的是纯文本；可以先脱敏再送。
+
 
 ## 7. 回滚
 

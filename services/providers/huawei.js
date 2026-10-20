@@ -26,10 +26,14 @@ const { buildSystemPrompt } = require('../schema');
 const {
   UpstreamError,
   MAX_DATA_URL_LENGTH,
+  MAX_MEDIA_BASE64_LENGTH,
+  AUDIO_MIME_TO_FORMAT,
   extractJson,
   toItems,
+  parseDataUrl,
   describeHttpError,
 } = require('./common');
+const sis = require('./huawei-sis');
 
 const VISION_MODEL = process.env.HW_VISION_MODEL || 'Qwen2.5-VL-7B-Instruct';
 const TEXT_MODEL = process.env.HW_TEXT_MODEL || 'DeepSeek-V4.1-Flash';
@@ -222,18 +226,99 @@ async function analyzeImage(imageUrl, opts = {}) {
 function unsupported(kind) {
   return new UpstreamError(
     `华为云 MaaS 预置模型不支持${kind}直传。` +
-    `请设置 AI_FALLBACK_PROVIDER=ark 走备用通道，或按 docs/huawei-deploy.md 接入 SIS 转写流水线。`,
+    `请配置华为云 SIS（HW_AK/HW_SK/HW_PROJECT_ID/HW_REGION/HW_SIS_ENDPOINT/HW_OBS_BUCKET/HW_OBS_ENDPOINT）启用音频转写，` +
+    `或设置 AI_FALLBACK_PROVIDER=ark 走备用通道。详见 docs/huawei-deploy.md 第 6 节。`,
     501
   );
 }
 
-async function analyzeAudio() { throw unsupported('音频'); }
+/**
+ * 音频分析：SIS 转写 → 复用 analyzeText 同一套 system prompt 与字段别名容错。
+ * 不另写解析逻辑：callHuawei / extractJson / readContent / normalizeResult 全部复用。
+ * 转写文本会作为 transcript 返回，上层 analyzer.js 会再用本地正则兜底。
+ */
+async function analyzeAudio(dataUrl, opts = {}) {
+  if (!sis.isConfigured()) {
+    throw unsupported('音频');
+  }
+
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed) {
+    throw new UpstreamError('音频格式必须是 data:audio/...;base64,...', 400);
+  }
+  const fmt = AUDIO_MIME_TO_FORMAT[parsed.mime];
+  if (!fmt) {
+    throw new UpstreamError(
+      `音频格式不支持（${parsed.mime}）。请使用 MP3 / WAV / AAC / M4A。`,
+      415
+    );
+  }
+  if (parsed.base64.length > MAX_MEDIA_BASE64_LENGTH) {
+    throw new UpstreamError(
+      `音频过大（${(parsed.base64.length / 1024 / 1024).toFixed(1)}MB），请压缩或截取后再试`,
+      413
+    );
+  }
+
+  const buffer = Buffer.from(parsed.base64, 'base64');
+  const startedAt = Date.now();
+
+  const transcript = await sis.transcribe({
+    buffer,
+    mimeType: parsed.mime,
+    filename: `audio.${fmt}`,
+  });
+
+  const text = transcript.text || '';
+  const TEXT_CAP = 12000;
+  const truncated = text.length > TEXT_CAP;
+  const trimmed = text.slice(0, TEXT_CAP);
+
+  if (!trimmed) {
+    return {
+      ok: true,
+      items: [],
+      claimedSensitive: false,
+      transcript: '',
+      advice: '音频转写结果为空，未检测到语音内容',
+      summary: '音频转写为空',
+      elapsedMs: Date.now() - startedAt,
+      model: TEXT_MODEL,
+      requestId: null,
+      transcribeProvider: transcript.provider,
+      audioDurationMs: transcript.durationMs != null ? transcript.durationMs : undefined,
+    };
+  }
+
+  const messages = [
+    { role: 'system', content: buildSystemPrompt(opts.profile) },
+    {
+      role: 'user',
+      content:
+        `以下是音频转写文本，请识别其中的敏感信息并按规定 JSON 结构输出。` +
+        `${truncated ? `（注意：转写过长，以下为前 ${TEXT_CAP} 字）` : ''}\n\n` +
+        `---转写开始---\n${trimmed}\n---转写结束---`,
+    },
+  ];
+
+  const data = await callHuawei({ model: TEXT_MODEL, messages, timeout: 90000 });
+  const parsedJson = extractJson(readContent(data));
+  const result = normalizeResult(data, parsedJson, TEXT_MODEL, startedAt);
+  result.transcript = text;
+  result.truncated = truncated;
+  result.transcribeProvider = transcript.provider;
+  if (transcript.durationMs != null) result.audioDurationMs = transcript.durationMs;
+  return result;
+}
+
 async function analyzeVideo() { throw unsupported('视频'); }
 
 module.exports = {
   name: 'huawei',
   label: '华为云 MaaS',
-  capabilities: { text: true, image: true, audio: false, video: false },
+  get capabilities() {
+    return { text: true, image: true, audio: sis.isConfigured(), video: false };
+  },
   isConfigured: () => Boolean(process.env.HW_MAAS_BASE_URL && process.env.HW_MAAS_API_KEY),
   baseUrl,
   chatEndpoint,
