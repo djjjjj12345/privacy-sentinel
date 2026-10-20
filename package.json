@@ -20,7 +20,8 @@
     "test:huawei": "node scripts/test-huawei-cloud.js",
     "test:sis": "node scripts/test-huawei-sis.js",
     "probe:huawei": "node scripts/probe-huawei.js",
-    "verify:sis": "node scripts/verify-sis-live.js"
+    "verify:sis": "node scripts/verify-sis-live.js",
+    "setup:credentials": "node scripts/setup-credentials.js"
   },
   "dependencies": {
     "@huaweicloud/huaweicloud-sdk-sis": "^3.1.218",
