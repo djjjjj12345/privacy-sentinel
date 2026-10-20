@@ -66,6 +66,25 @@ function mkCloud(overrides = {}) {
         if (overrides.pushError) throw new Error(overrides.pushError);
         return overrides.noJobId ? {} : { jobId: 'job-test-1' };
       },
+      // 极速版：同步返回；入参是桶名 + 对象 key，不是 data_url
+      recognizeFlashAsr: async (req) => {
+        calls.push(['flash', req && req.obs_bucket_name, req && req.obs_object_key, req && req.audio_format]);
+        if (overrides.flashError) {
+          const e = new Error(overrides.flashError);
+          if (overrides.flashErrorCode) e.errorCode = overrides.flashErrorCode;
+          throw e;
+        }
+        return overrides.flashResult || {
+          flashResult: {
+            status: 'FINISHED',
+            audio_duration: 3210,
+            segments: [
+              { result: { text: '我的手机号是' } },
+              { result: { text: '13800138000' } },
+            ],
+          },
+        };
+      },
       collectTranscriberJob: async () => {
         calls.push(['collect']);
         if (overrides.collectError) throw new Error(overrides.collectError);
@@ -84,8 +103,32 @@ function mkCloud(overrides = {}) {
   return cloud;
 }
 
+/** 一段真实可解析的 16k/16bit/单声道 WAV（0.1 秒正弦音）。
+ *  不能再用 'fake-audio-bytes' 这类假数据：转码环节会真的去解析它。 */
+function makeWav(seconds = 0.1, sampleRate = 16000) {
+  const n = Math.round(sampleRate * seconds);
+  const b = Buffer.alloc(44 + n * 2);
+  b.write('RIFF', 0);
+  b.writeUInt32LE(36 + n * 2, 4);
+  b.write('WAVE', 8);
+  b.write('fmt ', 12);
+  b.writeUInt32LE(16, 16);
+  b.writeUInt16LE(1, 20);
+  b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(sampleRate, 24);
+  b.writeUInt32LE(sampleRate * 2, 28);
+  b.writeUInt16LE(2, 32);
+  b.writeUInt16LE(16, 34);
+  b.write('data', 36);
+  b.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) {
+    b.writeInt16LE(Math.round(6000 * Math.sin((2 * Math.PI * 440 * i) / sampleRate)), 44 + i * 2);
+  }
+  return b;
+}
+
 const AUDIO = {
-  buffer: Buffer.from('fake-audio-bytes'),
+  buffer: makeWav(),
   mimeType: 'audio/wav',
   filename: 'voice.wav',
 };
@@ -132,7 +175,10 @@ const AUDIO = {
     '转写结果：多段 segments 顺序拼接，空段跳过'
   );
 
-  // ================= D. 主流程 =================
+  // ================= D. 主流程（普通版） =================
+  // 默认 HW_SIS_MODE=auto 会先走极速版，这一段要测的是普通版，所以显式指定
+  const savedMode = process.env.HW_SIS_MODE;
+  process.env.HW_SIS_MODE = 'standard';
   const cloud = mkCloud();
   sis.setClients(cloud);
   const r = await sis.transcribe(AUDIO);
@@ -143,12 +189,21 @@ const AUDIO = {
 
   const put = cloud.calls.find((c) => c[0] === 'put');
   const del = cloud.calls.find((c) => c[0] === 'delete');
+  // 普通版只接受裸 PCM，所以落地的必须是 .pcm（不是原始 wav/mp3）
   log(
-    Boolean(put) && /^tmp\/sis\/[0-9a-f-]{36}\.wav$/.test(put[1].Key),
-    'OBS 对象落在 tmp/sis/{uuid}.wav',
+    Boolean(put) && /^tmp\/sis\/[0-9a-f-]{36}\.pcm$/.test(put[1].Key),
+    'OBS 对象落在 tmp/sis/{uuid}.pcm（普通版只吃裸 PCM）',
     put && put[1].Key
   );
-  log(put && put[1].ContentType === 'audio/wav', 'OBS 上传带 ContentType（便于浏览器直接播放）');
+  log(
+    put && put[1].ContentType === 'application/octet-stream',
+    '裸 PCM 的 ContentType 为 octet-stream（不是 audio/wav）'
+  );
+  log(
+    put && put[1].Body.length === 3200,
+    '上传的是转码后的 PCM（0.1s × 16k × 2 字节 = 3200）',
+    put && String(put[1].Body.length)
+  );
 
   const order = cloud.calls.map((c) => c[0]).join('>');
   log(order === 'put>push>collect>delete', '四步顺序：上传 → 提交 → 轮询 → 删除', order);
@@ -214,7 +269,91 @@ const AUDIO = {
   const c6 = mkCloud({ collectResult: { status: 'FINISHED', segments: [] } });
   sis.setClients(c6);
   const r6 = await sis.transcribe(AUDIO);
-  log(r6.text === '' && r6.durationMs === null, '静音/空转写返回空字符串而非抛错');
+  // 空 segments 时 text 为空串；时长回落到转码后的 PCM 长度（0.1s WAV → 100ms）
+  log(r6.text === '' && r6.durationMs === 100, '静音/空转写返回空字符串而非抛错', `durationMs=${r6.durationMs}`);
+
+  // ================= F2. 极速版（obs 桶名 + key，同步返回） =================
+  process.env.HW_SIS_MODE = 'flash';
+
+  // mp3 原样上传，不转码
+  const cF1 = mkCloud();
+  sis.setClients(cF1);
+  const mp3 = Buffer.concat([Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(2048)]);
+  const rF1 = await sis.transcribe({ buffer: mp3, mimeType: 'audio/mpeg', filename: 'a.mp3' });
+  const flashCall = cF1.calls.find((c) => c[0] === 'flash');
+  log(
+    rF1.text === '我的手机号是13800138000',
+    '极速版返回文本（segments 拼接）',
+    JSON.stringify(rF1.text)
+  );
+  log(
+    flashCall && flashCall[1] === process.env.HW_OBS_BUCKET && /\.mp3$/.test(flashCall[2] || ''),
+    '极速版传的是桶名 + 对象 key，且 mp3 未被转码',
+    flashCall && `${flashCall[1]} / ${flashCall[2]}`
+  );
+  log(flashCall && flashCall[3] === 'mp3', '极速版 audio_format = mp3（原样提交）');
+  log(rF1.provider === 'huawei-sis-flash', 'provider 标记为 huawei-sis-flash');
+  log(
+    cF1.calls.filter((c) => c[0] === 'delete').length === 1,
+    '极速版同样用完即删 OBS 临时对象'
+  );
+
+  // 裸 pcm 不在极速版支持列表里 → 包成 wav 再传
+  const cF2 = mkCloud();
+  sis.setClients(cF2);
+  // 裸 PCM（无容器头）：ffmpeg 解不了，应按目标格式透传再包 wav
+  const rawPcm = Buffer.alloc(3200);
+  for (let i = 0; i < rawPcm.length / 2; i++) rawPcm.writeInt16LE(1000, i * 2);
+  await sis.transcribe({ buffer: rawPcm, mimeType: 'application/octet-stream', filename: 'x.pcm' });
+  const flashCall2 = cF2.calls.find((c) => c[0] === 'flash');
+  log(
+    flashCall2 && /\.wav$/.test(flashCall2[2] || '') && flashCall2[3] === 'wav',
+    '裸 pcm 被包成 wav 后再提交（极速版不认裸流）',
+    flashCall2 && flashCall2[2]
+  );
+
+  // 模型映射：极速版只支持 8k_common / 16k_conversation
+  const savedProp = process.env.HW_SIS_PROPERTY;
+  process.env.HW_SIS_PROPERTY = 'chinese_16k_media';
+  log(
+    sis.resolveFlashProperty() === 'chinese_16k_conversation',
+    '极速版不支持 chinese_16k_media 时降级为 chinese_16k_conversation'
+  );
+  process.env.HW_SIS_PROPERTY = 'chinese_8k_common';
+  log(sis.resolveFlashProperty() === 'chinese_8k_common', '极速版支持的 property 原样保留');
+  process.env.HW_SIS_PROPERTY = savedProp;
+
+  // extractFlashText 边界
+  log(sis.extractFlashText(null).text === '', 'extractFlashText(null) 不抛错、返回空串');
+  log(
+    sis.extractFlashText({ segments: [{ result: { text: '甲' } }, { result: null }, {}] }).text === '甲',
+    'extractFlashText 跳过空段'
+  );
+  log(
+    sis.extractFlashText({ flash_result: { segments: [{ result: { text: '乙' } }], audio_duration: 2000 } })
+      .durationMs === 2000,
+    'extractFlashText 兼容蛇形 flash_result 与 audio_duration'
+  );
+
+  // ================= F3. auto 模式：极速版未开通 → 回退普通版 =================
+  process.env.HW_SIS_MODE = 'auto';
+  const cF3 = mkCloud({ flashError: 'not subscribe this service.', flashErrorCode: 'SIS.0004' });
+  sis.setClients(cF3);
+  const rF3 = await sis.transcribe(AUDIO);
+  log(
+    rF3.text === '我的身份证号是110105199003071234' && rF3.provider === 'huawei-sis',
+    '极速版未开通（SIS.0004）时自动回退普通版',
+    rF3.provider
+  );
+
+  // 极速版"其他错误"不该被当成未开通而静默回退
+  const cF4 = mkCloud({ flashError: 'connect ECONNREFUSED' });
+  sis.setClients(cF4);
+  let eF4 = null;
+  try { await sis.transcribe(AUDIO); } catch (e) { eF4 = e; }
+  log(eF4 && eF4.status === 502, '极速版非「未开通」类错误直接抛出（不静默回退）');
+
+  process.env.HW_SIS_MODE = 'standard'; // 后续 H 段仍测普通版
 
   // ================= G. 轮询细节与 extractText 边界 =================
   const c7 = mkCloud({

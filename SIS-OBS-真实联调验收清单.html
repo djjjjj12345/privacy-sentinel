@@ -86,6 +86,25 @@
   </ol>
   <div class="note info">如果列表里找不到 SIS，直接在控制台顶部搜索框输入「语音交互」或「SIS」即可。</div>
 
+  <h3>⚠️ 还要单独开通「录音文件识别极速版」</h3>
+  <div class="path"><b>SIS 控制台</b> → 顶部页签「录音文件识别极速版」 → 卡片右侧「开通管理」 → 按需计费 → 确定</div>
+  <ol>
+    <li>SIS 有<b>两个</b>录音文件识别服务，必须分别开通。只开普通版会一直卡住。</li>
+    <li><b>极速版</b>：用「桶名 + 对象 key」提交，靠服务授权委托读取私有桶，<b>原生支持 mp3/m4a/aac/wav/opus</b>，同步返回文本。← 我们要用这个。</li>
+    <li><b>普通版</b>：用 <code>data_url</code> 提交，<code>audio_format</code> 只接受裸 PCM；实测对私有桶会返回「FINISHED 但零文本」。仅作兜底。</li>
+    <li>没开极速版会报 <code>SIS.0004 not subscribe this service.</code></li>
+  </ol>
+  <div class="note warn">「实时语音识别」「一句话识别」「语音合成」都不用开。</div>
+
+  <h3>服务授权（让 SIS 能读你的私有桶）</h3>
+  <div class="path"><b>SIS 控制台</b> → 左侧「服务授权」 → 「对象存储服务授权」 → 按引导创建委托</div>
+  <ol>
+    <li>委托名默认由系统创建（实测名为 <code>agency_for_voice</code>，委托方 <code>op_svc_asr</code>），不用手填。</li>
+    <li>只有<b>主账号</b>或有 Security Administrator 权限的账号能创建委托。</li>
+    <li>桶保持<b>私有</b>，不要改成公共读——授权就是为了让私有桶也能被 SIS 读到。</li>
+    <li>验证委托是否建好：<code>npm run check:agency</code>（列出账号下所有委托，并顺带校验项目 ID）。</li>
+  </ol>
+
   <h3>建 OBS 桶</h3>
   <div class="path"><b>控制台</b> → 对象存储服务 OBS → 桶列表 → 右上角「创建桶」</div>
   <table>
@@ -149,11 +168,16 @@ curl -s http://localhost:8080/api/health    # 端口按你的实际值</code></p
   <h3>跑端到端转写</h3>
 <pre><code>npm run verify:sis -- --audio 录音.m4a</code></pre>
   <ul>
-    <li>✅ 转写来源为 <code>huawei-sis</code></li>
+    <li>✅ 转写来源为 <code>huawei-sis-flash</code>（极速版）或 <code>huawei-sis</code>（普通版兜底）</li>
     <li>✅ 拿到转写文本（脚本会打印原文，逐字核对是否准确）</li>
     <li>✅ 转写文本里识别出身份证号或手机号</li>
   </ul>
-  <div class="note warn">若「都没匹配到」：先确认念的是数字而非「幺三八」；再试 <code>HW_SIS_PROPERTY=chinese_8k_common</code>（默认 <code>chinese_16k_media</code>），或重录一段更清楚的。</div>
+  <div class="note warn">
+    <b>看到 <code>huawei-sis</code> 且文本为空</b>：说明走了普通版兜底，它用 <code>data_url</code> 读私有桶拿不到内容，
+    会返回「FINISHED 但零文本」。去开通「录音文件识别极速版」即可（本页第 1 步）。<br>
+    <b>都没匹配到数字</b>：先确认念的是数字而非「幺三八」；再重录一段更清楚的。
+  </div>
+  <div class="note info">强制指定通道：<code>npm run verify:sis -- --audio 录音.m4a --mode flash</code>（或 <code>--mode standard</code>）。</div>
 
   <h3>再从服务端接口验一次（确认 transcribeProvider）</h3>
 <pre><code>node -e "const fs=require('fs');const b=fs.readFileSync('录音.wav').toString('base64');

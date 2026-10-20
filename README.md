@@ -4,7 +4,7 @@
 
 **线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.4.0**
 
-![status](https://img.shields.io/badge/version-3.4.0-blue) ![tests](https://img.shields.io/badge/tests-210%2F210-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.4.0-blue) ![tests](https://img.shields.io/badge/tests-224%2F224-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -16,7 +16,7 @@
 - **隐私零留存**：服务端日志 100% 脱敏，身份证/银行卡/手机/邮箱/IP/Bearer/api_key 一律不落盘
 - **离线可用**：PWA 已配置，断网仍能浏览历史；可装到桌面/手机主屏
 - **中英双语**：UI 文案与弹窗支持一键切换
-- **开箱即测**：210 项自动化测试，无外部依赖即可跑通全部
+- **开箱即测**：224 项自动化测试，无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -207,7 +207,7 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：210 通过 / 0 失败 / 210 项
+# 总计：224 通过 / 0 失败 / 224 项
 ```
 
 8 个独立套件：
@@ -221,7 +221,7 @@ npm test
 | 端到端 AI | `scripts/test-end-to-end.js` | 11 项模型流程 |
 | 账号与历史 | `scripts/test-auth-history.js` | 22 项注册/登录/云同步 |
 | 华为云适配 | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis |
-| SIS 音频转写 | `scripts/test-huawei-sis.js` | 38 项 上传/多轮轮询/删除/失败路径/analyzeAudio 集成 |
+| SIS 音频转写 | `scripts/test-huawei-sis.js` | 52 项 极速版/普通版双通道、音频转码、多轮轮询、失败路径、analyzeAudio 集成 |
 
 ## 八、部署
 
@@ -279,7 +279,7 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [x] **v3.1** P4 PWA / P5 118 项测试 / P6 README+截图 / P7 双语
 - [x] **v3.2** 账号登录 / SQLite 云同步 / PDF 报告 / JSON 备份
 - [x] **v3.3** Provider 抽象 / RDS MySQL / DCS Redis / 华为云部署文档 / 172 项测试
-- [x] **v3.4** SIS 音频转写流水线（OBS 临时对象 + 录音文件识别 + 用完即删）/ 210 项测试
+- [x] **v3.4** SIS 音频转写流水线（OBS 临时对象 + 录音文件识别 + 用完即删）/ 224 项测试
 - [ ] **v4.0**（产品级）批量检测 / 团队空间 / 更细的权限
 - [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 

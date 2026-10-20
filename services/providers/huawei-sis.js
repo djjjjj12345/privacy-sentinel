@@ -31,6 +31,21 @@
 const crypto = require('crypto');
 const logger = require('../logger');
 const { UpstreamError, AUDIO_MIME_TO_FORMAT } = require('./common');
+const { toSisPcm, pcmToWav } = require('../audioPcm');
+
+/**
+ * 两条识别通道，能力和坑完全不同：
+ *
+ * - flash（录音文件识别极速版）：用 obs_bucket_name + obs_object_key 指定音频，
+ *   SIS 凭「服务授权」委托读取私有桶；**原生支持 mp3/m4a/aac/wav/opus**，同步返回。
+ *   需要单独开通，未开通报 SIS.0004 not subscribe this service。
+ *
+ * - standard（录音文件识别）：用 data_url 指定音频，audio_format 只接受裸 PCM
+ *   （传 mp3 要么 body invalid，要么 SIS.0535 wrong audio format）；
+ *   实测对私有桶会返回 FINISHED 但 segments 为空，所以只能作为兜底。
+ *
+ * HW_SIS_MODE=flash | standard | auto（默认 auto：先极速版，未开通再退普通版）
+ */
 
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 60000;
@@ -159,14 +174,34 @@ function getClients() {
 }
 
 /**
+ * 模型特征串：拦截「8k 模型 + 16k PCM」这种必错组合。
+ * SIS 对此只报 wrong audio format，看不出是模型采样率不匹配。
+ */
+function resolveProperty() {
+  const p = process.env.HW_SIS_PROPERTY || 'chinese_16k_media';
+  if (/_8k_/.test(p)) {
+    throw new UpstreamError(
+      `HW_SIS_PROPERTY=${p} 是 8k 模型，但音频已统一转成 16k PCM，采样率不匹配。`
+        + '把 .env 里的 HW_SIS_PROPERTY 改成 chinese_16k_media 或 chinese_16k_conversation。',
+      500
+    );
+  }
+  return p;
+}
+
+/**
  * 提交 SIS 录音文件识别任务，返回 job_id。
  */
 async function submitJob(sis, obsUrl) {
   const { PostTranscriberJobs, PushTranscriberJobsRequest, TranscriberConfig } = require('@huaweicloud/huaweicloud-sdk-sis');
 
+  const property = resolveProperty();
+
+  // audio_format 只接受裸 PCM 系列（auto/mp3/wav 都会在转写阶段报 SIS.0535 wrong audio format，
+  // 或直接被判 body invalid）。audioPcm 已把输入统一转成 16k/16bit/单声道，所以这里固定 pcm16k16bit。
   const config = new TranscriberConfig()
-    .withAudioFormat('auto')
-    .withProperty(process.env.HW_SIS_PROPERTY || 'chinese_16k_media')
+    .withAudioFormat('pcm16k16bit')
+    .withProperty(property)
     .withAddPunc('yes')
     .withDigitNorm('yes');
 
@@ -262,7 +297,133 @@ function extractText(resp) {
  * @param {string} [input.filename] 仅用于推扩展名
  * @returns {Promise<{text:string, durationMs:number|null, provider:string}>}
  */
-async function transcribe({ buffer, mimeType, filename } = {}) {
+async function transcribe(opts = {}) {
+  const mode = process.env.HW_SIS_MODE || 'auto';
+  if (mode === 'flash') return transcribeFlash(opts);
+  if (mode === 'standard') return transcribeStandard(opts);
+
+  try {
+    return await transcribeFlash(opts);
+  } catch (e) {
+    if (isNotSubscribed(e)) {
+      logger.warn(
+        '[sis] 极速版未开通（SIS.0004），回退普通版。'
+          + '普通版对私有桶常返回空结果，建议到 SIS 控制台开通「录音文件识别极速版」'
+      );
+      return transcribeStandard(opts);
+    }
+    throw e;
+  }
+}
+
+/** 是否「服务未开通」——这两类错误要换通道而不是直接失败 */
+function isNotSubscribed(e) {
+  const code = String((e && (e.errorCode || e.error_code)) || '');
+  const msg = String((e && (e.errorMsg || e.message)) || '');
+  return /SIS\.0004/.test(code) || /not subscribe/i.test(msg);
+}
+
+/** 极速版支持的容器；裸 pcm 不在列表里，需要包成 wav */
+const FLASH_FORMATS = new Set(['wav', 'mp3', 'm4a', 'aac', 'opus']);
+
+/** 极速版只支持这两个模型，其余（如 chinese_16k_media）要降级映射 */
+function resolveFlashProperty() {
+  const p = process.env.HW_SIS_PROPERTY || 'chinese_16k_conversation';
+  if (p === 'chinese_8k_common' || p === 'chinese_16k_conversation') return p;
+  logger.warn(`[sis] HW_SIS_PROPERTY=${p} 极速版不支持，改用 chinese_16k_conversation`);
+  return 'chinese_16k_conversation';
+}
+
+function extractFlashText(resp) {
+  const fr = (resp && (resp.flashResult || resp.flash_result)) || resp || {};
+  const segs = Array.isArray(fr.segments) ? fr.segments : [];
+  const text = segs
+    .map((s) => (s && s.result && s.result.text) || '')
+    .filter(Boolean)
+    .join('');
+  const dur = Number(fr.audio_duration);
+  return {
+    text,
+    durationMs: Number.isFinite(dur) && dur > 0 ? dur : null,
+    status: fr.status || '',
+  };
+}
+
+/**
+ * 极速版转写：音频原样上传（mp3/m4a 不用转码），SIS 凭委托读私有桶，同步返回文本。
+ */
+async function transcribeFlash({ buffer, mimeType, filename } = {}) {
+  if (!buffer || !Buffer.isBuffer(buffer)) {
+    throw new UpstreamError('缺少音频 buffer', 400);
+  }
+
+  const bucket = requireEnv('HW_OBS_BUCKET');
+  const { sis, obs } = getClients();
+
+  const sniffed = sniffAudioFormat(buffer);
+  let ext = sniffed ? sniffed.ext : extFromMime(mimeType, filename);
+  let contentType = sniffed ? sniffed.mime : (mimeType || 'application/octet-stream');
+  let body = buffer;
+  let transcoded = false;
+
+  // 极速版不接受裸 pcm / 不认识的容器：统一转成 16k PCM 再包一层 WAV 头
+  if (!FLASH_FORMATS.has(ext)) {
+    const conv = toSisPcm(buffer, { ext, mimeType });
+    body = pcmToWav(conv.pcm);
+    ext = 'wav';
+    contentType = 'audio/wav';
+    transcoded = true;
+  }
+
+  const key = `tmp/sis/${crypto.randomUUID()}.${ext}`;
+  let uploaded = false;
+  try {
+    try {
+      await obs.putObject({ Bucket: bucket, Key: key, Body: body, ContentType: contentType });
+      uploaded = true;
+    } catch (e) {
+      throw new UpstreamError(`OBS 上传失败：${(e && e.message) || String(e)}`, 502);
+    }
+
+    let resp;
+    try {
+      resp = await sis.recognizeFlashAsr(
+        new (require('@huaweicloud/huaweicloud-sdk-sis').RecognizeFlashAsrRequest)()
+          .withProperty(resolveFlashProperty())
+          .withAudioFormat(ext)
+          .withObsBucketName(bucket)
+          .withObsObjectKey(key)
+      );
+    } catch (e) {
+      const code = e && (e.errorCode || e.error_code);
+      const detail = (e && (e.errorMsg || e.message)) || String(e);
+      throw new UpstreamError(
+        `SIS 极速版识别失败：${detail}${code ? ` (${code})` : ''}`,
+        502,
+        { code }
+      );
+    }
+
+    const { text, durationMs } = extractFlashText(resp);
+    return {
+      text,
+      durationMs: durationMs || null,
+      provider: `${PROVIDER}-flash`,
+      audioMeta: { srcFormat: ext, transcoder: transcoded ? 'wav-wrap' : 'none', sampleRate: 16000 },
+    };
+  } finally {
+    if (uploaded) {
+      try {
+        await obs.deleteObject({ Bucket: bucket, Key: key });
+      } catch (e) {
+        logger.warn('[sis] 删除 OBS 临时对象失败', { key, error: (e && e.message) || String(e) });
+      }
+    }
+  }
+}
+
+/** 普通版转写：data_url + 裸 PCM，实测对私有桶常返回空文本，仅作兜底 */
+async function transcribeStandard({ buffer, mimeType, filename } = {}) {
   if (!buffer || !Buffer.isBuffer(buffer)) {
     throw new UpstreamError('缺少音频 buffer', 400);
   }
@@ -271,11 +432,23 @@ async function transcribe({ buffer, mimeType, filename } = {}) {
   const obsEndpoint = requireEnv('HW_OBS_ENDPOINT');
   const { sis, obs } = getClients();
 
-  // 先按文件头判断真实格式；认不出再退回 mime/文件名
+  // 先按文件头判断真实格式（仅用于日志与转码提示，不用于决定 audio_format）
   const sniffed = sniffAudioFormat(buffer);
-  const ext = sniffed ? sniffed.ext : extFromMime(mimeType, filename);
-  const contentType = sniffed ? sniffed.mime : (mimeType || 'application/octet-stream');
-  const key = `tmp/sis/${crypto.randomUUID()}.${ext}`;
+  const srcExt = sniffed ? sniffed.ext : extFromMime(mimeType, filename);
+
+  // SIS 只接受裸 PCM（16k/16bit/单声道）。mp3/m4a/wav 容器一律先转码，
+  // 否则 auto 检测失败会报 SIS.0535 wrong audio format —— 这个报错完全不提"容器不支持"。
+  let converted;
+  try {
+    converted = toSisPcm(buffer, { ext: srcExt, mimeType });
+  } catch (e) {
+    if (e && e.code === 'NO_FFMPEG') {
+      throw new UpstreamError(e.message, 501);
+    }
+    throw new UpstreamError(`音频转码失败（原格式 ${srcExt}）：${e && e.message}`, 400);
+  }
+
+  const key = `tmp/sis/${crypto.randomUUID()}.pcm`;
   const obsUrl = buildObsUrl(bucket, key, obsEndpoint);
 
   let uploaded = false;
@@ -284,8 +457,8 @@ async function transcribe({ buffer, mimeType, filename } = {}) {
       await obs.putObject({
         Bucket: bucket,
         Key: key,
-        Body: buffer,
-        ContentType: contentType,
+        Body: converted.pcm,
+        ContentType: 'application/octet-stream',
       });
       uploaded = true;
     } catch (e) {
@@ -299,7 +472,18 @@ async function transcribe({ buffer, mimeType, filename } = {}) {
     const resp = await pollUntilDone(sis, jobId);
     const { text, durationMs } = extractText(resp);
 
-    return { text, durationMs, provider: PROVIDER };
+    return {
+      text,
+      // SIS 返回的时长不可靠时，用转码后的 PCM 长度算（这是我们唯一确定的值）
+      durationMs: durationMs || converted.durationMs,
+      provider: PROVIDER,
+      audioMeta: {
+        srcFormat: srcExt,
+        transcoder: converted.source,
+        sampleRate: 16000,
+        bytes: converted.pcm.length,
+      },
+    };
   } finally {
     if (uploaded) {
       try {
@@ -316,6 +500,11 @@ module.exports = {
   name: PROVIDER,
   isConfigured,
   transcribe,
+  transcribeFlash,
+  transcribeStandard,
+  isNotSubscribed,
+  resolveFlashProperty,
+  extractFlashText,
   // 测试 / 诊断钩子
   setClients,
   resetClients,
@@ -326,4 +515,5 @@ module.exports = {
   extFromMime,
   sniffAudioFormat,
   extractText,
+  resolveProperty,
 };

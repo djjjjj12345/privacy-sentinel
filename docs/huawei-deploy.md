@@ -217,6 +217,42 @@ npm run verify:sis -- --purge           # 发现残留对象时顺手清掉
 
 **这条链路对隐私是升级而非妥协**：原始音频只在 OBS 停留分钟级（且用完即删）；送模型的是纯文本；可以先脱敏再送。
 
+### 6.2 两条识别通道：必须开通极速版
+
+SIS 的「录音文件识别」有两个子服务，能力差别很大，实测结论如下：
+
+| | 极速版（`flash`，推荐） | 普通版（`standard`，兜底） |
+|---|---|---|
+| 指定音频的方式 | `obs_bucket_name` + `obs_object_key` | `data_url`（OBS 对象 URL） |
+| 读私有桶 | 走「服务授权」委托，**能读到** | 实测常常读不到，返回 FINISHED 但 `segments` 为空 |
+| 支持的容器 | **mp3 / m4a / aac / wav / opus** | 仅裸 PCM（`pcm16k16bit` 等 8 种） |
+| 返回方式 | 同步返回 `flash_result` | 提交任务 + 轮询（job_id） |
+| 模型 | `chinese_16k_conversation`、`chinese_8k_common` | `chinese_16k_media` 等 |
+| 开通 | **需在控制台单独开通**，未开通报 `SIS.0004` | 「录音文件识别」页签开通 |
+
+所以要做的三件事：
+
+1. **服务授权**（一次性）：SIS 控制台 → 服务授权 → 对象存储服务授权，会自动创建名为 `agency_for_voice`
+   的委托（委托方 `op_svc_asr`）。只有主账号或有 Security Administrator 权限的子账号能做。
+   验证：`npm run check:agency`。
+2. **开通极速版**：SIS 控制台 →「录音文件识别极速版」页签 → 开通管理 → 按需计费。
+3. 设置 `HW_SIS_MODE=auto`（默认）：先走极速版，未开通自动回落普通版并打警告。
+
+### 6.3 音频转码（`services/audioPcm.js`）
+
+普通版只接受裸 PCM，所以代码会在上传前统一转码成 **16 kHz / 16 bit / 单声道 / 小端裸流**：
+
+- **WAV → PCM**：纯 JS 解析（支持 8/16/24/32bit、多声道混单、线性插值重采样），零依赖。
+- **mp3/m4a/aac/ogg/webm → PCM**：调 ffmpeg。查找顺序 `FFMPEG_PATH` → `ffmpeg-static`
+  → `@ffmpeg-installer/ffmpeg` → 系统 PATH。找不到时抛 501 并提示安装。
+- **裸 PCM → 直接透传**（ffmpeg 解不了没有容器头的裸流）。
+
+> 注意：`ffmpeg-static` 的 postinstall 要从 GitHub 下二进制，国内常失败；
+> 项目用的是 `@ffmpeg-installer/ffmpeg`，二进制随 npm 包分发，镜像源也能装上。
+
+更彻底的方案是**前端就用 Web Audio 重采样成 16k PCM 再上传**（浏览器 MediaRecorder 默认产出
+44.1k/48k 的 webm/opus），后端转码只作为兜底。这条待办记在 README 的 roadmap 里。
+
 
 ## 7. 回滚
 

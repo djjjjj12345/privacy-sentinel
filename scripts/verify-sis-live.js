@@ -36,6 +36,9 @@ const getArg = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 const audioPath = getArg('--audio');
+// --mode flash | standard | auto：强制指定识别通道，默认跟随 .env 的 HW_SIS_MODE（缺省 auto）
+const modeArg = getArg('--mode');
+if (modeArg) process.env.HW_SIS_MODE = modeArg;
 const purge = args.includes('--purge');
 
 let pass = 0;
@@ -134,12 +137,16 @@ function hintFor(errMsg) {
     return '这个端点上没有该 API：HW_SIS_ENDPOINT 要用 sis-ext.<region>.myhuaweicloud.com（注意 -ext）。';
   }
   if (/SIS\.053[45]/i.test(m)) {
-    return 'SIS 打不开录音文件。表面是「格式不对/地址不可达」，实际九成是 SIS 没有读取私有 OBS 桶的权限：'
-      + '到 SIS 控制台完成「服务授权」（创建读取 OBS 的委托）。授权后重跑；'
-      + '若确实是格式问题，代码已按文件头自动纠正扩展名，可换一段 16k WAV 再试。';
+    return 'SIS 打不开录音文件。实测结论：普通版（录音文件识别）的 audio_format 只接受裸 PCM'
+      + '（mp3/m4a/wav 容器会在这里报「格式不对」）。代码已自动转成 16k/16bit/单声道 PCM，'
+      + '若仍报此错，说明普通版读不到私有桶内容——开通「录音文件识别极速版」（用桶名+key，走委托读取）即可解决。';
   }
   if (/SIS\.0001|audio_format is not match model/i.test(m)) {
     return '音频格式/采样率与模型不匹配：HW_SIS_PROPERTY 的采样率要和录音一致（16k 模型配 16k 音频）。';
+  }
+  if (/SIS\.0004|not subscribe/i.test(m)) {
+    return '该子服务没开通：极速版要单独开通——SIS 控制台 →「录音文件识别极速版」页签 → 开通管理 → 按需计费。'
+      + '普通版（录音文件识别）只接受裸 PCM，对私有桶还会静默返回空文本，所以建议开通极速版。';
   }
   if (/InvalidAccessKeyId/i.test(m)) return 'AK 不对：到「我的凭证 → 访问密钥」核对，注意别把 SK 填进 AK';
   if (/SignatureDoesNotMatch/i.test(m)) return 'SK 不对：SK 只在创建时显示一次，错了只能重建访问密钥';
@@ -238,9 +245,14 @@ const DOC_EXAMPLE_PROJECT_ID = '0f2c1a3bd4e84b0e9a7c5d6e8f1a2b3c';
           mimeType: mime,
           filename: path.basename(abs),
         });
-        log(r.provider === 'huawei-sis', '转写来源为 huawei-sis', r.provider);
+        log(/^huawei-sis/.test(String(r.provider)), '转写来源为华为云 SIS', r.provider);
         log(Boolean(r.text), '拿到转写文本', JSON.stringify(r.text));
         console.log(`  时长：${r.durationMs != null ? r.durationMs + 'ms' : '未提供'}   耗时：${Date.now() - t0}ms`);
+        if (r.audioMeta) console.log(`  音频：原格式 ${r.audioMeta.srcFormat} / 转码 ${r.audioMeta.transcoder}`);
+        if (r.provider === 'huawei-sis' && !r.text) {
+          warn('普通版对私有桶常常返回「FINISHED 但零文本」（它用 data_url 读私有对象拿不到内容）。'
+            + '开通「录音文件识别极速版」后重跑：极速版用桶名+key 走委托读取，原生支持 mp3。');
+        }
 
         const hasId = /\b\d{17}[\dXx]\b/.test(r.text.replace(/\s/g, ''));
         const hasPhone = /\b1[3-9]\d{9}\b/.test(r.text.replace(/\s/g, ''));
