@@ -20,6 +20,7 @@ const TYPE_LABEL = {
   uscc: '统一社会信用代码',
   ip: 'IP 地址',
   mac: 'MAC 地址',
+  apikey: 'API 密钥',
   other: '其他敏感信息',
 };
 
@@ -40,6 +41,8 @@ const TYPE_FLOOR = {
   uscc: 2,
   ip: 1,
   mac: 1,
+  // 密钥泄露可导致账号被接管、产生资损，与密码同级
+  apikey: 3,
   other: 1,
 };
 
@@ -138,6 +141,13 @@ function desensitize(value, type) {
       const macSegs = v.split(/[:\-]/);
       if (macSegs.length === 6) return macSegs[0] + ':' + macSegs[1] + ':' + macSegs[2] + ':**:**:**';
       return '**:**:**:**:**:**';
+    case 'apikey':
+      // 只保留前缀（用于判断是哪家的密钥），其余全部打码
+      // 例：sk-abcdef123456 -> sk-****3456
+      const sepIdx = v.search(/[-_]/);
+      if (sepIdx > 0 && sepIdx < 12) return v.slice(0, sepIdx + 1) + '****' + v.slice(-4);
+      if (v.length <= 8) return '****';
+      return v.slice(0, 2) + '****' + v.slice(-4);
     default:
       if (v.length <= 4) return '****';
       return v.slice(0, 2) + '***' + v.slice(-2);

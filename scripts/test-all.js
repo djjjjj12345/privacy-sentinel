@@ -8,6 +8,7 @@
  *   ⑥ scripts/test-auth-history.js  — 账号认证 + 云端历史（22 项）
  *   ⑦ scripts/test-huawei-cloud.js  — 华为云 Provider / RDS / Redis 适配（32 项）
  *   ⑧ scripts/test-huawei-sis.js    — SIS 音频转写流水线（52 项）
+ *   ⑨ scripts/test-ux-hardening.js  — 体验加固：错误分类 / 安全头 / 批量 / 密钥（81 项）
  *
  * 用法：node scripts/test-all.js
  */
@@ -24,6 +25,7 @@ const suites = [
   { name: '账号与历史',   file: 'test-auth-history.js',    weight: '22 项' },
   { name: '华为云适配',   file: 'test-huawei-cloud.js',    weight: '32 项' },
   { name: 'SIS 音频转写', file: 'test-huawei-sis.js',      weight: '52 项' },
+  { name: '体验加固',     file: 'test-ux-hardening.js',    weight: '81 项' },
 ];
 
 let totalPass = 0, totalFail = 0, suiteResults = [];

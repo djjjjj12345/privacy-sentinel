@@ -67,15 +67,15 @@ function createRateLimiter({ limit, windowMs = 60 * 1000, prefix = 'ps:rl' }) {
 
     res.setHeader('X-RateLimit-Limit', String(limit));
     res.setHeader('X-RateLimit-Remaining', String(Math.max(0, limit - count)));
+    res.setHeader('X-RateLimit-Reset', String(Math.max(0, Math.ceil((resetAt - now) / 1000))));
 
     if (count > limit) {
       const retryAfter = Math.max(1, Math.ceil((resetAt - now) / 1000));
       res.setHeader('Retry-After', String(retryAfter));
-      return res.status(429).json({
-        success: false,
-        error: `请求过于频繁，请 ${retryAfter} 秒后再试`,
-        retryAfter,
-      });
+      // 复用统一错误目录，保证前端文案与后端一致
+      const errors = require('./errors');
+      const p = errors.payload('rate_limited');
+      return res.status(429).json(Object.assign({}, p, { retryAfter }));
     }
     next();
   };

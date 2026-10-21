@@ -209,6 +209,55 @@ function collectMatches(text) {
     push('mac', m[0].toUpperCase(), m.index, m.index + m[0].length, true);
   }
 
+  // ---- API 密钥 / 访问令牌 ----
+  // 这类凭据一旦泄露，攻击者可以直接调用你的账号资源产生资损，
+  // 因此与密码同级（L3）。规则按厂商前缀逐个匹配，前缀本身就是强证据，
+  // 不需要额外上下文，避免「必须写『密钥』二字才识别」造成的漏报。
+  const keyPatterns = [
+    // OpenAI / 兼容接口
+    /\b(sk-[A-Za-z0-9_-]{16,})\b/g,
+    // 阿里云 AccessKey
+    /\b(LTAI[A-Za-z0-9]{12,})\b/g,
+    // 腾讯云 SecretId
+    /\b(AKID[A-Za-z0-9]{16,})\b/g,
+    // 华为云 / AWS Access Key Id
+    /\b((?:AKIA|ASIA|AIDA|AROA)[A-Z0-9]{12,})\b/g,
+    // GitHub Personal Access Token / OAuth / Server token
+    /\b(gh[pousr]_[A-Za-z0-9]{20,})\b/g,
+    // GitLab
+    /\b(glpat-[A-Za-z0-9_-]{16,})\b/g,
+    // Slack
+    /\b(xox[abprs]-[A-Za-z0-9-]{10,})\b/g,
+    // Google API Key
+    /\b(AIza[A-Za-z0-9_-]{30,})\b/g,
+    // Stripe
+    /\b((?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{16,})\b/g,
+    // SendGrid / Mailgun / Twilio
+    /\b(SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,})\b/g,
+    /\b(AC[a-f0-9]{32})\b/g,
+    // JWT（三段 Base64URL）
+    /\b(ey[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})\b/g,
+    // PEM 私钥头
+    /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/g,
+  ];
+  for (const re of keyPatterns) {
+    for (const m of text.matchAll(re)) {
+      push('apikey', m[1] || m[0], m.index, m.index + m[0].length, true);
+    }
+  }
+
+  // 带上下文的通用密钥声明：AK/SK/token/密钥 是 xxx
+  // 前缀规则覆盖不到的自研系统密钥，靠这条兜底
+  const genericKeyRe =
+    /(?:api[_\-]?key|apikey|access[_\-]?token|access[_\-]?key|secret[_\-]?key|secret|token|密钥|秘钥|令牌|私钥)\s*(?:是|为|:|：|=)\s*([A-Za-z0-9_\-]{16,})/gi;
+  for (const m of text.matchAll(genericKeyRe)) {
+    const value = m[1];
+    // 排除纯数字（多半是订单号）与看起来像哈希但无前缀的短串
+    if (/^\d+$/.test(value)) continue;
+    const start = m.index + m[0].lastIndexOf(value);
+    push('apikey', value, start, start + value.length, true);
+  }
+
   return raw;
 }
 
@@ -235,6 +284,7 @@ function verifyUsccChecksum(value) {
 const TYPE_PRIORITY = {
   otp: 100,
   password: 95,
+  apikey: 92,  // 前缀即强证据，优先级高于号码类
   uscc: 90,    // 校验位可信，证据强
   id: 90,
   bankcard: 80,

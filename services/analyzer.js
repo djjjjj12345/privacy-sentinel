@@ -61,7 +61,7 @@ function buildResult({ kind, items, ai, local, warnings = [] }) {
  * 绝不能返回「未检测到敏感信息」——那是一个危险的假阴性。
  * @param {string} imageUrl base64 data URL 或公网地址
  */
-async function analyzeImage({ imageUrl, image_url, profile = {}, question }) {
+async function analyzeImage({ imageUrl, image_url, profile = {}, question, types }) {
   const url = imageUrl || image_url;
 
   let ai = null;
@@ -95,7 +95,13 @@ async function analyzeImage({ imageUrl, image_url, profile = {}, question }) {
     };
   }
 
-  return buildResult({ kind: 'image', items: ai.items, ai, local: [], warnings: [] });
+  return buildResult({
+    kind: 'image',
+    items: filterTypes(ai.items, types),
+    ai,
+    local: [],
+    warnings: [],
+  });
 }
 
 /**
@@ -105,7 +111,7 @@ async function analyzeImage({ imageUrl, image_url, profile = {}, question }) {
  *
  * @param {'audio' | 'video'} kind
  */
-async function analyzeMediaKind(kind, { dataUrl, profile = {}, question }) {
+async function analyzeMediaKind(kind, { dataUrl, profile = {}, question, types }) {
   const method = kind === 'audio' ? vision.analyzeAudio : vision.analyzeVideo;
 
   let ai = null;
@@ -140,7 +146,7 @@ async function analyzeMediaKind(kind, { dataUrl, profile = {}, question }) {
       const items = fuseItems(local, []);
       return buildResult({
         kind,
-        items,
+        items: filterTypes(items, types),
         ai: { ...ai, items: local },
         local,
         warnings: ['模型未能定位具体敏感条目，以下结果来自本地规则对转写文本的复查'],
@@ -174,7 +180,7 @@ async function analyzeMediaKind(kind, { dataUrl, profile = {}, question }) {
     warnings.push('转写文本未匹配到本地规则，可作为辅助参考');
   }
 
-  const items = fuseItems(local, ai.items);
+  const items = filterTypes(fuseItems(local, ai.items), types);
   return buildResult({ kind, items, ai, local, warnings });
 }
 
@@ -190,12 +196,12 @@ async function analyzeVideo(params) {
  * 分析文本。正则先跑一遍作为确定性底线，模型结果再融合进来。
  * @param {string} text
  */
-async function analyzeText({ text, profile = {} }) {
+async function analyzeText({ text, profile = {}, types } = {}) {
   if (!text || !String(text).trim()) {
     return { success: false, kind: 'text', error: '文本内容为空', status: 400 };
   }
 
-  const local = localDetector.detect(text);
+  const local = filterTypes(localDetector.detect(text), types);
   const warnings = [];
 
   let ai = null;
@@ -215,16 +221,43 @@ async function analyzeText({ text, profile = {} }) {
   }
 
   const aiItems = ai && ai.ok ? ai.items : [];
-  const items = fuseItems(local, aiItems);
+  const items = filterTypes(fuseItems(local, aiItems), types);
 
   return buildResult({ kind: 'text', items, ai, local, warnings });
 }
 
 /**
+ * 按用户勾选的类型过滤条目。
+ * ---------------------------------------------------------------
+ * 用途：前端「检测规则自定义」把勾选结果随请求传回，服务端只保留这些类型。
+ * 这样同一套引擎既能全量检测，也能按需检测，不必维护两套规则。
+ *
+ * 约定：
+ *   - types 为空 / 非数组 / 空数组 -> 不做过滤（保持向后兼容）；
+ *   - 过滤发生在融合之后，避免「AI 补出的类型」绕过用户的选择；
+ *   - 传入未知类型名直接忽略，不报错（前端版本落后时不至于 400）。
+ *
+ * @param {Array} items
+ * @param {string[]|null} types
+ */
+function filterTypes(items, types) {
+  if (!Array.isArray(types) || types.length === 0) return items;
+
+  // 只认已知类型名。若传入的全部无效，交集为空——此时必须退回全量检测：
+  // 过滤成空集会让用户看到「未检测到敏感信息」，那是假阴性，比多报更危险。
+  const allow = new Set(
+    types.filter((t) => typeof t === 'string' && Object.prototype.hasOwnProperty.call(TYPE_LABEL, t))
+  );
+  if (allow.size === 0) return items;
+
+  return (items || []).filter((it) => allow.has(it && it.type));
+}
+
+/**
  * 文本的「仅本地」快速通道，用于前端点击发送时的零延迟预检。
  */
-function analyzeTextLocalOnly(text) {
-  const items = localDetector.detect(text);
+function analyzeTextLocalOnly(text, types) {
+  const items = filterTypes(localDetector.detect(text), types);
   const maxLevel = maxLevelOf(items);
   return {
     success: true,
@@ -250,5 +283,6 @@ module.exports = {
   analyzeVideo,
   analyzeTextLocalOnly,
   fallbackAdvice,
+  filterTypes,
   TYPE_LABEL,
 };

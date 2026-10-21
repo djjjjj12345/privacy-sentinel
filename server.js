@@ -12,11 +12,16 @@ const logger = require('./services/logger');
 const store = require('./services/store');
 const providers = require('./services/providers');
 const redis = require('./services/redis');
+const { securityHeaders, htmlNonce } = require('./services/securityHeaders');
+const errors = require('./services/errors');
 
 const app = express();
 
 // Railway / 反向代理后面需要信任代理头，否则限流会把所有请求算成同一个 IP
 app.set('trust proxy', 1);
+
+// 安全响应头挂载在最前面，保证 404 / 500 / 静态资源等所有响应都带上
+app.use(securityHeaders);
 
 app.use(cors());
 
@@ -34,7 +39,10 @@ app.use('/api', detectRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/history', historyRoutes);
 
-// 健康检查：便于确认部署版本、模型供应商与存储驱动是否就绪
+/**
+ * 健康检查：便于确认部署版本、模型供应商、存储与缓存是否就绪。
+ * 额外带上 capabilities 与 privacy，让「服务状态页」不必硬编码这些信息。
+ */
 app.get('/api/health', async (req, res) => {
   const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
   let dbStatus = 'ok';
@@ -49,6 +57,8 @@ app.get('/api/health', async (req, res) => {
     success: true,
     version: require('./package.json').version,
     uptime: Math.round(process.uptime()),
+    // 冷启动判断依据：刚启动不久的实例，前端可据此提示「正在唤醒」
+    booting: process.uptime() < 20,
     model: process.env.ARK_VISION_MODEL || 'doubao-seed-2-0-mini-260428',
     arkKeyConfigured: hasKey,
     aiProvider: ai.provider,
@@ -58,6 +68,25 @@ app.get('/api/health', async (req, res) => {
     db: dbStatus,
     dbDriver: store.driver,
     redis: redis.status(),
+    rateLimitPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE || 30),
+    capabilities: ai.capabilities || {},
+  });
+});
+
+// 隐私承诺：前端弹窗与状态页共用同一份文案，避免两处说法不一致
+app.get('/api/privacy', (req, res) => {
+  res.json({
+    success: true,
+    version: require('./package.json').version,
+    points: [
+      '你提交的文本、图片、音频、视频仅用于当次检测，检测完成后不在服务端保留原始内容。',
+      '除完成本次检测所必需的识别服务外，不向任何第三方转发、出售或用于模型训练。',
+      '检测结果中的敏感字段默认以脱敏形式展示（如 110105********1234），完整原文不回传页面。',
+      '音频检测中转所需的临时对象，在转写完成后立即从对象存储删除。',
+      '登录仅用于同步你自己的预警历史，密码以 scrypt 哈希存储，不保存明文。',
+      '全站启用 HTTPS 与安全响应头（CSP / HSTS / X-Content-Type-Options），不投放第三方追踪脚本。',
+    ],
+    note: '本工具为本地可部署的开源项目，自建实例时以上承诺由你的部署配置决定。',
   });
 });
 
@@ -65,15 +94,20 @@ app.get('/api/health', async (req, res) => {
 //  静态前端
 // ------------------------------------------------------------------
 // 用绝对路径，避免部署环境工作目录不同导致静态资源 404
-app.use(express.static(path.join(__dirname, '前端')));
+const FRONTEND_DIR = path.join(__dirname, '前端');
+
+// HTML 请求先经 nonce 注入（CSP 生效的前提），其余静态资源直接交给 static
+app.use(htmlNonce(FRONTEND_DIR));
+app.use(express.static(FRONTEND_DIR));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '前端', 'index.html'));
+  res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
 // 未命中的 API 路由返回 JSON，避免前端拿到一坨 HTML 导致解析报错
 app.use('/api', (req, res) => {
-  res.status(404).json({ success: false, error: `接口不存在：${req.method} ${req.originalUrl}` });
+  const p = errors.payload('not_found', `接口不存在：${req.method} ${req.originalUrl}`);
+  res.status(404).json(p);
 });
 
 // ------------------------------------------------------------------
@@ -81,11 +115,13 @@ app.use('/api', (req, res) => {
 // ------------------------------------------------------------------
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.too.large') {
-    return res.status(413).json({ success: false, error: '请求体过大：请压缩图片，或剪短音视频（建议 1 分钟以内）后重试' });
+    return res.status(413).json(errors.payload('payload_too_large'));
   }
   logger.error('[server] 未处理异常:', err);
   if (res.headersSent) return next(err);
-  res.status(500).json({ success: false, error: err.message || '服务器内部错误' });
+  // 统一错误目录：内部异常也只暴露分类文案，原始堆栈留在日志里
+  const p = errors.payload(err);
+  res.status(500).json(p);
 });
 
 const port = process.env.PORT || 8080;
