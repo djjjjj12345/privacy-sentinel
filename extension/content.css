@@ -1,0 +1,172 @@
+/**
+ * 提醒条样式
+ * ---------------------------------------------------------------
+ * 注入到任意第三方页面，必须做到两件事：
+ *   1. 不被宿主页面的 CSS 影响（字号、行高、字体全部显式声明，关键项 !important）；
+ *   2. 不影响宿主页面（全部类名带 psg- 前缀，不写任何标签选择器）。
+ */
+.psg-tip {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff !important;
+  color: #1f2430 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  text-align: left !important;
+  direction: ltr !important;
+  letter-spacing: normal !important;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18), 0 2px 6px rgba(16, 24, 40, 0.1) !important;
+  border: 1px solid #e4e7ec !important;
+  border-left-width: 4px !important;
+  display: none;
+  animation: psg-in 0.16s ease-out;
+}
+
+.psg-tip.show { display: block !important; }
+
+@keyframes psg-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.psg-tip.lv1 { border-left-color: #dcb60a !important; }
+.psg-tip.lv2 { border-left-color: #f79009 !important; }
+.psg-tip.lv3 { border-left-color: #e04f2f !important; }
+.psg-tip.lv4 { border-left-color: #d92d20 !important; }
+
+.psg-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 0 8px !important;
+}
+
+.psg-badge {
+  flex: none !important;
+  display: inline-block !important;
+  padding: 1px 7px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  background: #667085 !important;
+}
+.lv1 .psg-badge { background: #b78103 !important; }
+.lv2 .psg-badge { background: #dc6803 !important; }
+.lv3 .psg-badge { background: #c4321a !important; }
+.lv4 .psg-badge { background: #b42318 !important; }
+
+.psg-head strong {
+  flex: 1 1 auto !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #1f2430 !important;
+}
+
+.psg-close {
+  flex: none !important;
+  border: none !important;
+  background: transparent !important;
+  color: #98a2b3 !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  padding: 0 2px !important;
+}
+.psg-close:hover { color: #475467 !important; }
+
+.psg-list {
+  list-style: none !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+.psg-list li {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: baseline !important;
+  padding: 3px 0 !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+}
+
+.psg-type {
+  flex: none !important;
+  color: #667085 !important;
+}
+
+.psg-list code {
+  flex: 1 1 auto !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 12px !important;
+  color: #344054 !important;
+  background: #f2f4f7 !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  word-break: break-all !important;
+}
+
+.psg-more { color: #98a2b3 !important; }
+
+.psg-note {
+  margin: 0 0 10px !important;
+  font-size: 12px !important;
+  color: #667085 !important;
+}
+
+.psg-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+
+.psg-btn {
+  border: 1px solid #d0d5dd !important;
+  background: #ffffff !important;
+  color: #344054 !important;
+  border-radius: 8px !important;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  line-height: 1.4 !important;
+}
+.psg-btn:hover { background: #f2f4f7 !important; }
+
+.psg-btn.primary {
+  background: #1570ef !important;
+  border-color: #1570ef !important;
+  color: #ffffff !important;
+}
+.psg-btn.primary:hover { background: #175cd3 !important; }
+
+.psg-btn.ghost {
+  border-color: transparent !important;
+  color: #667085 !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+.psg-btn.ghost:hover { color: #344054 !important; background: #f2f4f7 !important; }
+
+@media (prefers-color-scheme: dark) {
+  .psg-tip {
+    background: #1d2029 !important;
+    color: #e7e9ee !important;
+    border-color: #333846 !important;
+  }
+  .psg-head strong { color: #e7e9ee !important; }
+  .psg-list code { background: #2a2e39 !important; color: #d6d9e0 !important; }
+  .psg-note, .psg-type { color: #9aa1af !important; }
+  .psg-btn { background: #2a2e39 !important; border-color: #3a3f4d !important; color: #d6d9e0 !important; }
+  .psg-btn:hover { background: #333846 !important; }
+  .psg-btn.primary { background: #1570ef !important; border-color: #1570ef !important; color: #fff !important; }
+}

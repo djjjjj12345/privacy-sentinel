@@ -11,6 +11,7 @@
  *   ⑨ scripts/test-ux-hardening.js  — 体验加固：错误分类 / 安全头 / 批量 / 密钥（81 项）
  *   ⑩ scripts/test-frontend-dom.js  — 前端交互（jsdom 真实点击）：主题 / 隐私弹窗 / 批量 / 报告 / 本地模式 / 脱敏导出（107 项）
  *   ⑪ scripts/test-v36-hardening.js — 隐私优先加固：抗变形 / 双端同源 / 位置映射 / SSRF 守卫（26 项）
+ *   ⑫ scripts/test-guard.js         — 输入守卫：扩展契约 / 脱敏逻辑 / 发帖拦截（69 项）
  *
  * 用法：node scripts/test-all.js
  */
@@ -30,6 +31,7 @@ const suites = [
   { name: '体验加固',     file: 'test-ux-hardening.js',    weight: '81 项' },
   { name: '前端交互',     file: 'test-frontend-dom.js',    weight: '107 项' },
   { name: '隐私优先加固', file: 'test-v36-hardening.js',   weight: '26 项' },
+  { name: '输入守卫',     file: 'test-guard.js',           weight: '69 项' },
 ];
 
 let totalPass = 0, totalFail = 0, suiteResults = [];

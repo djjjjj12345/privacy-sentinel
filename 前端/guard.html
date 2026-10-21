@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>隐私哨兵 · 输入守卫</title>
+<meta name="description" content="在公共平台发帖、评论、填表时实时提醒隐私泄露，一键脱敏。检测全程在浏览器本地完成，原文不上传。">
+<link rel="canonical" href="https://privacy-sentinel.onrender.com/guard.html">
+<meta property="og:title" content="隐私哨兵 · 输入守卫">
+<meta property="og:description" content="发帖、评论、填表时实时提醒隐私泄露，一键脱敏，原文不出浏览器。">
+<meta property="og:image" content="/icons/og-guard.png">
+<style>
+  :root {
+    --bg:#f5f7fa; --panel:#ffffff; --ink:#1f2430; --sub:#667085; --line:#e4e7ec;
+    --primary:#1570ef; --primary-ink:#ffffff; --chip:#f2f4f7;
+    --lv1:#dcb60a; --lv2:#f79009; --lv3:#e04f2f; --lv4:#d92d20;
+    --shadow:0 8px 24px rgba(16,24,40,.10);
+  }
+  [data-theme="dark"] {
+    --bg:#14161c; --panel:#1d2029; --ink:#e7e9ee; --sub:#9aa1af; --line:#333846;
+    --chip:#2a2e39; --shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px; line-height:1.6;
+  }
+  a { color:var(--primary); text-decoration:none; }
+  .wrap { max-width:1120px; margin:0 auto; padding:20px 16px 48px; }
+
+  header.top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  header.top h1 { margin:0; font-size:20px; }
+  header.top .tag { font-size:12px; color:var(--sub); }
+  .spacer { flex:1 1 auto; }
+  .icon-btn {
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    border-radius:10px; padding:7px 12px; cursor:pointer; font-size:13px;
+  }
+  .icon-btn:hover { background:var(--chip); }
+
+  .badge-line {
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    background:#e7f6ec; color:#067647; border-radius:10px; padding:8px 12px;
+    font-size:12.5px; margin-bottom:16px;
+  }
+  [data-theme="dark"] .badge-line { background:#10331f; color:#6ce9a6; }
+
+  .grid { display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start; }
+  @media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); }
+
+  /* 模拟的发布器 */
+  .composer-head {
+    display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line);
+  }
+  .avatar {
+    width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#1570ef,#53b1fd);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600;
+  }
+  .composer-head .who { font-size:13px; font-weight:600; }
+  .composer-head .scene { font-size:11.5px; color:var(--sub); }
+  .scenes { display:flex; gap:6px; padding:10px 14px 0; flex-wrap:wrap; }
+  .scene-chip {
+    border:1px solid var(--line); background:var(--chip); color:var(--sub);
+    border-radius:999px; padding:4px 10px; font-size:12px; cursor:pointer;
+  }
+  .scene-chip.on { background:var(--primary); border-color:var(--primary); color:#fff; }
+
+  .composer-body { padding:12px 14px 6px; position:relative; }
+  textarea#composer {
+    width:100%; min-height:150px; resize:vertical; padding:12px;
+    border:1px solid var(--line); border-radius:12px; background:var(--bg); color:var(--ink);
+    font:inherit; font-size:14px; line-height:1.7; outline:none;
+  }
+  textarea#composer:focus { border-color:var(--primary); }
+
+  .composer-foot {
+    display:flex; align-items:center; gap:8px; padding:10px 14px 14px; flex-wrap:wrap;
+  }
+  .composer-foot .count { font-size:12px; color:var(--sub); }
+  .btn-primary {
+    background:var(--primary); color:var(--primary-ink); border:none; border-radius:10px;
+    padding:8px 16px; font-size:13px; cursor:pointer;
+  }
+  .btn-primary:hover { filter:brightness(.94); }
+  .btn-ghost {
+    background:transparent; border:1px solid var(--line); color:var(--ink);
+    border-radius:10px; padding:7px 12px; font-size:13px; cursor:pointer;
+  }
+  .btn-ghost:hover { background:var(--chip); }
+
+  /* 提醒条（与浏览器扩展同款） */
+  .psg-tip {
+    position:absolute; z-index:50; width:320px; max-width:calc(100% - 8px);
+    background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    border-left-width:4px; border-radius:12px; padding:12px 14px;
+    box-shadow:0 10px 30px rgba(16,24,40,.18); display:none; font-size:13px;
+  }
+  .psg-tip.show { display:block; animation:psg-in .16s ease-out; }
+  @keyframes psg-in { from{opacity:0;transform:translateY(-4px);} to{opacity:1;transform:none;} }
+  .psg-tip.lv1 { border-left-color:var(--lv1); }
+  .psg-tip.lv2 { border-left-color:var(--lv2); }
+  .psg-tip.lv3 { border-left-color:var(--lv3); }
+  .psg-tip.lv4 { border-left-color:var(--lv4); }
+  .psg-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .psg-badge {
+    flex:none; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#667085;
+  }
+  .lv1 .psg-badge{background:#b78103;} .lv2 .psg-badge{background:#dc6803;}
+  .lv3 .psg-badge{background:#c4321a;} .lv4 .psg-badge{background:#b42318;}
+  .psg-head strong { flex:1 1 auto; font-size:13px; font-weight:600; }
+  .psg-close { border:none; background:transparent; color:var(--sub); font-size:17px; cursor:pointer; line-height:1; }
+  .psg-list { list-style:none; margin:0 0 8px; padding:0; max-height:132px; overflow-y:auto; }
+  .psg-list li { display:flex; gap:8px; align-items:baseline; padding:3px 0; font-size:12px; }
+  .psg-type { flex:none; color:var(--sub); }
+  .psg-list code {
+    flex:1 1 auto; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px;
+    background:var(--chip); padding:1px 6px; border-radius:4px; word-break:break-all;
+  }
+  .psg-note { margin:0 0 10px; font-size:12px; color:var(--sub); }
+  .psg-actions { display:flex; flex-wrap:wrap; gap:6px; }
+  .psg-btn {
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    border-radius:8px; padding:5px 10px; font-size:12px; cursor:pointer;
+  }
+  .psg-btn:hover { background:var(--chip); }
+  .psg-btn.primary { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .psg-btn.ghost { border-color:transparent; color:var(--sub); }
+
+  /* 右侧检测面板 */
+  .side { padding:14px; }
+  .side h3 { margin:0 0 4px; font-size:14px; }
+  .side .hint { margin:0 0 12px; font-size:12px; color:var(--sub); }
+  .field { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; font-size:12.5px; }
+  .field select {
+    font:inherit; font-size:12px; padding:5px 6px; border:1px solid var(--line);
+    border-radius:8px; background:var(--panel); color:var(--ink);
+  }
+  .item {
+    border:1px solid var(--line); border-left-width:3px; border-radius:10px;
+    padding:8px 10px; margin-bottom:8px; font-size:12.5px;
+  }
+  .item.lv1{border-left-color:var(--lv1);} .item.lv2{border-left-color:var(--lv2);}
+  .item.lv3{border-left-color:var(--lv3);} .item.lv4{border-left-color:var(--lv4);}
+  .item .row1 { display:flex; align-items:center; gap:6px; }
+  .item .lvtag { font-size:11px; font-weight:700; color:#fff; background:#667085; border-radius:999px; padding:0 6px; }
+  .item.lv1 .lvtag{background:#b78103;} .item.lv2 .lvtag{background:#dc6803;}
+  .item.lv3 .lvtag{background:#c4321a;} .item.lv4 .lvtag{background:#b42318;}
+  .item .val { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:var(--sub); margin:4px 0 6px; word-break:break-all; }
+  .item .ops { display:flex; gap:6px; }
+  .item .ops button {
+    border:1px solid var(--line); background:transparent; color:var(--ink);
+    border-radius:7px; padding:3px 8px; font-size:11.5px; cursor:pointer;
+  }
+  .item .ops button:hover { background:var(--chip); }
+  .empty { color:var(--sub); font-size:12.5px; padding:14px; text-align:center; border:1px dashed var(--line); border-radius:10px; }
+
+  /* 发布二次确认 */
+  .mask {
+    position:fixed; inset:0; background:rgba(16,24,40,.55); display:none;
+    align-items:center; justify-content:center; z-index:100; padding:16px;
+  }
+  .mask.show { display:flex; }
+  .dialog {
+    background:var(--panel); border-radius:14px; max-width:420px; width:100%;
+    padding:20px; box-shadow:var(--shadow);
+  }
+  .dialog h3 { margin:0 0 8px; font-size:16px; }
+  .dialog p { margin:0 0 14px; font-size:13px; color:var(--sub); }
+  .dialog ul { margin:0 0 14px; padding-left:18px; font-size:12.5px; color:var(--ink); }
+  .dialog .ops { display:flex; gap:8px; justify-content:flex-end; }
+
+  footer.note { margin-top:18px; font-size:12px; color:var(--sub); line-height:1.8; }
+  footer.note b { color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>🛡 隐私哨兵 · 输入守卫</h1>
+      <div class="tag">在公共平台发帖、评论、填表时实时提醒 · 一键脱敏</div>
+    </div>
+    <div class="spacer"></div>
+    <a class="icon-btn" href="launch.html">⇄ 切换产品</a>
+    <button class="icon-btn" id="btnTheme" type="button">🌙 深色</button>
+  </header>
+
+  <div class="badge-line">
+    <span>🔒 检测全程在你的浏览器里完成，<b>原文不会离开本机</b>，本页面不发任何网络请求。</span>
+  </div>
+
+  <div class="grid">
+    <!-- 左：模拟发布器 -->
+    <div class="panel">
+      <div class="composer-head">
+        <div class="avatar" id="avatar">我</div>
+        <div>
+          <div class="who" id="whoLabel">我的账号</div>
+          <div class="scene" id="sceneLabel">正在公开发布 · 所有人可见</div>
+        </div>
+      </div>
+      <div class="scenes" id="scenes"></div>
+      <div class="composer-body">
+        <textarea id="composer" placeholder="说点什么……试试输入你的手机号、身份证号、银行卡号，或粘贴一段含密钥的配置"></textarea>
+        <div class="psg-tip" id="tip" role="alert"></div>
+      </div>
+      <div class="composer-foot">
+        <button class="btn-ghost" type="button" id="btnSample">插入示例</button>
+        <button class="btn-ghost" type="button" id="btnClear">清空</button>
+        <span class="count" id="count">0 字</span>
+        <div class="spacer"></div>
+        <button class="btn-primary" type="button" id="btnPublish">发布</button>
+      </div>
+    </div>
+
+    <!-- 右：检测面板 -->
+    <div class="panel side">
+      <h3>实时检测结果</h3>
+      <p class="hint">只显示脱敏后的值，原文不会出现在任何提示里。</p>
+
+      <div class="field">
+        <span>提醒等级阈值</span>
+        <select id="minLevel">
+          <option value="1">L1 及以上（全部）</option>
+          <option value="2">L2 及以上</option>
+          <option value="3">L3 及以上（仅高危）</option>
+          <option value="4">L4（仅验证码类）</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>脱敏方式</span>
+        <select id="strategy">
+          <option value="mask">打码 138****8000</option>
+          <option value="label">替换 [手机号]</option>
+          <option value="remove">直接删除</option>
+        </select>
+      </div>
+
+      <div id="items"></div>
+    </div>
+  </div>
+
+  <footer class="note">
+    <b>和完整检测工具的区别：</b>本页只做「发送前拦一把」，适合边写边检；
+    <a href="index.html">隐私哨兵检测工具</a> 适合粘贴长文本、批量扫描、导出报告。<br>
+    <b>想在真实网站上也生效？</b>安装浏览器扩展（<code>extension/</code> 目录，Chrome 开发者模式「加载已解压的扩展程序」），
+    规则与本页同源，改一处两边同时生效。
+  </footer>
+</div>
+
+<div class="mask" id="mask">
+  <div class="dialog">
+    <h3 id="dlgTitle">确认发布？</h3>
+    <p id="dlgDesc"></p>
+    <ul id="dlgList"></ul>
+    <div class="ops">
+      <button class="btn-ghost" type="button" id="dlgMask">先帮我脱敏</button>
+      <button class="btn-ghost" type="button" id="dlgCancel">取消</button>
+      <button class="btn-primary" type="button" id="dlgOk">仍然发布</button>
+    </div>
+  </div>
+</div>
+
+<script src="/engine/schema.js"></script>
+<script src="/engine/localDetector.js"></script>
+<script src="/engine/guardCore.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var ENGINE = window.PSLocal;
+  var CORE = window.PSGuardCore;
+  var ta = document.getElementById('composer');
+  var tip = document.getElementById('tip');
+  var itemsBox = document.getElementById('items');
+  var countEl = document.getElementById('count');
+
+  if (!ENGINE || !CORE) {
+    itemsBox.innerHTML = '<div class="empty">本地引擎加载失败，请确认 /engine/ 可访问后刷新页面。</div>';
+    return;
+  }
+
+  var SCENES = [
+    { key: 'weibo', name: '微博', who: '微博用户', scene: '正在公开发布 · 所有人可见', sample: '刚换了新号码，有急事打我电话 13800138000，或者发我邮箱 zhangsan@example.com。' },
+    { key: 'zhihu', name: '知乎', who: '知乎答主', scene: '正在写回答 · 公开可见', sample: '我的身份证号是 11010519491231002X，之前办社保的时候用过，供参考。' },
+    { key: 'xhs', name: '小红书', who: '小红书博主', scene: '发布笔记 · 公开可见', sample: '住在北京市朝阳区建国路88号院3号楼1201，快递到了直接放门口就行～' },
+    { key: 'idle', name: '闲鱼', who: '闲鱼卖家', scene: '发布商品 · 陌生人可见', sample: '闲置转让，转账到 6222021234567890123 就行，收款人张三，有问题电联 13800138000。' },
+    { key: 'job', name: '招聘投递', who: '求职者', scene: '填写简历 · 对方 HR 可见', sample: '姓名张三，手机号 13800138000，身份证 11010519491231002X，现居北京市朝阳区建国路88号。' },
+  ];
+
+  var state = {
+    scene: SCENES[0],
+    items: [],
+    ignored: {},        // 被「本次忽略」的项：type@start
+    timer: null,
+  };
+
+  /* ---------- 主题 ---------- */
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem('privacy-sentinel:theme'); } catch (_) {}
+    var dark = saved ? saved === 'dark'
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyTheme(dark ? 'dark' : 'light');
+    document.getElementById('btnTheme').addEventListener('click', function () {
+      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      try { localStorage.setItem('privacy-sentinel:theme', next); } catch (_) {}
+    });
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('btnTheme').textContent = t === 'dark' ? '☀ 浅色' : '🌙 深色';
+  }
+
+  /* ---------- 场景切换 ---------- */
+  function renderScenes() {
+    var box = document.getElementById('scenes');
+    box.textContent = '';
+    SCENES.forEach(function (s) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'scene-chip' + (s.key === state.scene.key ? ' on' : '');
+      b.textContent = s.name;
+      b.addEventListener('click', function () { pickScene(s); });
+      box.appendChild(b);
+    });
+  }
+  function pickScene(s) {
+    state.scene = s;
+    state.ignored = {};
+    document.getElementById('whoLabel').textContent = s.who;
+    document.getElementById('sceneLabel').textContent = s.scene;
+    document.getElementById('avatar').textContent = s.name.slice(0, 1);
+    renderScenes();
+    hideTip();
+    scan();
+  }
+
+  /* ---------- 检测 ---------- */
+  function scan() {
+    var text = CORE.readValue(ta);
+    countEl.textContent = text.length + ' 字';
+    var minLevel = Number(document.getElementById('minLevel').value) || 1;
+    if (!text || text.length < 4 || text.length > CORE.MAX_SCAN_CHARS) {
+      state.items = [];
+      render();
+      return;
+    }
+    var found = [];
+    try { found = ENGINE.detect(text) || []; } catch (_) {}
+    state.items = CORE.pickItems(found, minLevel).filter(function (it) {
+      return !state.ignored[it.type + '@' + it.start];
+    });
+    render();
+  }
+
+  function render() {
+    itemsBox.textContent = '';
+    if (!state.items.length) {
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = '未检测到需要提醒的信息';
+      itemsBox.appendChild(e);
+      hideTip();
+      return;
+    }
+
+    var maxLevel = state.items.reduce(function (m, i) { return Math.max(m, Number(i.level) || 1); }, 1);
+    state.items.forEach(function (it) { itemsBox.appendChild(renderItem(it)); });
+    showTip(maxLevel);
+  }
+
+  function renderItem(it) {
+    var l = Number(it.level) || 1;
+    var box = document.createElement('div');
+    box.className = 'item ' + CORE.levelClass(l);
+
+    var row = document.createElement('div');
+    row.className = 'row1';
+    var tag = document.createElement('span');
+    tag.className = 'lvtag';
+    tag.textContent = 'L' + l;
+    var name = document.createElement('b');
+    name.textContent = it.label || it.type || '隐私信息';
+    row.appendChild(tag);
+    row.appendChild(name);
+
+    var val = document.createElement('div');
+    val.className = 'val';
+    val.textContent = CORE.maskOf(it, 'mask');   // 面板也只显示脱敏值
+
+    var ops = document.createElement('div');
+    ops.className = 'ops';
+    ops.appendChild(opBtn('打码', function () { applyOne(it, 'mask'); }));
+    ops.appendChild(opBtn('替换', function () { applyOne(it, 'label'); }));
+    ops.appendChild(opBtn('删除', function () { applyOne(it, 'remove'); }));
+    ops.appendChild(opBtn('忽略', function () {
+      state.ignored[it.type + '@' + it.start] = 1;
+      scan();
+    }));
+
+    box.appendChild(row);
+    box.appendChild(val);
+    box.appendChild(ops);
+    return box;
+  }
+
+  function opBtn(text, fn) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = text;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  /* ---------- 提醒条 ---------- */
+  function showTip(maxLevel) {
+    tip.className = 'psg-tip ' + CORE.levelClass(maxLevel) + ' show';
+    tip.textContent = '';
+
+    var head = document.createElement('div');
+    head.className = 'psg-head';
+    var badge = document.createElement('span');
+    badge.className = 'psg-badge';
+    badge.textContent = 'L' + maxLevel;
+    var title = document.createElement('strong');
+    title.textContent = '检测到 ' + state.items.length + ' 处隐私信息 · ' + CORE.levelTitle(maxLevel);
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'psg-close';
+    close.textContent = '×';
+    close.addEventListener('click', hideTip);
+    head.appendChild(badge); head.appendChild(title); head.appendChild(close);
+
+    var list = document.createElement('ul');
+    list.className = 'psg-list';
+    state.items.slice(0, 4).forEach(function (it) {
+      var li = document.createElement('li');
+      var t = document.createElement('span');
+      t.className = 'psg-type';
+      t.textContent = it.label || it.type || '隐私信息';
+      var v = document.createElement('code');
+      v.textContent = CORE.maskOf(it, 'mask');
+      li.appendChild(t); li.appendChild(v);
+      list.appendChild(li);
+    });
+
+    var note = document.createElement('p');
+    note.className = 'psg-note';
+    note.textContent = '公开平台发布后无法撤回，发送前请确认。';
+
+    var actions = document.createElement('div');
+    actions.className = 'psg-actions';
+    actions.appendChild(psgBtn('一键脱敏', 'primary', function () { applyAll('mask'); }));
+    actions.appendChild(psgBtn('直接删除', '', function () { applyAll('remove'); }));
+    actions.appendChild(psgBtn('本次忽略', 'ghost', function () { hideTip(); }));
+
+    tip.appendChild(head); tip.appendChild(list); tip.appendChild(note); tip.appendChild(actions);
+    placeTip();
+  }
+
+  function psgBtn(text, cls, fn) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'psg-btn ' + cls;
+    b.textContent = text;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  function placeTip() {
+    var host = ta.getBoundingClientRect();
+    var box = tip.parentElement.getBoundingClientRect();
+    tip.style.left = '14px';
+    tip.style.top = (host.bottom - box.top + 8) + 'px';
+  }
+
+  function hideTip() { tip.classList.remove('show'); }
+
+  /* ---------- 脱敏 ---------- */
+  function applyAll(strategy) {
+    var text = CORE.readValue(ta);
+    CORE.writeValue(ta, CORE.buildMaskedText(text, state.items, strategy));
+    state.ignored = {};
+    hideTip();
+    scan();
+  }
+
+  function applyOne(item, strategy) {
+    var text = CORE.readValue(ta);
+    CORE.writeValue(ta, CORE.buildMaskedText(text, [item], strategy));
+    scan();
+  }
+
+  /* ---------- 发布前二次确认 ---------- */
+  function publish() {
+    var lv = state.items.reduce(function (m, i) { return Math.max(m, Number(i.level) || 1); }, 0);
+    if (lv < 3) { done('已发布（模拟）。未检测到高危信息。'); return; }
+
+    var mask = document.getElementById('mask');
+    document.getElementById('dlgTitle').textContent = '内容里还有 ' + state.items.length + ' 处隐私信息';
+    document.getElementById('dlgDesc').textContent = '公开发布后任何人都能看到，且无法撤回。建议先脱敏。';
+    var ul = document.getElementById('dlgList');
+    ul.textContent = '';
+    state.items.slice(0, 6).forEach(function (it) {
+      var li = document.createElement('li');
+      li.textContent = (it.label || it.type) + '：' + CORE.maskOf(it, 'mask');
+      ul.appendChild(li);
+    });
+    mask.classList.add('show');
+  }
+
+  function done(msg) {
+    var m = document.createElement('div');
+    m.className = 'empty';
+    m.textContent = msg;
+    itemsBox.insertBefore(m, itemsBox.firstChild);
+    setTimeout(function () { if (m.parentElement) m.parentElement.removeChild(m); }, 4000);
+  }
+
+  /* ---------- 绑定 ---------- */
+  document.getElementById('btnPublish').addEventListener('click', publish);
+  document.getElementById('btnSample').addEventListener('click', function () {
+    CORE.writeValue(ta, state.scene.sample);
+    state.ignored = {};
+    scan();
+  });
+  document.getElementById('btnClear').addEventListener('click', function () {
+    CORE.writeValue(ta, '');
+    state.ignored = {};
+    scan();
+  });
+  document.getElementById('minLevel').addEventListener('change', scan);
+  document.getElementById('strategy').addEventListener('change', function () {
+    // 改策略不追溯改写历史内容，只影响后续操作，避免用户改设置时文本被悄悄改动
+    done('后续「一键脱敏」将使用：' + document.getElementById('strategy').selectedOptions[0].textContent);
+  });
+
+  ta.addEventListener('input', function () {
+    clearTimeout(state.timer);
+    state.timer = setTimeout(scan, CORE.DEBOUNCE_MS);
+  });
+  ta.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+  window.addEventListener('resize', function () { if (tip.classList.contains('show')) placeTip(); });
+
+  document.getElementById('dlgCancel').addEventListener('click', function () {
+    document.getElementById('mask').classList.remove('show');
+  });
+  document.getElementById('dlgMask').addEventListener('click', function () {
+    document.getElementById('mask').classList.remove('show');
+    applyAll(document.getElementById('strategy').value);
+    done('已脱敏，可以发布了。');
+  });
+  document.getElementById('dlgOk').addEventListener('click', function () {
+    document.getElementById('mask').classList.remove('show');
+    done('已按原文发布（模拟）。请自行承担风险。');
+  });
+
+  initTheme();
+  renderScenes();
+  pickScene(SCENES[0]);
+})();
+</script>
+</body>
+</html>

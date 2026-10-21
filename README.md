@@ -1,10 +1,19 @@
 # 隐私哨兵 · Privacy Sentinel
 
-> 面向即时通讯场景的**敏感信息检测与预警**工具。在消息发出去之前判断其中是否包含敏感信息，并按风险等级给出拦截、脱敏与建议。
+> **敏感信息检测与预警**工具。在内容发出去之前判断其中是否包含隐私信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.6.0**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.7.0**
 
-![status](https://img.shields.io/badge/version-3.6.0-blue) ![tests](https://img.shields.io/badge/tests-438%2F438-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.7.0-blue) ![tests](https://img.shields.io/badge/tests-507%2F507-success) ![license](https://img.shields.io/badge/license-MIT-green)
+
+## 〇、两个独立产品，按需选用
+
+| 产品 | 入口 | 形态 | 什么时候用 |
+|---|---|---|---|
+| **检测工具** | [/](https://privacy-sentinel.onrender.com/) | 网页，粘贴/上传 | 写完一大段要发的内容、查配置文件、批量排查 |
+| **输入守卫** | [/guard.html](https://privacy-sentinel.onrender.com/guard.html) | 网页试用 + 浏览器扩展 | 在微博/知乎/闲鱼/招聘网站**打字时**自动提醒 |
+
+两者共用同一套本地引擎，但**互不依赖**：只想要一个就只用那个。入口页 <code>/launch.html</code> 可切换。
 
 ---
 
@@ -18,7 +27,8 @@
 - **中英双语**：UI 文案与弹窗支持一键切换
 - **冷启动友好**：免费档休眠被唤醒时提示「服务正在唤醒，请等待 15~30 秒」，不再抛原生 502 页
 - **安全响应头**：CSP（nonce，非 `unsafe-inline`）/ HSTS / nosniff / X-Frame-Options / Permissions-Policy
-- **开箱即测**：438 项自动化测试（含 107 项 jsdom 前端交互），无外部依赖即可跑通全部
+- **不局限于聊天框**：浏览器扩展（`extension/`）在任意网站的输入框、评论区实时提醒，命中即一键脱敏
+- **开箱即测**：507 项自动化测试（含 107 项 jsdom 前端交互 + 69 项守卫测试），无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -56,7 +66,7 @@
 | 银行卡过 Luhn 校验 | true | 1.0 |
 | 格式像但校验不过 | false | 0.6（仍上报，标「存疑」） |
 
-## 三、v3.0 - v3.3 新增能力
+## 三、版本演进（v3.0 - v3.7）
 
 | 版本 | 能力 | 价值 |
 |---|---|---|
@@ -119,6 +129,30 @@
 > `192.168.1.100` 会被粘成 `1921681100`，IP 直接漏检。这条已被测试固定住。
 
 > 长期数据请定期用历史面板的 ⬇️ 按钮导出 JSON 备份，或为服务挂载持久磁盘（$7/月）。
+
+### v3.7 新增能力（不局限于发消息时检测）
+
+原来的能力边界是「用户主动把内容粘进来」。但真实泄露发生在打字那一刻——
+在微博评论里顺手打出手机号、在闲鱼描述里贴银行卡、在招聘网站填身份证。
+v3.7 把检测前移到输入现场，并且做成**与主站完全独立的第二个产品**。
+
+| 编号 | 能力 | 价值 |
+|---|---|---|
+| **E1** | **浏览器扩展（MV3）** | 注入任意 http/https 页面，监听输入框 / textarea / contenteditable，停止输入 0.35s 后浮出提醒条 |
+| **E2** | **一键脱敏写回输入框** | 按 `start/end` 区间重建文本；写回走原生 setter + `input` 事件，React / Vue 受控组件也能同步 |
+| **E3** | **发布前二次确认** | 含 L3 及以上信息时点「发布」先弹确认，列出脱敏后的命中项 |
+| **E4** | **阈值与站点静音** | L1 全部提醒 → L4 只拦验证码；可按 hostname 静音；配置变更实时广播到已打开页面 |
+| **E5** | **提示只显示脱敏值** | 提醒条、确认框、侧栏一律不回显原文 —— 提示本身不能成为第二处泄露 |
+| **E6** | **引擎单源 + 副本校验** | 扩展不能 `require`，引擎由 `npm run build:extension` 从 `services/` 复制；`test-guard.js` 校验副本未漂移 |
+| **E7** | **守卫核心抽离** | `services/guardCore.js` 双端 UMD，扩展与网页版共用同一份读写/脱敏实现，测试可直接调用 |
+
+**扩展安装**（Chrome / Edge）：
+
+```text
+扩展程序 → 打开「开发者模式」→「加载已解压的扩展程序」→ 选择项目里的 extension/ 目录
+```
+
+**刻意不做**：不检测密码框（输入密码是正常行为）、不记录输入内容、content script 内零网络请求。
 
 ## 四、架构
 
@@ -290,10 +324,10 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：438 通过 / 0 失败 / 438 项
+# 总计：507 通过 / 0 失败 / 507 项
 ```
 
-10 个独立套件：
+12 个独立套件：
 
 | 套件 | 文件 | 覆盖 |
 |---|---|---|
@@ -306,7 +340,9 @@ npm test
 | 华为云适配 | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis |
 | SIS 音频转写 | `scripts/test-huawei-sis.js` | 52 项 极速版/普通版双通道、音频转码、多轮轮询、失败路径、analyzeAudio 集成 |
 | 体验加固 | `scripts/test-ux-hardening.js` | 81 项 错误分类 / 安全头与 nonce / 规则过滤 / 批量检测 / API 密钥识别 |
-| 前端交互 | `scripts/test-frontend-dom.js` | 93 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、文档页、状态页 |
+| 前端交互 | `scripts/test-frontend-dom.js` | 107 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、本地模式、脱敏导出、文档页、状态页 |
+| 隐私优先加固 | `scripts/test-v36-hardening.js` | 26 项 抗变形、双端同源一致性、位置回映射、SSRF 守卫 |
+| 输入守卫 | `scripts/test-guard.js` | 69 项 守卫核心逻辑、扩展引擎未漂移、manifest 契约、**jsdom 打字→提醒→脱敏→发布拦截** |
 
 > 前端交互套件用 jsdom 加载真实 `index.html` 并跑真实内联脚本——接口测试看不见的
 > 「按钮点了没反应」「弹窗没弹出来」这类问题，由它兜住。
@@ -373,7 +409,8 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [x] **v3.4** SIS 音频转写流水线（OBS 临时对象 + 录音文件识别 + 用完即删）/ 305 项测试
 - [x] **v3.5** 冷启动提示 / 隐私声明 / 错误分类 / 安全头 / 分层报告 / 批量检测 / 规则自定义 / 文档页 / 状态页 / 398 项测试
 - [x] **v3.6** 本地离线检测（原文不上传）/ 抗变形归一化 / 脱敏文本三策略导出 / 置信度标记 / SSRF 守卫 / 438 项测试
-- [ ] **v3.7** PDF·Word 文档解析（目前需先转文本）/ 视频抽帧本地化
+- [x] **v3.7** 浏览器扩展「输入守卫」（任意网站输入时实时提醒）/ 网页版守卫 / 统一入口页 / 507 项测试
+- [ ] **v3.8** PDF·Word 文档解析（目前需先转文本）/ 视频抽帧本地化
 - [ ] **v4.0**（产品级）团队空间 / 更细的权限 / 自定义正则规则导入
 - [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 

@@ -409,9 +409,57 @@
             <li><b>音视频检测依赖模型</b>：需要联网，且长音视频可能超时，建议 1 分钟以内。</li>
         </ul>
 
+        <h2 id="guard">12. 输入守卫：发帖、评论时也拦一把</h2>
+        <p>检测工具要你「先把内容粘贴过来」，但真实的泄露往往发生在打字的瞬间——
+        在微博评论里顺手打出手机号、在闲鱼描述里贴出银行卡、在招聘网站简历里填身份证。
+        输入守卫就是为这个场景做的，它与检测工具<b>相互独立</b>，可单独使用。</p>
+
+        <h3>两种形态</h3>
+        <table>
+            <thead><tr><th>形态</th><th>怎么用</th><th>适用范围</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><b>网页版</b>（免安装）</td>
+                    <td>打开 <a href="/guard.html">/guard.html</a>，直接在页面里打字</td>
+                    <td>想先看看效果；或临时处理一段要发出去的话</td>
+                </tr>
+                <tr>
+                    <td><b>浏览器扩展</b></td>
+                    <td>Chrome / Edge → 扩展程序 → 打开「开发者模式」→「加载已解压的扩展程序」→
+                    选择项目里的 <code>extension/</code> 目录</td>
+                    <td>日常在任意网站发帖、评论、填表时自动生效</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>它会做什么</h3>
+        <ul>
+            <li>监听输入框、多行文本框、富文本编辑区（微博、知乎、小红书、闲鱼、招聘表单等）；</li>
+            <li>停止输入约 0.35 秒后在输入框下方浮出提醒条，列出<b>脱敏后</b>的命中项与等级；</li>
+            <li>提供「一键脱敏 / 直接删除 / 本次忽略 / 本站点不再提醒」；</li>
+            <li>含高危信息（L3 及以上）时，点「发布」会再确认一次；</li>
+            <li>提醒阈值可调：L1 全部提醒 → L4 只拦验证码类；可按站点静音。</li>
+        </ul>
+
+        <h3>它刻意不做的事</h3>
+        <ul>
+            <li><b>不检测密码框</b>：在密码框里输入密码是正常行为，报警只会制造噪音；</li>
+            <li><b>不回显原文</b>：提醒条、确认框、右侧面板里一律只出现脱敏值——提示本身不能成为第二处泄露；</li>
+            <li><b>不联网</b>：扩展的 content script 里没有任何网络请求，规则与引擎全部打包在本地；</li>
+            <li><b>不记录你打了什么</b>：只在内存里比当前这一框文字，关闭页面即消失。</li>
+        </ul>
+
+        <h3>和检测工具的分工</h3>
+        <p>守卫负责「即时、轻量、防手滑」，只认格式固定的信息（号码、卡号、密钥、验证码）。
+        要查看风险评分、整改建议、批量扫描、导出报告，或者识别「把验证码发我」这类话术，
+        请用 <a href="/">检测工具</a>。两者共用同一套本地引擎，改规则只需改 <code>services/</code> 一处，
+        扩展副本由 <code>npm run build:extension</code> 同步，测试会校验两边是否一致。</p>
+
         <footer>
             隐私哨兵 · 使用文档 &nbsp;·&nbsp;
             <a href="/">开始检测</a> &nbsp;·&nbsp;
+            <a href="/guard.html">输入守卫</a> &nbsp;·&nbsp;
+            <a href="/launch.html">切换产品</a> &nbsp;·&nbsp;
             <a href="/status.html">服务状态</a> &nbsp;·&nbsp;
             <a href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener">GitHub 源码</a> &nbsp;·&nbsp;
             <a href="https://github.com/djjjjj12345/privacy-sentinel/issues/new" target="_blank" rel="noopener">提交反馈</a>

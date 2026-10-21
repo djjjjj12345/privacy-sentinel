@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "隐私哨兵 · 输入守卫",
+  "version": "1.0.0",
+  "description": "在任意网站发帖、评论、填表时实时提醒隐私泄露，一键脱敏。检测全程在浏览器本地完成，原文不上传。",
+  "default_locale": "zh_CN",
+  "permissions": ["storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["engine/schema.js", "engine/localDetector.js", "engine/guardCore.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "隐私哨兵 · 输入守卫",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

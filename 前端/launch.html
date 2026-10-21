@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>隐私哨兵 · 选择你要用的工具</title>
+<meta name="description" content="隐私哨兵提供两个独立产品：完整检测工具（粘贴/文件/批量/报告）与输入守卫（发帖评论时实时提醒）。按需选用，互不依赖。">
+<link rel="canonical" href="https://privacy-sentinel.onrender.com/launch.html">
+<meta property="og:title" content="隐私哨兵 · 两个独立工具">
+<meta property="og:description" content="要深度扫描用检测工具，要边写边防泄用输入守卫。">
+<meta property="og:image" content="/icons/og-cover.png">
+<style>
+  :root {
+    --bg:#f5f7fa; --panel:#fff; --ink:#1f2430; --sub:#667085; --line:#e4e7ec;
+    --primary:#1570ef; --chip:#f2f4f7; --green:#067647; --shadow:0 8px 24px rgba(16,24,40,.10);
+  }
+  [data-theme="dark"] {
+    --bg:#14161c; --panel:#1d2029; --ink:#e7e9ee; --sub:#9aa1af; --line:#333846;
+    --chip:#2a2e39; --green:#6ce9a6; --shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; line-height:1.6; }
+  .wrap { max-width:960px; margin:0 auto; padding:36px 16px 48px; }
+  h1 { margin:0 0 6px; font-size:26px; }
+  .lede { margin:0 0 22px; color:var(--sub); font-size:14px; }
+
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px) { .cards { grid-template-columns:1fr; } }
+
+  .card {
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:20px; box-shadow:var(--shadow); display:flex; flex-direction:column;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .card:hover { transform:translateY(-2px); border-color:var(--primary); }
+  .card .ico { font-size:30px; line-height:1; }
+  .card h2 { margin:10px 0 4px; font-size:18px; }
+  .card .tag { font-size:12.5px; color:var(--sub); margin:0 0 12px; }
+  .card ul { margin:0 0 16px; padding-left:18px; font-size:13px; color:var(--ink); }
+  .card ul li { margin-bottom:4px; }
+  .card .fit { font-size:12.5px; color:var(--sub); margin:0 0 14px; padding:8px 10px; background:var(--chip); border-radius:8px; }
+  .card .fit b { color:var(--ink); }
+  .spacer { flex:1 1 auto; }
+  .go {
+    display:block; text-align:center; background:var(--primary); color:#fff;
+    border-radius:10px; padding:10px; font-size:14px; font-weight:600; text-decoration:none;
+  }
+  .go:hover { filter:brightness(.94); }
+  .go.alt { background:transparent; color:var(--primary); border:1px solid var(--line); margin-top:8px; font-weight:500; }
+
+  .compare { margin-top:26px; }
+  .compare h3 { font-size:16px; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th, td { padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); }
+  th { background:var(--chip); font-weight:600; font-size:12.5px; }
+  tr:last-child td { border-bottom:none; }
+
+  .local { margin-top:22px; padding:12px 14px; border-radius:12px; background:#e7f6ec; color:var(--green); font-size:13px; }
+  [data-theme="dark"] .local { background:#10331f; }
+
+  footer.links { margin-top:22px; font-size:12.5px; color:var(--sub); display:flex; gap:14px; flex-wrap:wrap; }
+  .toggle { position:fixed; right:14px; top:14px; border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:10px; padding:7px 12px; font-size:13px; cursor:pointer; }
+</style>
+</head>
+<body>
+<button class="toggle" id="btnTheme" type="button">🌙 深色</button>
+<div class="wrap">
+  <h1>隐私哨兵 · 选择你要用的工具</h1>
+  <p class="lede">两个独立产品，各自能单独使用，也能配合：<b>一个负责「发之前想清楚」，一个负责「写的时候别手滑」。</b></p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="ico">🔍</div>
+      <h2>隐私哨兵 · 检测工具</h2>
+      <p class="tag">粘贴 / 上传 → 出一份可导出的报告</p>
+      <ul>
+        <li>文本、图片、音频、视频四类检测</li>
+        <li>批量扫描（一次 50 条）+ 规则自定义</li>
+        <li>分层报告、风险评分、整改建议</li>
+        <li>导出 JSON / 报告文本 / 脱敏后文本</li>
+        <li>可选云端 AI 语义识别（姓名、话术类）</li>
+      </ul>
+      <p class="fit"><b>适合：</b>写完一大段要发的内容、检查配置文件、批量排查历史消息。</p>
+      <div class="spacer"></div>
+      <a class="go" href="index.html">打开检测工具 →</a>
+    </div>
+
+    <div class="card">
+      <div class="ico">🛡</div>
+      <h2>隐私哨兵 · 输入守卫</h2>
+      <p class="tag">边写边提醒 → 一键脱敏</p>
+      <ul>
+        <li>在任意网站的输入框、评论区实时检测</li>
+        <li>命中即浮出提醒条，一键打码 / 替换 / 删除</li>
+        <li>发布前对高危项二次确认</li>
+        <li>阈值可调：从「全都提醒」到「只拦高危」</li>
+        <li>按站点静音，不打扰你常用的地方</li>
+      </ul>
+      <p class="fit"><b>适合：</b>在微博、知乎、招聘网站、二手平台随手打字时的最后一道防线。</p>
+      <div class="spacer"></div>
+      <a class="go" href="guard.html">先在线体验 →</a>
+      <a class="go alt" href="docs.html#guard">安装到浏览器（扩展）</a>
+    </div>
+  </div>
+
+  <div class="compare">
+    <h3>两者的边界</h3>
+    <table>
+      <tr><th></th><th>检测工具</th><th>输入守卫</th></tr>
+      <tr><td>触发方式</td><td>你主动粘贴提交</td><td>你打字时自动触发</td></tr>
+      <tr><td>运行环境</td><td>本地引擎（默认）+ 可选云端 AI</td><td>纯本地，永远不联网</td></tr>
+      <tr><td>覆盖范围</td><td>当前这一份内容</td><td>你访问的所有网站</td></tr>
+      <tr><td>产出</td><td>报告、评分、导出文件</td><td>即时提示 + 直接改写输入框</td></tr>
+      <tr><td>是否需要安装</td><td>不用，打开网页就能用</td><td>网页版免安装；扩展需手动加载</td></tr>
+    </table>
+  </div>
+
+  <div class="local">
+    🔒 两个产品的默认模式都是<b>浏览器本地检测</b>：文本不出设备，服务端不留存、不转发、不打印原文。
+  </div>
+
+  <footer class="links">
+    <a href="docs.html">使用文档</a>
+    <a href="status.html">服务状态</a>
+    <a href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener">GitHub 开源</a>
+    <a href="https://github.com/djjjjj12345/privacy-sentinel/issues/new" target="_blank" rel="noopener">反馈问题</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var saved = null;
+  try { saved = localStorage.getItem('privacy-sentinel:theme'); } catch (_) {}
+  var dark = saved ? saved === 'dark'
+    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  function apply(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('btnTheme').textContent = t === 'dark' ? '☀ 浅色' : '🌙 深色';
+  }
+  apply(dark ? 'dark' : 'light');
+  document.getElementById('btnTheme').addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    apply(next);
+    try { localStorage.setItem('privacy-sentinel:theme', next); } catch (_) {}
+  });
+})();
+</script>
+</body>
+</html>

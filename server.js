@@ -105,6 +105,7 @@ app.use(htmlNonce(FRONTEND_DIR));
 const ENGINE_FILES = {
   'schema.js': path.join(__dirname, 'services', 'schema.js'),
   'localDetector.js': path.join(__dirname, 'services', 'localDetector.js'),
+  'guardCore.js': path.join(__dirname, 'services', 'guardCore.js'),
 };
 app.get('/engine/:file', (req, res, next) => {
   const target = ENGINE_FILES[req.params.file];

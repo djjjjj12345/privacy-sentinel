@@ -1,6 +1,6 @@
 {
   "name": "privacy-sentinel",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "private": true,
   "description": "隐私哨兵 · 多模态敏感信息检测与预警",
   "main": "server.js",
@@ -26,7 +26,10 @@
     "setup:credentials": "node scripts/setup-credentials.js",
     "test:ux": "node scripts/test-ux-hardening.js",
     "test:frontend": "node scripts/test-frontend-dom.js",
-    "test:privacy": "node scripts/test-v36-hardening.js"
+    "test:privacy": "node scripts/test-v36-hardening.js",
+    "test:guard": "node scripts/test-guard.js",
+    "build:extension": "node scripts/build-extension.js",
+    "gen:preview": "python scripts/gen-preview.py"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
