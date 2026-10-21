@@ -2,9 +2,9 @@
 
 > **敏感信息检测与预警**工具。在内容发出去之前判断其中是否包含隐私信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.7.0**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.7.1**
 
-![status](https://img.shields.io/badge/version-3.7.0-blue) ![tests](https://img.shields.io/badge/tests-507%2F507-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.7.1-blue) ![tests](https://img.shields.io/badge/tests-507%2F507-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## 〇、两个独立产品，按需选用
 
@@ -145,6 +145,25 @@ v3.7 把检测前移到输入现场，并且做成**与主站完全独立的第�
 | **E5** | **提示只显示脱敏值** | 提醒条、确认框、侧栏一律不回显原文 —— 提示本身不能成为第二处泄露 |
 | **E6** | **引擎单源 + 副本校验** | 扩展不能 `require`，引擎由 `npm run build:extension` 从 `services/` 复制；`test-guard.js` 校验副本未漂移 |
 | **E7** | **守卫核心抽离** | `services/guardCore.js` 双端 UMD，扩展与网页版共用同一份读写/脱敏实现，测试可直接调用 |
+| **E8** | **真实站点自动验收** | `npm run verify:real` 用真实 Edge 打开百度 / 掘金 / 哔哩哔哩 / 豆瓣，在它们自己的搜索框里打字，断言「弹条 / 不回显原文 / 输入框值真被改写」，24 项断言全过 |
+
+### 不是只在仿真框里有效
+
+`guard.html` 里的发布框是仿真场景（零安装试用）。为了证明它在**别人的网站**上也成立，
+`scripts/verify-real-browser.js` 用本机真实 Edge 打开公开站点，用真实键盘事件打字，再截图存证：
+
+![四个真实网站的搜索框里，输入守卫弹出提醒并一键脱敏](docs/real-browser/evidence-grid.png)
+
+| 站点 | 输入框类型 | 结果 |
+|---|---|---|
+| 百度 | `textarea` | 弹条 → 一键脱敏 → 框内值被改写 |
+| 掘金 | `input[type=search]` | 同上 |
+| 哔哩哔哩 | `input`（Vue 受控） | 同上，写回后框架状态同步 |
+| 豆瓣 | `input`（原生） | 同上 |
+| 知乎 | 登录墙内无可见输入框 | 跳过（装上扩展登录后同样生效） |
+
+断言刻意不只看 class：`#ps-guard-tip` 必须真的渲染出 **宽度 > 120px、高度 > 60px** 的盒子，
+输入框的 `value` 必须真的从原文变成脱敏值。截图与 `report.json` 落在 `docs/real-browser/`。
 
 **扩展安装**（Chrome / Edge）：
 

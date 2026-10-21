@@ -174,6 +174,21 @@
 
   footer.note { margin-top:18px; font-size:12px; color:var(--sub); line-height:1.8; }
   footer.note b { color:var(--ink); }
+
+  /* 真实站点实测（证明不是只有仿真框里才有效） */
+  .proof {
+    margin-top:16px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:0 16px;
+  }
+  .proof summary { cursor:pointer; padding:14px 0; font-size:13.5px; color:var(--ink); }
+  .proof summary b { color:var(--primary); }
+  .proof[open] summary { border-bottom:1px solid var(--line); }
+  .proof p { color:var(--sub); font-size:12.5px; margin:12px 0 8px; }
+  .proof img {
+    display:block; width:100%; height:auto; margin:10px 0 12px;
+    border:1px solid var(--line); border-radius:10px;
+  }
+  .proof code { background:var(--chip); padding:1px 5px; border-radius:4px; font-size:12px; }
 </style>
 </head>
 <body>
@@ -242,6 +257,17 @@
       <div id="items"></div>
     </div>
   </div>
+
+  <details class="proof">
+    <summary><b>虚拟对话框之外：</b>4 个真实网站的实测截图（点开看）</summary>
+    <p>上面那个发布框是仿真场景，方便你不装扩展就试用。但效果不是只在仿真框里成立：
+      用真实 Edge 打开百度、掘金、哔哩哔哩、豆瓣，在它们<strong>自己的搜索框</strong>里打字，
+      提醒条照样弹出、一键脱敏照样把框里的真实值改掉。</p>
+    <img src="icons/real-sites-evidence.png" alt="百度、掘金、哔哩哔哩、豆瓣四个真实网站的搜索框上，输入守卫弹出隐私提醒并完成一键脱敏" loading="lazy">
+    <p>这些截图由 <code>npm run verify:real</code> 自动生成，24 项断言全过（弹条、不回显原文、输入框值真的被改写）。
+      断言看的是渲染出来的盒子大小和输入框里的真实值，不是只看 class 有没有加上。</p>
+    <p>知乎这类需要登录的站点在无头浏览器里没有可输入的框，未纳入；装上扩展登录后同样生效。</p>
+  </details>
 
   <footer class="note">
     <b>和完整检测工具的区别：</b>本页只做「发送前拦一把」，适合边写边检；

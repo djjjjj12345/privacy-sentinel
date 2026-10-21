@@ -36,3 +36,6 @@ probe-report.json
 *.wav
 *.pcm
 录音*
+
+# 真实浏览器验收的调试截图（无输入框站点的空页面，仅本地排查用）
+docs/real-browser/*-0-noinput.*
