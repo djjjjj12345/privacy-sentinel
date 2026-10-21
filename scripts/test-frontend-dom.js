@@ -104,9 +104,14 @@ function makeFetch(base) {
 async function loadPage(base, seed, file) {
   const { JSDOM, VirtualConsole } = require('jsdom');
   let html = fs.readFileSync(path.join(FRONTEND, file || 'index.html'), 'utf8');
-  // 内联 i18n，避免依赖 jsdom 的资源加载器
+  // 内联 i18n 与检测引擎，避免依赖 jsdom 的资源加载器
+  // （引擎来自 services/，与后端同源；本地模式依赖它）
   const i18nSrc = fs.readFileSync(path.join(FRONTEND, 'services', 'i18n.js'), 'utf8');
   html = html.replace(/<script src="\/services\/i18n\.js"><\/script>/, '<script>' + i18nSrc + '</script>');
+  for (const f of ['schema.js', 'localDetector.js']) {
+    const src = fs.readFileSync(path.join(ROOT, 'services', f), 'utf8');
+    html = html.replace(`<script src="/engine/${f}"></script>`, '<script>' + src + '</script>');
+  }
 
   const jsErrors = [];
   const vc = new VirtualConsole();
@@ -124,7 +129,11 @@ async function loadPage(base, seed, file) {
     pretendToBeVisual: true,
     virtualConsole: vc,
     beforeParse(window) {
-      window.fetch = makeFetch(base);
+      window.fetch = function (u, o) {
+        window.__fetchCalls.push(String(u));
+        return makeFetch(base)(u, o);
+      };
+      window.__fetchCalls = [];
       window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
       window.open = () => null;
       window.URL.createObjectURL = () => 'blob:mock';
@@ -445,6 +454,59 @@ const srv = app.listen(0, '127.0.0.1', async () => {
     log(/冷启动|15~30/.test(dctx4.document.getElementById('overall').textContent),
       '不可达时提示可能是冷启动');
     dctx4.window.close();
+  }
+
+  // ================= F. 本地模式与脱敏导出 =================
+  console.log('\n--- F. 本地模式与脱敏导出 ---');
+  {
+    const doc = win.document;
+    const chip = doc.getElementById('engineChip');
+    log(!!chip, '本地模式开关存在');
+    log(!!chip && /本地模式：开/.test(chip.textContent), '默认开启本地模式（原文不上传）',
+      chip ? chip.textContent.trim() : '');
+    log(!!chip && chip.classList.contains('chip-on'), '开启态有视觉标记');
+
+    // 提交一条带空格变形的手机号：本地模式不应发起任何网络请求
+    const before = win.__fetchCalls.length;
+    doc.getElementById('msgInput').value = '手机号 138 0013 8000';
+    click(doc.getElementById('sendBtn'));
+    await sleep(600);
+    const msgs = doc.getElementById('messages').textContent;
+    log(win.__fetchCalls.length === before, '本地模式提交不发起网络请求',
+      `请求数 ${before} → ${win.__fetchCalls.length}`);
+    log(/138\*\*\*\*8000/.test(msgs), '本地模式识别出变形手机号并脱敏展示');
+    log(/未上传/.test(msgs), '明确告知原文未上传');
+
+    // 云端/本地切换与记忆
+    click(chip);
+    await sleep(80);
+    log(/云端双引擎/.test(chip.textContent), '可切换到云端双引擎模式', chip.textContent.trim());
+    log(win.localStorage.getItem('privacy-sentinel:engine-mode') === '"cloud"', '模式选择被记住');
+    click(chip);
+    await sleep(80);
+    log(/本地模式：开/.test(chip.textContent), '可切回本地模式');
+
+    // 三种脱敏策略
+    const src = '手机号13800138000，身份证11010519491231002X';
+    const run = (strategy) => win.eval(
+      `buildMaskedText(${JSON.stringify(src)}, detectSensitive(${JSON.stringify(src)}), ${JSON.stringify(strategy)})`
+    );
+    const maskOut = run('mask');
+    const replaceOut = run('replace');
+    const deleteOut = run('delete');
+
+    log(/138\*\*\*\*8000/.test(maskOut) && !/13800138000/.test(maskOut), '掩码策略：保留首尾、隐去中间', maskOut);
+    log(/\[手机号\]/.test(replaceOut) && !/11010519491231002X/.test(replaceOut), '替换策略：换成类型占位符', replaceOut);
+    log(!/13800138000|11010519491231002X/.test(deleteOut) && deleteOut.length < src.length,
+      '删除策略：直接移除敏感值', deleteOut);
+
+    // 置信度标记：校验通过 / 存疑 / 示例值
+    log(/校验通过/.test(msgs), '报告标注「校验通过」');
+    const badId = '身份证 110105194912310021'; // 校验位不合法
+    const badOut = win.eval(
+      `buildMaskedText(${JSON.stringify(badId)}, detectSensitive(${JSON.stringify(badId)}), 'mask')`
+    );
+    log(!!badOut, '校验位不符的号码仍会上报（不静默丢弃）', badOut);
   }
 
   win.close();

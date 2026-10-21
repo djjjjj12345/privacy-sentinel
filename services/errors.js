@@ -35,6 +35,13 @@ const CATALOG = {
     action: '换一个文件试试；图片建议用 JPG / PNG，音频建议用 MP3 / WAV。',
     retryable: false,
   },
+  invalid_url: {
+    http: 400,
+    title: '图片地址不可用',
+    message: '只接受 http / https 公网图片地址，且不能指向内网或本机服务。',
+    action: '换一个公网图片链接，或直接把图片文件拖进输入框（本地图片不上传服务器）。',
+    retryable: false,
+  },
   payload_too_large: {
     http: 413,
     title: '内容太大了',

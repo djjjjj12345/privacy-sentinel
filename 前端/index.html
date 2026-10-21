@@ -1111,8 +1111,19 @@
             border: 1px solid var(--primary); color: var(--primary); background: transparent;
         }
         .sample-chip:hover { background: var(--primary-light); }
+        /* 本地模式开启态：用绿色表示「原文没离开设备」 */
+        .sample-chip.chip-on { background: #e8f5e9; border-color: #66bb6a; color: #2e7d32; font-weight: 600; }
+        [data-theme="dark"] .sample-chip.chip-on { background: #1b3a26; border-color: #3f7a52; color: #8fd6a4; }
 
         /* ---------- 批量 / 规则面板 ---------- */
+        /* 置信度与脱敏导出 */
+        .rp-conf { font-size: 11px; padding: 1px 6px; border-radius: 9px; margin-left: 6px; background: #eef2f7; color: #546e7a; vertical-align: middle; }
+        .rp-conf.ok { background: #e8f5e9; color: #2e7d32; }
+        .rp-conf.warn { background: #fff3e0; color: #e65100; }
+        .rp-conf.info { background: #e3f2fd; color: #1565c0; }
+        .rp-select { font-size: 12px; padding: 5px 8px; border-radius: 6px; border: 1px solid #cfd8e3; background: #fff; color: #333; min-height: 32px; }
+        [data-theme="dark"] .rp-conf { background: #2a3242; color: #c7d0dd; }
+        [data-theme="dark"] .rp-select { background: #1c2331; color: #e6e9f0; border-color: #3a4456; }
         .tool-panel {
             position: absolute; inset: 0; z-index: 60; background: #fff;
             display: flex; flex-direction: column; transform: translateX(100%);
@@ -1223,6 +1234,7 @@
         <div class="sample-row">
             <button class="sample-chip" data-action="open-batch">📦 批量检测</button>
             <button class="sample-chip" data-action="open-rules">🎛 检测规则</button>
+            <button class="sample-chip chip-on" id="engineChip" data-action="toggle-engine" title="本地模式：只在浏览器内检测，原文不上传">🔒 本地模式：开</button>
             <button class="sample-chip" data-action="fill-sample">✨ 填示例</button>
             <button class="sample-chip" data-action="open-privacy">🔒 隐私说明</button>
             <a class="sample-chip" href="/docs.html" style="text-decoration:none;">📖 使用文档</a>
@@ -1458,6 +1470,7 @@
                 <div class="modal-sub">检测前请花 10 秒了解一下你的数据会去哪</div>
                 <div class="modal-body">
                     <ul class="privacy-list">
+                        <li><b>本地模式默认开启</b>：纯文本检测在你的浏览器内完成，原文<b>不会上传</b>，也不经过任何第三方。</li>
                         <li>你提交的内容<b>仅用于本次检测</b>，检测完成后服务端<b>不保留原始数据</b>。</li>
                         <li><b>不转发给第三方</b>，不出售，不用于模型训练。</li>
                         <li>结果中的敏感字段默认<b>以脱敏形式展示</b>（如 110105********1234）。</li>
@@ -1542,6 +1555,9 @@
     </div>
 
     <script src="/services/i18n.js"></script>
+    <!-- 与后端同源的检测引擎：本地模式直接在浏览器里跑，原文不出设备 -->
+    <script src="/engine/schema.js"></script>
+    <script src="/engine/localDetector.js"></script>
     <script>
         // ================================================================
         //  ⚙️ 配置
@@ -1695,6 +1711,29 @@
         };
 
         function detectSensitive(text) {
+            // 优先使用与后端同源的规则引擎（/engine/localDetector.js）：
+            // 同一套正则、同样做身份证/银行卡校验位、同样抗零宽字符与全角变形。
+            // 旧实现只有 6 条简单正则且不校验，两套规则长期必然漂移，这里直接收口。
+            if (window.PSLocal && typeof window.PSLocal.detect === 'function') {
+                return window.PSLocal.detect(text).map(function (it) {
+                    const configured = (STATE.detectLevels && STATE.detectLevels[it.type]) || 0;
+                    return {
+                        type: it.type,
+                        label: it.label || it.type,
+                        value: it.raw,
+                        masked: it.masked,
+                        level: Math.max(Number(it.level) || 1, configured || 0),
+                        reason: it.reason || '',
+                        confidence: it.confidence,
+                        verified: it.verified,
+                        start: it.start,
+                        end: it.end,
+                        engine: 'local',
+                    };
+                });
+            }
+
+            // 降级：引擎脚本没加载成功时仍能拦住最常见的几类，绝不静默放行
             const results = [];
             const ids = text.match(PATTERNS.id) || [];
             for (const m of ids) {
@@ -2085,16 +2124,18 @@
             }
 
             // 结构化识别结果卡片
-            if (extra.analysis) {
-                addBotCard(extra.analysis);
-                // v3.5：分层报告（总分 + 等级标色 + 通俗解释 + 整改建议 + 导出）
-                const dets = (extra.analysis && extra.analysis.detections) || [];
+            if (extra.analysis) addBotCard(extra.analysis);
+
+            // v3.5：分层报告（总分 + 等级标色 + 通俗解释 + 整改建议 + 导出）
+            // v3.6：本地模式没有 extra.analysis，但同样必须给报告——不能「不上传就没有报告」
+            const dets = (extra.analysis && extra.analysis.detections) || detections || [];
+            if (dets.length) {
                 renderLayeredReport(dets, { text: safeText || text || '' });
                 cacheLastResult({
                     time: new Date().toISOString(),
                     score: riskScore(dets),
-                    maxLevel: dets.length ? Math.max.apply(null, dets.map((d) => Number(d.level) || 1)) : 0,
-                    levelName: LEVEL_NAME_FULL[dets.length ? Math.max.apply(null, dets.map((d) => Number(d.level) || 1)) : 0],
+                    maxLevel: Math.max.apply(null, dets.map((d) => Number(d.level) || 1)),
+                    levelName: LEVEL_NAME_FULL[Math.max.apply(null, dets.map((d) => Number(d.level) || 1))],
                     items: dets.map((d) => ({
                         type: d.type, label: d.label, level: Number(d.level) || 1,
                         masked: d.masked, reason: d.reason || '', engine: d.engine || '',
@@ -2319,6 +2360,25 @@
         // ================================================================
         //  文本消息：本地秒判 + AI 语义复检
         // ================================================================
+        /** 引擎模式：local=只在浏览器内检测（默认，原文不上传）；cloud=云端双引擎（含语义） */
+        function getEngineMode() {
+            return lsGet(LS.engineMode, 'local') === 'cloud' ? 'cloud' : 'local';
+        }
+        function applyEngineChip() {
+            const chip = document.getElementById('engineChip');
+            if (!chip) return;
+            const local = getEngineMode() === 'local';
+            chip.textContent = local ? '🔒 本地模式：开' : '☁️ 云端双引擎';
+            chip.classList.toggle('chip-on', local);
+            chip.title = local
+                ? '本地模式：只在浏览器内检测，原文不上传'
+                : '云端模式：会上传原文做语义识别，隐私风险更高的信息请切回本地模式';
+        }
+        function toggleEngine() {
+            lsSet(LS.engineMode, getEngineMode() === 'local' ? 'cloud' : 'local');
+            applyEngineChip();
+        }
+
         function processDetection(text) {
             const trimmed = String(text).trim();
             if (!trimmed) return;
@@ -2335,6 +2395,17 @@
 
             const localDetections = detectSensitive(trimmed);
             const localLevel = getMaxLevel(localDetections);
+
+            // 本地模式：不发任何网络请求，原文不出浏览器
+            if (getEngineMode() === 'local') {
+                disposeDetections({ text: trimmed, detections: localDetections, maxLevel: localLevel });
+                addMessage(localDetections.length
+                    ? '🔒 本地模式：全程在浏览器内完成，原文未上传，检测完即丢弃。'
+                    : '🔒 本地模式：本次在本地完成，原文未上传。本地规则只认固定格式，'
+                        + '「把验证码发我」这类话术风险需要云端语义模型，可点顶部「本地模式」临时切换。',
+                    'bot', { time: getTime() });
+                return;
+            }
 
             // 本地命中时立刻处置，不等待模型，保证响应速度；
             // 本地未命中时才需要等模型 —— 像「把验证码发我」这类没有固定格式的话术，正则永远抓不到。
@@ -3397,6 +3468,7 @@
             privacyAck: 'privacy-sentinel:privacy-ack',
             lastResult: 'privacy-sentinel:last-result',
             rules: 'privacy-sentinel:rules',
+            engineMode: 'privacy-sentinel:engine-mode',
         };
         const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
         const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 隐私模式下写入失败，忽略 */ } };
@@ -3564,6 +3636,7 @@
             },
             'open-batch': () => document.getElementById('batchPanel').classList.add('open'),
             'open-rules': () => document.getElementById('rulesPanel').classList.add('open'),
+            'toggle-engine': () => toggleEngine(),
             'open-privacy': () => openPrivacy(),
             'fill-sample': () => fillSample(),
         };
@@ -3671,6 +3744,21 @@
         const LEVEL_NAME_FULL = { 0: '无风险', 1: 'L1 · 低风险', 2: 'L2 · 中风险', 3: 'L3 · 高风险', 4: 'L4 · 极高风险' };
 
         /** 渲染分层报告 */
+        /** 置信度标记：本地校验通过 / 校验位不符 / 语义推断 */
+        function confChip(d) {
+            if (d.verified === true) return '<span class="rp-conf ok">✓ 校验通过</span>';
+            if (d.verified === false) return '<span class="rp-conf warn">⚠ 校验位不符，多为测试值</span>';
+            if (typeof d.confidence === 'number') return `<span class="rp-conf">语义推断 ${Math.round(d.confidence * 100)}%</span>`;
+            return '';
+        }
+        /** 常见示例/占位值：误报高发区，直接标出来，避免用户被吓到 */
+        const PLACEHOLDER_RE = /^(13800138000|11010519491231002X|4111111111111111|[\w.+-]+@example\.(com|org|net)|zhangsan|test|admin)/i;
+        function placeholderChip(d) {
+            const v = String(d.value || d.raw || '');
+            if (!v || !PLACEHOLDER_RE.test(v)) return '';
+            return '<span class="rp-conf info">疑似示例值</span>';
+        }
+
         function renderLayeredReport(detections, ctx) {
             const maxLevel = detections.length
                 ? Math.max.apply(null, detections.map((d) => Number(d.level) || 1))
@@ -3708,7 +3796,7 @@
                         <div class="rp-item-main">
                             <div class="rp-item-label">
                                 <span class="rp-chip ${cls}">L${l}</span>
-                                ${escapeHtml(d.label)}
+                                ${escapeHtml(d.label)}${confChip(d)}${placeholderChip(d)}
                             </div>
                             <div class="rp-item-value">${escapeHtml(d.masked || d.value || '')}</div>
                             <div class="rp-item-why">❓ ${escapeHtml(why)}</div>
@@ -3718,11 +3806,17 @@
                 }).join('');
             }
 
-            // ⑥ 操作区：复制报告 / 导出 JSON
+            // ⑥ 操作区：复制报告 / 导出 JSON / 脱敏文本（三种策略）
             html += `<div class="rp-actions">
                 <button type="button" data-action="copy-report">📋 复制报告</button>
                 <button type="button" data-action="export-json">⬇ 导出 JSON</button>
+                <select class="rp-select" data-role="mask-strategy" aria-label="脱敏策略">
+                    <option value="mask">掩码 138****8000</option>
+                    <option value="replace">替换为[类型]</option>
+                    <option value="delete">直接删除</option>
+                </select>
                 <button type="button" data-action="copy-masked">🔒 复制脱敏文本</button>
+                <button type="button" data-action="download-masked">⬇ 下载 .txt</button>
             </div>`;
             html += '</div>';
 
@@ -3735,6 +3829,8 @@
                     items: detections.map((d) => ({
                         type: d.type, label: d.label, level: Number(d.level) || 1,
                         masked: d.masked, reason: d.reason || '', engine: d.engine || '',
+                        verified: typeof d.verified === 'boolean' ? d.verified : null,
+                        confidence: typeof d.confidence === 'number' ? d.confidence : null,
                     })),
                     text: ctx && ctx.text ? ctx.text : '',
                 };
@@ -3742,10 +3838,90 @@
                 if (copyBtn) copyBtn.addEventListener('click', () => copyReportText(payload));
                 const jsonBtn = el.querySelector('[data-action="export-json"]');
                 if (jsonBtn) jsonBtn.addEventListener('click', () => exportJson(payload));
+
+                // 脱敏文本必须由「原文 + 命中区间」现场重建，绝不能直接回吐原文
+                const sel = el.querySelector('[data-role="mask-strategy"]');
+                const pickStrategy = () => (sel ? sel.value : 'mask');
+                const makeMasked = () => buildMaskedText(ctx && ctx.text ? ctx.text : '', detections, pickStrategy());
+
                 const maskBtn = el.querySelector('[data-action="copy-masked"]');
-                if (maskBtn) maskBtn.addEventListener('click', () => copyMaskedText(payload));
+                if (maskBtn) maskBtn.addEventListener('click', () => {
+                    const out = makeMasked();
+                    if (!out) { showToast('没有可导出的文本', 1800); return; }
+                    copyText(out, '🔒 脱敏文本已复制');
+                });
+                const dlBtn = el.querySelector('[data-action="download-masked"]');
+                if (dlBtn) dlBtn.addEventListener('click', () => {
+                    const out = makeMasked();
+                    if (!out) { showToast('没有可导出的文本', 1800); return; }
+                    downloadText(out, `隐私哨兵-脱敏文本-${stamp()}.txt`);
+                });
             }
             return el;
+        }
+
+        /** 文件名字戳：20261021-1630 */
+        function stamp() {
+            const d = new Date();
+            const p = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+        }
+
+        /**
+         * 按命中区间重建脱敏文本。
+         * 策略：mask=掩码 / replace=替换为[类型] / delete=删除。
+         * 位置优先用引擎给的 start/end（抗变形归一化时已映射回原文），
+         * 缺失时（AI 条目）退回到顺序搜索，避免重复值全部指向第一处。
+         */
+        function buildMaskedText(text, detections, strategy) {
+            const src = String(text || '');
+            if (!src || !detections || !detections.length) return '';
+
+            const spans = [];
+            let cursor = 0;
+            for (const d of detections) {
+                const raw = String(d.value || d.raw || '');
+                if (!raw) continue;
+                let s = Number.isInteger(d.start) ? d.start : -1;
+                let e = Number.isInteger(d.end) ? d.end : -1;
+                // 位置不可信（缺失 / 与原文对不上）时退回顺序搜索
+                if (s < 0 || e <= s || src.slice(s, e) !== raw) {
+                    const idx = src.indexOf(raw, cursor);
+                    if (idx < 0) continue;
+                    s = idx;
+                    e = idx + raw.length;
+                }
+                cursor = Math.max(cursor, e);
+                spans.push({ s, e, d });
+            }
+            if (!spans.length) return '';
+
+            spans.sort((a, b) => a.s - b.s);
+            let out = '';
+            let pos = 0;
+            for (const sp of spans) {
+                if (sp.s < pos) continue; // 区间重叠，前者优先
+                out += src.slice(pos, sp.s);
+                if (strategy === 'replace') out += `[${sp.d.label || sp.d.type || '敏感信息'}]`;
+                else if (strategy === 'delete') out += '';
+                else out += sp.d.masked || desensitize(sp.d.value || sp.d.raw || '', sp.d.type);
+                pos = sp.e;
+            }
+            out += src.slice(pos);
+            return out;
+        }
+
+        /** 触发浏览器下载纯文本 */
+        function downloadText(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            showToast('⬇ 已下载', 1800);
         }
 
         /** 生成纯文本报告，便于复制与分享 */
@@ -3796,7 +3972,6 @@
             }
         }
         function copyReportText(p) { copyText(reportToText(p), '📋 报告已复制'); }
-        function copyMaskedText(p) { copyText(p.text || '', '🔒 脱敏文本已复制'); }
 
         function exportJson(p) {
             const blob = new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' });
@@ -4016,6 +4191,7 @@
             initTheme();
             initPrivacy();
             renderRuleGrid();
+            applyEngineChip();
 
             const batchBack = document.getElementById('batchBack');
             if (batchBack) batchBack.addEventListener('click', () => document.getElementById('batchPanel').classList.remove('open'));

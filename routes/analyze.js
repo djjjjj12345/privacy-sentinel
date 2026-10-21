@@ -25,6 +25,7 @@ const analyzer = require('../services/analyzer');
 const { TYPE_LABEL, TYPE_FLOOR, LEVEL_NAME } = require('../services/schema');
 const errors = require('../services/errors');
 const logger = require('../services/logger');
+const { checkImageUrl } = require('../services/urlGuard');
 
 // ------------------------------------------------------------------
 //  轻量限流：保护 API Key 不被单页循环刷爆
@@ -118,6 +119,11 @@ router.post('/', rateLimit, async (req, res) => {
       const dataUrl = body.dataUrl || body.image_url || body.imageUrl;
       if (!dataUrl) {
         return fail(res, 'empty_input', '缺少图片内容');
+      }
+      // 图片地址来自用户输入：先过 SSRF 守卫，别把服务端变成任意 URL 探测器
+      if (!/^data:image\//i.test(String(dataUrl))) {
+        const guard = checkImageUrl(dataUrl);
+        if (!guard.ok) return fail(res, 'invalid_url', guard.reason);
       }
       const result = await analyzer.analyzeImage({
         imageUrl: dataUrl,

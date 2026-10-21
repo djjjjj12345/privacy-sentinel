@@ -79,6 +79,7 @@ app.get('/api/privacy', (req, res) => {
     success: true,
     version: require('./package.json').version,
     points: [
+      '纯文本检测默认在浏览器本地完成（本地模式），原文不上传服务器，也不经过任何第三方。',
       '你提交的文本、图片、音频、视频仅用于当次检测，检测完成后不在服务端保留原始内容。',
       '除完成本次检测所必需的识别服务外，不向任何第三方转发、出售或用于模型训练。',
       '检测结果中的敏感字段默认以脱敏形式展示（如 110105********1234），完整原文不回传页面。',
@@ -98,6 +99,21 @@ const FRONTEND_DIR = path.join(__dirname, '前端');
 
 // HTML 请求先经 nonce 注入（CSP 生效的前提），其余静态资源直接交给 static
 app.use(htmlNonce(FRONTEND_DIR));
+
+// 本地离线检测模式要把引擎下发到浏览器。只白名单这两个文件，
+// 不做目录级静态挂载——services/ 里还有密钥、数据库等绝不能外泄的模块。
+const ENGINE_FILES = {
+  'schema.js': path.join(__dirname, 'services', 'schema.js'),
+  'localDetector.js': path.join(__dirname, 'services', 'localDetector.js'),
+};
+app.get('/engine/:file', (req, res, next) => {
+  const target = ENGINE_FILES[req.params.file];
+  if (!target) return next();
+  res.type('application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=600');
+  res.sendFile(target);
+});
+
 app.use(express.static(FRONTEND_DIR));
 
 app.get('/', (req, res) => {

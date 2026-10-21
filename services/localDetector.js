@@ -15,7 +15,73 @@
  *      避免把测试号码、录入错误一律静默丢弃（那会造成漏报）。
  */
 
-const { normalizeItem, desensitize, TYPE_LABEL } = require('./schema');
+// 双端加载：Node 下 require，浏览器下从 window.PSSchema 取（本地离线模式复用同一套规则）。
+// 同样包 IIFE：避免顶层的 const（TYPE_LABEL 等）污染页面全局词法作用域。
+(function (root, factory) {
+  const schema = typeof module !== 'undefined' && module.exports
+    ? require('./schema')
+    : (root ? root.PSSchema : null);
+  const api = factory(schema);
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else if (root) root.PSLocal = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (SCHEMA) {
+  'use strict';
+
+  const { normalizeItem, desensitize, TYPE_LABEL } = SCHEMA || {};
+
+
+// 零宽字符：复制粘贴、网页排版常带，肉眼不可见，但会把「13800138000」拆成不连续字符
+const ZERO_WIDTH_RE = /[\u200B-\u200D\uFEFF\u2060]/;
+
+/**
+ * 归一化文本，同时保留「归一化位置 → 原文位置」的映射。
+ *
+ * 处理三类常见的绕过手法：
+ *   1. 零宽字符插入：13​800138000
+ *   2. 全角字符：１３８００１３８０００
+ *   3. 数字间分隔符：138 0013-8000 / 4111.1111.1111.1111
+ *
+ * 只折叠「数字与数字之间」的分隔符——否则 "hello world" 会被粘成 "helloworld"，
+ * 破坏「密码 是 xxx」这类上下文规则。
+ *
+ * @returns {{text: string, map: number[]}} map[i] 是归一化后第 i 个字符在原文中的下标
+ */
+function normalizeForScan(text) {
+  const chars = [];
+  const map = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ZERO_WIDTH_RE.test(ch)) continue; // 直接丢弃，不占用归一化位置
+    let c = ch;
+    const code = ch.charCodeAt(0);
+    if (code >= 0xff01 && code <= 0xff5e) c = String.fromCharCode(code - 0xfee0); // 全角→半角
+    else if (ch === '\u3000') c = ' ';
+    chars.push(c);
+    map.push(i);
+  }
+
+  // 只折叠空格/连字符/下划线：点号不能折叠，否则 192.168.1.100 会被粘成 1921681100，
+  // IP 直接漏检。分组的点号（4111.1111.1111.1111）比 IP 罕见得多，取舍很明确。
+  const SEP = /[ \-_]/;
+  const out = [];
+  const outMap = [];
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i];
+    if (SEP.test(c)) {
+      const prev = out.length ? out[out.length - 1] : '';
+      let j = i + 1;
+      while (j < chars.length && SEP.test(chars[j])) j++;
+      const next = chars[j] || '';
+      if (/[0-9]/.test(prev) && /[0-9]/.test(next)) continue; // 数字间分隔符折叠
+    }
+    out.push(c);
+    outMap.push(map[i]);
+  }
+
+  return { text: out.join(''), map: outMap };
+}
+
 
 function isRealDate(y, m, d) {
   if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return false;
@@ -329,29 +395,38 @@ function resolveOverlaps(matches) {
 function detect(text) {
   if (!text || typeof text !== 'string') return [];
 
-  const matches = resolveOverlaps(collectMatches(text));
+  // 在归一化文本上匹配，再把命中区间映射回原文，保证脱敏/定位不串位
+  const norm = normalizeForScan(text);
+  const matches = resolveOverlaps(collectMatches(norm.text));
 
   return matches
-    .map((m) =>
-      normalizeItem(
+    .map((m) => {
+      const start = norm.map[m.start] !== undefined ? norm.map[m.start] : m.start;
+      const lastIdx = norm.map[m.end - 1];
+      const end = lastIdx !== undefined ? lastIdx + 1 : m.end;
+
+      return normalizeItem(
         {
           type: m.type,
           raw: m.value,
           level: undefined,
           confidence: m.verified ? 1 : 0.6,
           verified: m.verified,
+          start,
+          end,
           reason: m.verified
             ? '匹配到固定格式规则，校验通过'
             : '格式匹配但校验位不符，可能是测试号码或录入错误，请人工确认',
         },
         'local'
-      )
-    )
+      );
+    })
     .filter(Boolean);
 }
 
-module.exports = {
+const LOCAL_API = {
   detect,
+  normalizeForScan,
   checkIdCard,
   checkBankCard,
   isLuhnValid,
@@ -359,3 +434,6 @@ module.exports = {
   TYPE_LABEL,
   desensitize,
 };
+
+  return LOCAL_API;
+});

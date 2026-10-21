@@ -13,12 +13,21 @@ const router = express.Router();
 
 const analyzer = require('../services/analyzer');
 const logger = require('../services/logger');
+const { checkImageUrl } = require('../services/urlGuard');
 
 router.post('/detect', async (req, res) => {
   const { image_url, question } = req.body || {};
 
   if (!image_url) {
     return res.status(400).json({ success: false, error: '请提供图片URL' });
+  }
+
+  // 老接口同样是用户可控 URL，SSRF 守卫不能漏
+  if (!/^data:image\//i.test(String(image_url))) {
+    const guard = checkImageUrl(image_url);
+    if (!guard.ok) {
+      return res.status(400).json({ success: false, code: 'invalid_url', error: guard.reason });
+    }
   }
 
   try {

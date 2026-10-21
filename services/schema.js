@@ -3,7 +3,16 @@
  * ---------------------------------------------------------------
  * 前端、正则引擎、视觉模型三方共用同一份类型枚举与等级标准。
  * 任何一端新增类型，只需改这一个文件。
+ *
+ * 注意：整体包在 IIFE 里。浏览器直接加载本文件时，顶层 const 会进入全局词法作用域，
+ * 与页面内联脚本的同名声明（如 TYPE_LABEL）冲突并导致整个脚本解析失败。
  */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else if (root) root.PSSchema = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
 
 // 敏感信息类型枚举：key 同时作为前端 desensitize() 的分支标识
 const TYPE_LABEL = {
@@ -235,6 +244,10 @@ function normalizeItem(raw, engine = 'ai') {
     verified: typeof raw.verified === 'boolean' ? raw.verified : null,
     reason: String(raw.reason || (engine === 'local' ? '匹配到固定格式规则' : '')).slice(0, 200),
     bbox: normalizeBBox(raw.bbox),
+    // 原文中的字符区间（仅本地规则命中时有值，模型条目无从得知）；
+    // 前端用它做脱敏导出与高亮定位，避免二次搜索导致重复值错位
+    start: Number.isInteger(raw.start) ? raw.start : null,
+    end: Number.isInteger(raw.end) ? raw.end : null,
     engine,
   };
 }
@@ -351,7 +364,9 @@ function buildSystemPrompt(profile = {}) {
   ].join('\n');
 }
 
-module.exports = {
+// 双端导出：Node 走 module.exports，浏览器挂到 window.PSSchema。
+// 这样浏览器本地检测模式与后端共用同一份类型枚举/脱敏规则，不会出现两套标准。
+const SCHEMA_API = {
   TYPE_LABEL,
   TYPE_KEYS,
   TYPE_FLOOR,
@@ -365,3 +380,7 @@ module.exports = {
   summarize,
   buildSystemPrompt,
 };
+
+// 双端导出：Node 走 module.exports，浏览器挂到 window.PSSchema（见文件顶部 IIFE）
+return SCHEMA_API;
+});

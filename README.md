@@ -2,9 +2,9 @@
 
 > 面向即时通讯场景的**敏感信息检测与预警**工具。在消息发出去之前判断其中是否包含敏感信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.5.0**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.6.0**
 
-![status](https://img.shields.io/badge/version-3.5.0-blue) ![tests](https://img.shields.io/badge/tests-398%2F398-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.6.0-blue) ![tests](https://img.shields.io/badge/tests-438%2F438-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -18,7 +18,7 @@
 - **中英双语**：UI 文案与弹窗支持一键切换
 - **冷启动友好**：免费档休眠被唤醒时提示「服务正在唤醒，请等待 15~30 秒」，不再抛原生 502 页
 - **安全响应头**：CSP（nonce，非 `unsafe-inline`）/ HSTS / nosniff / X-Frame-Options / Permissions-Policy
-- **开箱即测**：398 项自动化测试（含 93 项 jsdom 前端交互），无外部依赖即可跑通全部
+- **开箱即测**：438 项自动化测试（含 107 项 jsdom 前端交互），无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -101,6 +101,23 @@
 > 以及 JWT、PEM 私钥头和「api_key: xxx」这类上下文声明。
 
 > ⚠️ Render 免费档磁盘是**临时**的：重新部署会清空账号与历史。
+
+### v3.6 新增能力（隐私优先 + 抗变形）
+
+针对「在线检测工具本身也在收集隐私」与「正则容易被变形绕过」两个硬伤：
+
+| 编号 | 能力 | 价值 |
+|---|---|---|
+| **D1** | **本地离线检测（默认开启）** | 规则引擎下发到浏览器（`/engine/schema.js`、`/engine/localDetector.js`），纯文本检测**不发任何网络请求**，原文不出设备；可一键切云端双引擎做语义识别 |
+| **D2** | **前后端同源代码** | 同一份 `services/localDetector.js` 双端运行（Node `require` / 浏览器 `window.PSLocal`），不存在两套正则慢慢漂移；测试逐句比对两端结论 |
+| **D3** | **抗变形归一化** | 零宽字符、全角数字、号码内空格/连字符先还原再匹配，并用索引映射把命中区间还原成原文位置 |
+| **D4** | **脱敏文本导出** | 三种策略（掩码 / 替换为 `[类型]` / 直接删除），复制或下载 `.txt`，导出内容不含任何原始值 |
+| **D5** | **置信度标记** | 每条标注「✓ 校验通过 / ⚠ 校验位不符 / 语义推断 xx%」，并对 `13800138000` 这类占位值标「疑似示例值」 |
+| **D6** | **SSRF 守卫** | 图片 URL 只放行公网 http/https，拦截环回、私网、链路本地、`169.254.169.254` 等云元数据地址，返回 `invalid_url` |
+
+> 设计取舍：`normalizeForScan()` **只折叠数字之间的空格/连字符，不折叠点号**——否则
+> `192.168.1.100` 会被粘成 `1921681100`，IP 直接漏检。这条已被测试固定住。
+
 > 长期数据请定期用历史面板的 ⬇️ 按钮导出 JSON 备份，或为服务挂载持久磁盘（$7/月）。
 
 ## 四、架构
@@ -273,7 +290,7 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：398 通过 / 0 失败 / 398 项
+# 总计：438 通过 / 0 失败 / 438 项
 ```
 
 10 个独立套件：
@@ -332,7 +349,8 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 
 | 环节 | 处理方式 |
 |---|---|
-| 浏览器 → 服务端 | HTTPS（Render 自动） |
+| **纯文本检测（v3.6 默认）** | **在浏览器内完成，不发起网络请求**——原文不经过服务端，也不经过任何第三方 |
+| 浏览器 → 服务端 | HTTPS（Render 自动）；仅在你切换到「云端双引擎」或用图片/音视频时才发生 |
 | 服务端日志 | **100% 脱敏**（`services/logger.js`） |
 | 内存中的数据 | 识别完成后立即释放 |
 | 浏览器历史 | 只存脱敏后的标签，不存原文 |
@@ -354,6 +372,8 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [x] **v3.3** Provider 抽象 / RDS MySQL / DCS Redis / 华为云部署文档 / 172 项测试
 - [x] **v3.4** SIS 音频转写流水线（OBS 临时对象 + 录音文件识别 + 用完即删）/ 305 项测试
 - [x] **v3.5** 冷启动提示 / 隐私声明 / 错误分类 / 安全头 / 分层报告 / 批量检测 / 规则自定义 / 文档页 / 状态页 / 398 项测试
+- [x] **v3.6** 本地离线检测（原文不上传）/ 抗变形归一化 / 脱敏文本三策略导出 / 置信度标记 / SSRF 守卫 / 438 项测试
+- [ ] **v3.7** PDF·Word 文档解析（目前需先转文本）/ 视频抽帧本地化
 - [ ] **v4.0**（产品级）团队空间 / 更细的权限 / 自定义正则规则导入
 - [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 
