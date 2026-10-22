@@ -26,7 +26,14 @@ app.disable('x-powered-by');
 // 安全响应头挂载在最前面，保证 404 / 500 / 静态资源等所有响应都带上
 app.use(securityHeaders);
 
-app.use(cors());
+// 跨域：默认仍放开（不改变既有外部调用方行为）。
+// 配置 ALLOWED_ORIGINS 后收紧为白名单——正式上线建议填自己的域名。
+// 注意：收紧后浏览器端跨域请求不会带 CORS 头，表现为被浏览器拦下，不是 403。
+const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(cors(ALLOWED_ORIGINS.length ? { origin: ALLOWED_ORIGINS } : {}));
 
 // 图片 base64 上限 14MB、音视频 base64 上限 30MB（见 services/visionAnalyzer.js）。
 // body 上限必须 ≥ 通道上限 + JSON 包装开销，否则大视频会被 Express 以 413 拒掉
@@ -204,7 +211,7 @@ async function start() {
     logger.error('[server] 存储初始化失败:', e.message);
   }
 
-  app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     const hasKey = Boolean(process.env.ARK_API_KEY || process.env.VOLC_API_KEY);
     const ai = providers.info();
     logger.info(`隐私哨兵服务已启动: http://0.0.0.0:${port}`);
@@ -216,6 +223,28 @@ async function start() {
       logger.warn('警告: 未检测到 ARK_API_KEY，AI 识别能力不可用（文本仍可用本地规则引擎）');
     }
   });
+
+  // 优雅退出：PM2 reload / systemd restart / 容器 stop 都会先发 SIGTERM。
+  // 音视频分析最长可跑 180s，硬杀会让用户看到「连接被重置」而非明确报错。
+  // 这里停止接收新连接、等在途请求跑完再退出，超过 25s 兜底强杀（避免发布卡死）。
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info(`[server] 收到 ${signal}，停止接收新连接，等待在途请求…`);
+    server.close(() => {
+      logger.info('[server] 在途请求已排空，进程退出');
+      process.exit(0);
+    });
+    // 长连接（keep-alive）不会自己断，主动关掉空闲的
+    if (typeof server.closeIdleConnections === 'function') server.closeIdleConnections();
+    setTimeout(() => {
+      logger.warn('[server] 等待超时 25s，强制退出');
+      process.exit(0);
+    }, 25000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 start();

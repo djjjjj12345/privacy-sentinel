@@ -1,6 +1,9 @@
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
-const BASE = 'http://127.0.0.1:8101';
+// 默认打本地起的验证实例；线上验收用 AUDIT_BASE=https://your-domain npm run audit:csp
+const BASE = (process.env.AUDIT_BASE || 'http://127.0.0.1:8101').replace(/\/+$/, '');
+const BROWSER_PATH = process.env.BROWSER_PATH
+  || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 
 (async () => {
   const browser = await puppeteer.launch({

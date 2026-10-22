@@ -270,6 +270,15 @@ npm start
 npm test
 ```
 
+### 部署到生产环境
+
+上线（域名 / HTTPS / PM2 / 备份 / 回滚）看 **[docs/deploy-runbook.md](docs/deploy-runbook.md)**，含逐步命令、风险标注与冒烟清单。
+华为云 RDS / DCS / SIS 等资源开通看 **[docs/huawei-deploy.md](docs/huawei-deploy.md)**。
+
+```bash
+npm run backup   # SQLite 一致性快照（VACUUM INTO），服务无需停机
+```
+
 ### 火山方舟 API Key 获取
 
 1. 打开 https://console.volcengine.com/ark
