@@ -1,6 +1,6 @@
 /**
  * ⚠️ 本文件由 scripts/build-extension.js 自动生成，请勿直接修改。
- * 来源：services/localDetector.js（哈希 cc7ace1c75ab）
+ * 来源：services/localDetector.js（哈希 c8492dddb4e5）
  * 改规则请改 services/ 下的源文件，然后重新运行：node scripts/build-extension.js
  */
 /**
@@ -216,8 +216,23 @@ function collectMatches(text) {
     push('otp', m[1], m.index, m.index + m[1].length, true);
   }
 
+  // ---- 姓名 ----
+  // 脱离上下文的中文人名，和任意两字词语没有区别，硬猜必然误报一片。
+  // 因此只在强自述语境下识别，并叠加三重约束：触发词 + 停用词表 + 尾部必须是标点或句末。
+  const NAME_STOP_RE = /外卖|快递|客服|司机|师傅|人工|售后|维修|保洁|搬家|救护车|出租车|的|了|和|与|过|在|去|来|再|还|就|都/;
+  // 尾部边界同样要认半角：归一化已把全角「，」转成了半角「,」
+  const nameRe = /(?:我叫|本人叫|我的名字(?:叫|是)|姓名|联系人|收货人|投保人|持卡人|申请人|收件人)\s*(?:是|叫|为|:|：)?\s*([\u4e00-\u9fa5]{2,4})(?=[，,。；;、\s!！？?]|$)/g;
+  for (const m of text.matchAll(nameRe)) {
+    const value = m[1];
+    if (NAME_STOP_RE.test(value)) continue;
+    const start = m.index + m[0].lastIndexOf(value);
+    push('name', value, start, start + value.length, true);
+  }
+
   // ---- 家庭住址 ----
-  const addressRe = /(?:北京|上海|天津|重庆|广州|深圳|杭州|成都|武汉|南京|西安|长沙|青岛|郑州|大连|东莞|宁波|厦门|合肥|福州|昆明|沈阳|济南|无锡|苏州|南昌|南宁|长春|哈尔滨|太原|石家庄|兰州|海口|贵阳|乌鲁木齐|呼和浩特|银川|西宁|拉萨)(?:市|区|县|州|盟)?[^\s，。；;、,]{0,20}?(?:路|街|大道|大街|巷|弄|胡同|号院|小区|花园|公寓|大厦|广场|苑|村)\d*\s*(?:号|栋|幢|单元|楼|层|室)?[^\s，。；;、,]{0,10}/g;
+  // 「路/街/巷」这类道路通名必须跟上门牌数字才算住址：只说「公司在建国路」是位置描述，
+  // 不是家庭住址，报了就是噪音；而「小区/花园/公寓/大厦」这类居住区名本身即可成立。
+  const addressRe = /(?:北京|上海|天津|重庆|广州|深圳|杭州|成都|武汉|南京|西安|长沙|青岛|郑州|大连|东莞|宁波|厦门|合肥|福州|昆明|沈阳|济南|无锡|苏州|南昌|南宁|长春|哈尔滨|太原|石家庄|兰州|海口|贵阳|乌鲁木齐|呼和浩特|银川|西宁|拉萨)(?:市|区|县|州|盟)?[^\s，。；;、,]{0,20}?(?:(?:路|街|大道|大街|巷|弄|胡同)\d+(?:\s*(?:号|栋|幢|单元|楼|层|室))?|(?:号院|小区|花园|公寓|大厦|广场|苑|村))[^\s，。；;、,]{0,10}/g;
   for (const m of text.matchAll(addressRe)) {
     const value = m[0].trim();
     if (value.length < 5) continue;
@@ -231,8 +246,17 @@ function collectMatches(text) {
   }
 
   // ---- URL（含查询参数、fragment）----
-  const urlRe = /\b(?:https?:\/\/|www\.)[\w-]+(?:\.[\w-]+)+(?:[\/?#][^\s，。；;、<>"]*)?/gi;
+  // 两层约束：
+  //  1. 终止字符集必须同时列出全角与半角标点：归一化会把全角「，」(U+FF0C) 转成半角「,」，
+  //     若这里只写全角，链接会一路吃到句尾，把「，半小时后失效」整段中文吞进 URL，
+  //     导出「删除」策略时用户的正文会被连带删掉。
+  //  2. 只有带敏感查询参数的链接才算敏感信息：给同事发一条官网链接是正常行为，
+  //     一律报警只会让用户把提醒条当成噪音关掉。
+  // 半角 `?` 绝不能进终止字符集——它是 query 的起始符，挡掉它就看不到 ?token= 了
+  const urlRe = /\b(?:https?:\/\/|www\.)[\w-]+(?:\.[\w-]+)+(?:[\/?#][^\s，。；;、，,;！!？（）()「」『』《》<>【】"']*)?/gi;
+  const SENSITIVE_QUERY_RE = /[?&](?:token|access[_-]?token|refresh[_-]?token|key|api[_-]?key|secret|password|passwd|pwd|auth|session|sid|sig|signature|code|otp|invite|reset|verify)=/i;
   for (const m of text.matchAll(urlRe)) {
+    if (!SENSITIVE_QUERY_RE.test(m[0])) continue;
     push('url', m[0], m.index, m.index + m[0].length, true);
   }
 
@@ -259,8 +283,10 @@ function collectMatches(text) {
     }
   }
 
-  // ---- IPv4（前后无数字，避免误识别 192.168.1.100/24 中的尾数）----
-  const ipv4Re = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
+  // ---- IPv4 ----
+  // 前后都不能是字母或点：软件版本号 v1.2.3.4 长得和 IPv4 一模一样，
+  // 只挡数字挡不住它，必须连「v」和点一起挡掉。
+  const ipv4Re = /(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])/g;
   for (const m of text.matchAll(ipv4Re)) {
     // 跳过 192-255.0-255.0-255.0-255 的极端小数字和 0/255 边界
     const segs = m[0].split('.').map(Number);

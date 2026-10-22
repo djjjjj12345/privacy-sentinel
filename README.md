@@ -2,9 +2,9 @@
 
 > **敏感信息检测与预警**工具。在内容发出去之前判断其中是否包含隐私信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.7.1**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.7.2**
 
-![status](https://img.shields.io/badge/version-3.7.1-blue) ![tests](https://img.shields.io/badge/tests-507%2F507-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.7.2-blue) ![tests](https://img.shields.io/badge/tests-507%2F507-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## 〇、两个独立产品，按需选用
 
@@ -173,7 +173,40 @@ v3.7 把检测前移到输入现场，并且做成**与主站完全独立的第�
 
 **刻意不做**：不检测密码框（输入密码是正常行为）、不记录输入内容、content script 内零网络请求。
 
-## 四、架构
+## 四、能力实证验证（101 条用例）
+
+宣称的能力不等于生效的能力。`npm run verify:capability` 给每一项能力都配了
+「应被检出的正例」和「长得很像但不该报警的负例」，全部取引擎真实返回值，不做人工修饰。
+完整表格见 [docs/capability-matrix/report.md](docs/capability-matrix/report.md)。
+
+| 分组 | 用例 | 结果 |
+|---|---|---|
+| A 字段识别（14 类 × 正例/负例/边界） | 40 | 40 通过 |
+| B 校验位分级（身份证 / Luhn / MOD 31-3） | 9 | 9 通过 |
+| C 抗变形归一化 | 10 | 10 通过 |
+| D 脱敏与导出（三策略） | 6 | 6 通过 |
+| E 输入守卫（jsdom 真实 DOM） | 6 | 5 通过 / 1 环境跳过 |
+| F SSRF 图片地址守卫 | 14 | 14 通过 |
+| G 服务端与安全头 | 13 | 13 通过 |
+| H 已知边界 | 3 | **2 通过 / 1 失败** |
+| **合计** | **101** | **99 通过 / 1 失败 / 1 跳过** |
+
+**唯一未通过项（如实保留）**：「我叫李明，电话是一三八零零一三八零零零」检不出手机号。
+中文数字写法属于语义层，本地正则无解，需云端模型——本机无凭证，未实测云端效果。
+
+**首轮跑出 7 条失败，5 条是真实缺陷，已修复并加回归用例**：
+
+| 缺陷 | 修复前实测 |
+|---|---|
+| URL 终止字符集只列全角标点 | 链接把「，半小时后失效」整句中文吃进 URL，「删除」策略导出后正文被删光，只剩「点这个重置：。」 |
+| 姓名在前端可勾选，引擎里却没有规则 | 「我叫李明」→ 未检出（宣称 14 类，实际 13 类） |
+| 住址把无门牌的道路名也判为住址 | 「公司在北京市朝阳区建国路」→ 检出 address |
+| 软件版本号被判为 IP | 「升级到 v1.2.3.4」→ 检出 ip |
+| 任何链接都判为敏感 | 「公司介绍在 https://example.com/about」→ 检出 url |
+
+修复后重跑 `npm test` 仍为 **507 / 507 全绿**，并同步了 `extension/engine/` 副本。
+
+## 五、架构
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -213,7 +246,7 @@ v3.7 把检测前移到输入现场，并且做成**与主站完全独立的第�
               用户 UI 弹窗 + 历史
 ```
 
-## 五、快速开始
+## 六、快速开始
 
 ### 5 步跑起来
 
@@ -244,7 +277,7 @@ npm test
 3. 在「模型广场」确认账号有 `doubao-seed-2-0-mini-260428`（默认模型）
 4. 把 Key 填到 `.env` 的 `ARK_API_KEY=`
 
-## 六、API 文档
+## 七、API 文档
 
 ### `POST /api/analyze`
 
@@ -339,7 +372,7 @@ npm test
 
 PWA 配置：name / icons / theme_color / start_url
 
-## 七、测试
+## 八、测试
 
 ```bash
 npm test
@@ -366,7 +399,7 @@ npm test
 > 前端交互套件用 jsdom 加载真实 `index.html` 并跑真实内联脚本——接口测试看不见的
 > 「按钮点了没反应」「弹窗没弹出来」这类问题，由它兜住。
 
-## 八、部署
+## 九、部署
 
 ### Render（一键）
 
@@ -398,7 +431,7 @@ docker build -t privacy-sentinel .
 docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 ```
 
-## 九、隐私承诺
+## 十、隐私承诺
 
 > "你的内容不会成为你泄露的证据。"
 
@@ -415,7 +448,7 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 
 详细脱敏规则见 `services/logger.js` 的 `sanitizeForLog()`。
 
-## 十、路线图
+## 十一、路线图
 
 - [x] **v2.0** P0 图片识别 / P1 音视频 / P2 结构化输出 / P3 历史+bbox
 - [x] **v2.0.1** 音视频超时 + 请求体上限
@@ -433,7 +466,7 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [ ] **v4.0**（产品级）团队空间 / 更细的权限 / 自定义正则规则导入
 - [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 
-## 十一、贡献
+## 十二、贡献
 
 欢迎 PR！测试覆盖率必须保持 100%。
 
