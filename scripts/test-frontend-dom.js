@@ -168,6 +168,26 @@ const srv = app.listen(0, '127.0.0.1', async () => {
   const q = (s) => doc.querySelector(s);
   const byId = (id) => doc.getElementById(id);
 
+  // ================= A0. HTML 结构完整性（跨全部页面） =================
+  // 起因（真实事故）：往 index.html 的 </style> 前插 CSS 时误删了闭合标签，
+  // body 之后的全部内容被解析器当成 CSS 文本吞掉——页面照样返回 200，
+  // 但 body 是空的、脚本一行没跑。接口测试对此完全无感，必须在这里硬断言。
+  console.log('\n--- A0. HTML 结构完整性 ---');
+  {
+    const { JSDOM: RawJSDOM } = require('jsdom');
+    for (const f of ['index.html', 'docs.html', 'status.html', 'guard.html', 'launch.html']) {
+      const html = fs.readFileSync(path.join(FRONTEND, f), 'utf8');
+      const cnt = (re) => (html.match(re) || []).length;
+      const sOpen = cnt(/<style[\s>]/g), sClose = cnt(/<\/style>/g);
+      const jOpen = cnt(/<script[\s>]/g), jClose = cnt(/<\/script>/g);
+      log(sOpen === sClose, `${f} 的 <style> 开闭配对`, `开 ${sOpen} / 闭 ${sClose}`);
+      log(jOpen === jClose, `${f} 的 <script> 开闭配对`, `开 ${jOpen} / 闭 ${jClose}`);
+      const dm = new RawJSDOM(html);
+      const n = dm.window.document.body ? dm.window.document.body.children.length : 0;
+      log(n > 0, `${f} 解析后 body 非空`, `${n} 个子节点`);
+    }
+  }
+
   // ================= A. 加载与结构 =================
   console.log('\n--- A. 加载与结构 ---');
   log(jsErrors.length === 0, '页面脚本无运行时报错', jsErrors.length ? jsErrors.slice(0, 2).join(' | ').slice(0, 120) : '0 条');

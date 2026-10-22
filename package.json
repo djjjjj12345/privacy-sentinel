@@ -1,6 +1,6 @@
 {
   "name": "privacy-sentinel",
-  "version": "3.7.2",
+  "version": "3.7.3",
   "private": true,
   "description": "隐私哨兵 · 多模态敏感信息检测与预警",
   "main": "server.js",
@@ -31,6 +31,9 @@
     "build:extension": "node scripts/build-extension.js",
     "verify:real": "node scripts/verify-real-browser.js",
     "verify:capability": "node scripts/verify-capability.js",
+    "audit:ui": "node scripts/audit-frontend.js",
+    "audit:csp": "node scripts/audit-csp.js",
+    "audit:dark": "node scripts/audit-dark-contrast.js",
     "gen:preview": "python scripts/gen-preview.py",
     "gen:evidence": "python scripts/gen-real-evidence.py"
   },

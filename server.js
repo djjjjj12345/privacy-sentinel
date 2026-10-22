@@ -20,6 +20,9 @@ const app = express();
 // Railway / 反向代理后面需要信任代理头，否则限流会把所有请求算成同一个 IP
 app.set('trust proxy', 1);
 
+// 不对外暴露技术栈指纹
+app.disable('x-powered-by');
+
 // 安全响应头挂载在最前面，保证 404 / 500 / 静态资源等所有响应都带上
 app.use(securityHeaders);
 
@@ -115,6 +118,50 @@ app.get('/engine/:file', (req, res, next) => {
   res.sendFile(target);
 });
 
+// ------------------------------------------------------------------
+//  SEO：robots 与 sitemap
+//  之前这两个都是 404，爬虫没有抓取指引，可能把 /api/ 也索引进去。
+// ------------------------------------------------------------------
+const PUBLIC_BASE = String(process.env.PUBLIC_BASE_URL || 'https://privacy-sentinel.onrender.com').replace(/\/+$/, '');
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send([
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /api/',
+    'Disallow: /engine/',
+    '',
+    `Sitemap: ${PUBLIC_BASE}/sitemap.xml`,
+    '',
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const pages = [
+    { loc: '/', priority: '1.0', freq: 'weekly' },
+    { loc: '/launch.html', priority: '0.9', freq: 'weekly' },
+    { loc: '/guard.html', priority: '0.9', freq: 'weekly' },
+    { loc: '/docs.html', priority: '0.7', freq: 'monthly' },
+    { loc: '/status.html', priority: '0.3', freq: 'daily' },
+  ];
+  const today = new Date().toISOString().slice(0, 10);
+  res.type('application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    + pages.map(p => '  <url>'
+      + `<loc>${PUBLIC_BASE}${p.loc}</loc>`
+      + `<lastmod>${today}</lastmod>`
+      + `<changefreq>${p.freq}</changefreq>`
+      + `<priority>${p.priority}</priority>`
+      + '</url>').join('\n')
+    + '\n</urlset>\n'
+  );
+});
+
 app.use(express.static(FRONTEND_DIR));
 
 app.get('/', (req, res) => {
@@ -133,6 +180,12 @@ app.use('/api', (req, res) => {
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.too.large') {
     return res.status(413).json(errors.payload('payload_too_large'));
+  }
+  // 请求体不是合法 JSON 是客户端错误，回 400；之前落到 500，
+  // 既污染 5xx 监控，又让前端误判成「服务挂了」。
+  if (err && err.type === 'entity.parse.failed') {
+    const p = errors.payload('invalid_format', '请求体不是合法的 JSON');
+    return res.status(400).json(p);
   }
   logger.error('[server] 未处理异常:', err);
   if (res.headersSent) return next(err);

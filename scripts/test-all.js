@@ -9,7 +9,7 @@
  *   ⑦ scripts/test-huawei-cloud.js  — 华为云 Provider / RDS / Redis 适配（32 项）
  *   ⑧ scripts/test-huawei-sis.js    — SIS 音频转写流水线（52 项）
  *   ⑨ scripts/test-ux-hardening.js  — 体验加固：错误分类 / 安全头 / 批量 / 密钥（81 项）
- *   ⑩ scripts/test-frontend-dom.js  — 前端交互（jsdom 真实点击）：主题 / 隐私弹窗 / 批量 / 报告 / 本地模式 / 脱敏导出（107 项）
+ *   ⑩ scripts/test-frontend-dom.js  — 前端交互（jsdom 真实点击）：HTML 结构完整性 / 主题 / 隐私弹窗 / 批量 / 报告 / 本地模式 / 脱敏导出（122 项）
  *   ⑪ scripts/test-v36-hardening.js — 隐私优先加固：抗变形 / 双端同源 / 位置映射 / SSRF 守卫（26 项）
  *   ⑫ scripts/test-guard.js         — 输入守卫：扩展契约 / 脱敏逻辑 / 发帖拦截（69 项）
  *
@@ -29,7 +29,7 @@ const suites = [
   { name: '华为云适配',   file: 'test-huawei-cloud.js',    weight: '32 项' },
   { name: 'SIS 音频转写', file: 'test-huawei-sis.js',      weight: '52 项' },
   { name: '体验加固',     file: 'test-ux-hardening.js',    weight: '81 项' },
-  { name: '前端交互',     file: 'test-frontend-dom.js',    weight: '107 项' },
+  { name: '前端交互',     file: 'test-frontend-dom.js',    weight: '122 项' },
   { name: '隐私优先加固', file: 'test-v36-hardening.js',   weight: '26 项' },
   { name: '输入守卫',     file: 'test-guard.js',           weight: '69 项' },
 ];

@@ -123,6 +123,12 @@ function htmlNonce(rootDir) {
             .replace(/<style\b/gi, `<style nonce="${nonce}"`)
             .replace(/<script\b/gi, `<script nonce="${nonce}"`);
         }
+        // og:image / og:url / canonical 必须是绝对地址：微信、Twitter 的抓取器
+        // 拿到 "/icons/og-cover.png" 会直接放弃，分享卡片就没有封面图。
+        const base = String(process.env.PUBLIC_BASE_URL || 'https://privacy-sentinel.onrender.com').replace(/\/+$/, '');
+        out = out
+          .replace(/(<meta\s+property="og:(?:image|image:secure_url|url)"\s+content=")(\/[^"]*)"/gi, `$1${base}$2"`)
+          .replace(/(<link\s+rel="canonical"\s+href=")(\/[^"]*)"/gi, `$1${base}$2"`);
         res.type('html').send(out);
       })
       .catch(() => next());

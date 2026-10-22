@@ -46,6 +46,11 @@ const BATCH_MAX_ITEMS = 50;
 const BATCH_MAX_ITEM_CHARS = 5000;
 // 走 AI 的批量成本高、耗时长，条数再收紧一档
 const BATCH_AI_MAX_ITEMS = 10;
+// 单次文本上限。批量已有 5000 字符/条的限制，单条分析接口却完全没有，
+// 实测 12MB 的 text 会被接受并送进模型通道——既烧配额，也把整段原文上传。
+// 阈值取 200000 而不是更小：长文本本来就有配套的降级方案（AI 侧 TEXT_CAP=12000 截断，
+// 本地正则仍扫全文并显式给出 warnings），这里只用来挡真正离谱的 payload，不改动既有能力。
+const MAX_TEXT_LENGTH = Number(process.env.MAX_TEXT_LENGTH || 200000);
 
 /** 统一失败响应：走错误目录，保证前端拿到的文案一致 */
 function fail(res, errOrCode, fallback) {
@@ -141,6 +146,13 @@ router.post('/', rateLimit, async (req, res) => {
       const text = body.text || body.content;
       if (!text || !String(text).trim()) {
         return fail(res, 'empty_input', '缺少文本内容');
+      }
+      if (String(text).length > MAX_TEXT_LENGTH) {
+        const p = errors.payload('payload_too_large',
+          `单次最多 ${MAX_TEXT_LENGTH} 字符，本次提交了 ${String(text).length} 字符`);
+        // 通用文案讲的是压缩图片/剪视频，对文本场景是误导
+        p.action = '把长文本拆成几段分别检测，或删掉与隐私无关的段落再试。';
+        return res.status(413).json(p);
       }
       if (body.mode === 'local') {
         return res.json(analyzer.analyzeTextLocalOnly(String(text), types));

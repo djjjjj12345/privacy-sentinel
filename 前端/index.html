@@ -48,7 +48,9 @@
             --warning-light: #fff3e0;
             --success: #4caf50;
             --success-light: #e8f5e9;
-            --gray: #9e9e9e;
+            /* 原为 #9e9e9e，白底对比度仅 2.65:1，达不到 WCAG AA 的 4.5:1；
+               #6b6b6b 在 #fff 上 5.44:1、在 #f5f5f5 上 4.99:1，仍是「次要文字」的观感 */
+            --gray: #6b6b6b;
             --gray-light: #f5f5f5;
             --gray-border: #e0e0e0;
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -86,7 +88,7 @@
             justify-content: space-between;
             padding: 8px 20px 4px;
             font-size: 12px;
-            color: #888;
+            color: var(--gray);
             background: #fff;
             flex-shrink: 0;
         }
@@ -108,10 +110,14 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            /* 这是页面唯一的 h1：清掉浏览器默认的 margin，保持原有观感 */
+            margin: 0;
+            line-height: 1.2;
         }
         .chat-header .title .badge {
             font-size: 10px;
-            background: var(--primary);
+            /* 白字压在 #3b7cff 上只有 3.81:1；10px 小字必须过 4.5，改用深一档的蓝 */
+            background: #2456c4;
             color: #fff;
             padding: 2px 10px;
             border-radius: 20px;
@@ -995,9 +1001,12 @@
         .tagline .tagline-types { margin-top: 4px; font-size: 11.5px; }
         .tagline .tagline-types span {
             display: inline-block; margin-right: 4px; padding: 1px 6px;
-            background: var(--primary-light); color: var(--primary);
+            /* 品牌蓝 #3b7cff 在浅蓝底上只有 3.28:1；这组小字用深一档的蓝达到 AA */
+            background: var(--primary-light); color: #2456c4;
             border-radius: 8px; font-size: 11px;
         }
+        /* 暗色下 --primary-light 变成深蓝 #1c2b4a，#2456c4 压上去只有 2.14:1 */
+        [data-theme="dark"] .tagline .tagline-types span { color: var(--primary); }
 
         /* ---------- 隐私声明 ---------- */
         .privacy-list { text-align: left; font-size: 12.5px; line-height: 1.75; color: inherit; }
@@ -1108,12 +1117,16 @@
         .sample-row { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; }
         .sample-chip {
             font-size: 11.5px; padding: 4px 10px; border-radius: 12px;
-            border: 1px solid var(--primary); color: var(--primary); background: transparent;
+            /* 链接/标签类文字用 #2456c4（白底 6.27:1）；品牌蓝 #3b7cff 只有 3.81:1 */
+            border: 1px solid #2456c4; color: #2456c4; background: transparent;
         }
         .sample-chip:hover { background: var(--primary-light); }
         /* 本地模式开启态：用绿色表示「原文没离开设备」 */
-        .sample-chip.chip-on { background: #e8f5e9; border-color: #66bb6a; color: #2e7d32; font-weight: 600; }
+        .sample-chip.chip-on { background: #e8f5e9; border-color: #66bb6a; color: #2b7530; font-weight: 600; }
         [data-theme="dark"] .sample-chip.chip-on { background: #1b3a26; border-color: #3f7a52; color: #8fd6a4; }
+        /* 深色底上 #2456c4 只有 2.66:1，暗色主题改回亮蓝（5.86:1） */
+        [data-theme="dark"] .sample-chip { border-color: var(--primary); color: var(--primary); }
+        [data-theme="dark"] .u-note-primary { color: var(--primary); }
 
         /* ---------- 批量 / 规则面板 ---------- */
         /* 置信度与脱敏导出 */
@@ -1199,23 +1212,82 @@
         @media (prefers-reduced-motion: reduce) {
             * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
         }
+
+        /* ----------------------------------------------------------------
+           CSP 工具类
+           style-src 没有 unsafe-inline，HTML 里的 style="" 属性会被浏览器
+           整条丢弃（实测 41 条违规）。样式必须走 class；动态数值走 CSSOM。
+           ---------------------------------------------------------------- */
+        .u-plain { text-decoration: none; }
+        .u-muted { color: var(--gray); }
+        .u-primary { color: var(--primary); }
+        .u-warning { color: var(--warning); }
+        .u-orange { color: #e65100; }
+        .u-orange-strong { color: #e65100; font-weight: 600; }
+        .u-danger-strong { color: var(--danger); font-weight: 600; }
+        .u-subtle { color: #666; font-size: 13px; }
+        .u-faint { font-size: 12px; color: #bbb; }
+        .u-fs12 { font-size: 12px; }
+        .u-fs13 { font-size: 13px; }
+        .u-note { font-size: 13px; color: var(--gray); }
+        .u-note-primary { font-size: 13px; color: #2456c4; }
+        .u-note-mt8 { font-size: 13px; color: var(--gray); margin-top: 8px; }
+        .u-note-mb6 { font-size: 13px; color: var(--gray); margin-bottom: 6px; }
+        .u-fineprint { font-size: 11px; color: var(--gray); margin-top: 10px; line-height: 1.5; }
+        .u-fineprint-tight { font-size: 11px; color: var(--gray); margin-top: 8px; }
+        .u-footnote { font-size: 11.5px; color: var(--gray); line-height: 1.7; padding: 8px 0 2px; }
+        .u-meta-right { margin-left: auto; font-size: 11.5px; color: var(--gray); }
+        .u-sub-meta { margin-top: 3px; font-size: 11.5px; opacity: .8; }
+        .u-row-right { margin-left: auto; display: flex; gap: 4px; }
+        .u-btn-sm { font-size: 14px; padding: 4px 8px; }
+        .u-btn-sm-muted { font-size: 13px; color: var(--gray); padding: 4px 8px; }
+        .u-divider { margin-top: 8px; border-top: 1px solid #eee; padding-top: 10px; }
+        .u-h28 { height: 28px; }
+        .u-w22 { width: 22%; }
+        .u-mt6 { margin-top: 6px; }
+        .u-mt10 { margin-top: 10px; }
+        .u-mt10-right { margin-top: 10px; text-align: right; }
+        .u-mt14 { margin-top: 14px; }
+        .u-mb6 { margin-bottom: 6px; }
+        .u-chip-row { flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+        .u-warn-note { margin-top: 8px; font-size: 12px; color: #e65100; }
+        .u-error-line { color: var(--danger); font-size: 12px; min-height: 18px; margin-bottom: 4px; }
+        .u-danger-border { border-color: var(--danger); color: var(--danger); margin-top: 8px; }
+        .u-tip-box {
+            margin: 12px 0; padding: 12px; border-left: 3px solid var(--primary);
+            background: #f9fbff; border-radius: 6px;
+        }
+        .u-transcript { font-size: 16px; line-height: 1.7; color: #222; }
+        .u-link-btn {
+            margin-top: 8px; background: none; border: none; color: var(--primary);
+            cursor: pointer; font-size: 13px;
+        }
+        .is-hidden { display: none; }
+
+        /* 状态点与等级色：原来是写死的 style="background:#..." */
+        .dot--on { background: #4caf50; }
+        .bg-l4 { background: #d32f2f; }
+        .bg-l3 { background: #d32f2f; }
+        .bg-l2 { background: #ef6c00; }
+        .bg-l1 { background: #f9a825; }
+        .bg-l0 { background: #43a047; }
     </style>
 </head>
 <body>
-    <div id="app">
+    <div id="app" role="main">
         <div class="toast" id="toast"></div>
 
         <!-- ========== CHAT VIEW ========== -->
         <div class="status-bar"><span id="currentTime">9:41</span><span>📶 🔋</span></div>
 
         <div class="chat-header">
-            <div class="title"><span data-i18n="app.brand">🛡️ 隐私哨兵</span> <span class="badge">实时保护</span></div>
+            <h1 class="title"><span data-i18n="app.brand">🛡️ 隐私哨兵</span> <span class="badge">实时保护</span></h1>
             <div class="actions">
                 <button id="btnTheme" class="theme-toggle" title="切换浅色/深色" aria-label="切换浅色或深色主题">🌙</button>
                 <button id="btnGuide" title="防骗指南" data-i18n-title="nav.guide" data-i18n-aria="nav.guide">📖</button>
                 <button id="btnHistory" title="预警历史" data-i18n-title="nav.history" data-i18n-aria="nav.history">📋</button>
                 <button id="btnAccount" title="账号" data-i18n-title="nav.account" data-i18n-aria="nav.account">👤</button>
-                <button id="btnLang" title="中/EN" data-i18n-title="nav.lang" data-action="toggle-lang" style="font-size:13px;">中/EN</button>
+                <button id="btnLang" title="中/EN" data-i18n-title="nav.lang" data-action="toggle-lang" class="u-fs13">中/EN</button>
                 <button id="btnSettings" title="设置" data-i18n-title="nav.settings" data-i18n-aria="nav.settings" class="active">⚙️</button>
             </div>
         </div>
@@ -1237,26 +1309,26 @@
             <button class="sample-chip chip-on" id="engineChip" data-action="toggle-engine" title="本地模式：只在浏览器内检测，原文不上传">🔒 本地模式：开</button>
             <button class="sample-chip" data-action="fill-sample">✨ 填示例</button>
             <button class="sample-chip" data-action="open-privacy">🔒 隐私说明</button>
-            <a class="sample-chip" href="/guard.html" style="text-decoration:none;" title="在发帖、评论、填表时实时提醒，可装成浏览器扩展">🛡 输入守卫</a>
-            <a class="sample-chip" href="/launch.html" style="text-decoration:none;">⇄ 切换产品</a>
-            <a class="sample-chip" href="/docs.html" style="text-decoration:none;">📖 使用文档</a>
-            <a class="sample-chip" href="/status.html" style="text-decoration:none;">📡 服务状态</a>
+            <a class="sample-chip" href="/guard.html" class="u-plain" title="在发帖、评论、填表时实时提醒，可装成浏览器扩展">🛡 输入守卫</a>
+            <a class="sample-chip" href="/launch.html" class="u-plain">⇄ 切换产品</a>
+            <a class="sample-chip" href="/docs.html" class="u-plain">📖 使用文档</a>
+            <a class="sample-chip" href="/status.html" class="u-plain">📡 服务状态</a>
         </div>
 
         <div class="messages" id="messages">
             <div class="msg bot">
-                <div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span> 在线</div>
+                <div class="label">🛡️ 隐私哨兵 <span class="dot dot--on" ></span> 在线</div>
                 你好！我已开启敏感信息检测。<br>
                 发送消息、图片、音频或视频，我将自动检测其中的身份证、银行卡、密码、验证码等敏感信息。<br>
-                <span style="font-size:13px;color:var(--gray);">💡 试试输入 "我的身份证号是11010519491231002X"</span><br>
-                <span style="font-size:13px;color:var(--primary);">📂 输入图片URL（以http开头）将使用AI视觉识别</span>
+                <span class="u-note">💡 试试输入 "我的身份证号是11010519491231002X"</span><br>
+                <span class="u-note-primary">📂 输入图片URL（以http开头）将使用AI视觉识别</span>
             </div>
         </div>
 
         <div class="input-area" id="inputArea">
             <button class="attach-btn" id="attachBtn">📎</button>
             <div class="input-wrap" id="inputWrap">
-                <textarea id="msgInput" rows="1" placeholder="输入消息或图片URL..." data-i18n-placeholder="input.placeholder" style="height:28px;" autofocus></textarea>
+                <textarea id="msgInput" rows="1" placeholder="输入消息或图片URL..." data-i18n-placeholder="input.placeholder" class="u-h28" autofocus></textarea>
             </div>
             <button class="send-btn" id="sendBtn">➤</button>
 
@@ -1298,12 +1370,12 @@
                     </div>
                     <input class="auth-input" id="authUser" placeholder="用户名（2-24 位字母/数字/中文）" data-i18n-placeholder="auth.username" autocomplete="username">
                     <input class="auth-input" id="authPass" type="password" placeholder="密码（至少 6 位）" data-i18n-placeholder="auth.password" autocomplete="current-password">
-                    <div id="authErr" style="color:var(--danger);font-size:12px;min-height:18px;margin-bottom:4px;"></div>
+                    <div id="authErr" class="u-error-line"></div>
                     <div class="modal-actions">
                         <button class="btn outline" id="authClose" data-i18n="auth.close">取消</button>
                         <button class="btn primary" id="authSubmit" data-i18n="auth.login">登录</button>
                     </div>
-                    <p style="font-size:11px;color:var(--gray);margin-top:10px;line-height:1.5;" data-i18n="auth.privacyNote">🔒 密码仅以 scrypt 哈希存储；账号仅用于同步你的预警历史，不收集任何其他信息。</p>
+                    <p class="u-fineprint" data-i18n="auth.privacyNote">🔒 密码仅以 scrypt 哈希存储；账号仅用于同步你的预警历史，不收集任何其他信息。</p>
                 </div>
             </div>
         </div>
@@ -1334,7 +1406,7 @@
                     <div class="section-title">👤 用户画像</div>
                     <div class="card">
                         <div class="row"><span class="label">年龄段</span><span class="value" id="ageDisplay">30-45岁</span></div>
-                        <div class="row" style="flex-wrap:wrap;gap:6px;padding-top:4px;">
+                        <div class="row u-chip-row" >
                             <span class="tag-group" id="ageGroup">
                                 <span class="tag" data-age="18-">18-30</span>
                                 <span class="tag active" data-age="30-45">30-45</span>
@@ -1342,7 +1414,7 @@
                                 <span class="tag" data-age="60+">60+</span>
                             </span>
                         </div>
-                        <div class="row" style="margin-top:8px;border-top:1px solid #eee;padding-top:10px;">
+                        <div class="row u-divider" >
                             <span class="label">数字素养</span>
                             <span class="value" id="literacyDisplay">中级 · 日常使用</span>
                         </div>
@@ -1361,7 +1433,7 @@
                             <div class="opt active" data-level="mid">中 <span class="sub">标准</span></div>
                             <div class="opt" data-level="high">高 <span class="sub">全覆盖</span></div>
                         </div>
-                        <div class="row" style="margin-top:8px;border-top:1px solid #eee;padding-top:10px;">
+                        <div class="row u-divider" >
                             <span class="label">当前灵敏度</span>
                             <span class="value" id="sensitivityLabel">中 · 标准预警策略</span>
                         </div>
@@ -1370,12 +1442,12 @@
                 <div class="section">
                     <div class="section-title">🔍 检测项</div>
                     <div class="card">
-                        <div class="row"><span class="label">身份证号</span><span class="value" style="color:var(--primary);">L1</span></div>
-                        <div class="row"><span class="label">银行卡号</span><span class="value" style="color:var(--warning);">L2</span></div>
-                        <div class="row"><span class="label">密码</span><span class="value" style="color:#e65100;">L3</span></div>
-                        <div class="row"><span class="label">短信验证码 (OTP)</span><span class="value" style="color:var(--danger);font-weight:600;">L4 强制</span></div>
-                        <div class="row"><span class="label">手机号</span><span class="value" style="color:var(--gray);">L1</span></div>
-                        <div class="row"><span class="label">家庭住址</span><span class="value" style="color:var(--gray);">L1</span></div>
+                        <div class="row"><span class="label">身份证号</span><span class="value u-primary" >L1</span></div>
+                        <div class="row"><span class="label">银行卡号</span><span class="value u-warning" >L2</span></div>
+                        <div class="row"><span class="label">密码</span><span class="value u-orange" >L3</span></div>
+                        <div class="row"><span class="label">短信验证码 (OTP)</span><span class="value u-danger-strong" >L4 强制</span></div>
+                        <div class="row"><span class="label">手机号</span><span class="value u-muted" >L1</span></div>
+                        <div class="row"><span class="label">家庭住址</span><span class="value u-muted" >L1</span></div>
                     </div>
                 </div>
                 <div class="section">
@@ -1392,27 +1464,27 @@
                             </div>
                         </div>
                         <button class="btn-add" id="addContactBtn">+ 添加紧急联系人</button>
-                        <div style="font-size:11px;color:var(--gray);margin-top:8px;">仅在 L4 级极高风险时发送脱敏风险摘要通知</div>
+                        <div class="u-fineprint-tight">仅在 L4 级极高风险时发送脱敏风险摘要通知</div>
                     </div>
                 </div>
-                <button class="btn-add" id="resetDefaults" style="border-color:var(--danger);color:var(--danger);margin-top:8px;">↺ 恢复默认设置</button>
+                <button class="btn-add" id="resetDefaults" class="u-danger-border">↺ 恢复默认设置</button>
 
                 <!-- 开源与反馈：工具本身接受监督，是隐私类产品建立信任的前提 -->
-                <div class="section" style="margin-top:14px;">
+                <div class="section u-mt14" >
                     <div class="section-title">🌐 开源与反馈</div>
                     <div class="card">
                         <div class="row">
                             <span class="label">本项目已开源</span>
-                            <span class="value" style="color:var(--primary);">可自行审计</span>
+                            <span class="value u-primary" >可自行审计</span>
                         </div>
-                        <div style="font-size:11.5px;color:var(--gray);line-height:1.7;padding:8px 0 2px;">
+                        <div class="u-footnote">
                             声称保护隐私的工具，自己必须是可审查的。你可以查看源码确认它「真的没有偷偷上传」。
                         </div>
-                        <div class="rp-actions" style="margin-top:6px;">
-                            <a class="sample-chip" href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener" style="text-decoration:none;">⭐ GitHub 源码</a>
-                            <a class="sample-chip" href="https://github.com/djjjjj12345/privacy-sentinel/issues/new" target="_blank" rel="noopener" style="text-decoration:none;">🐛 提交反馈</a>
-                            <a class="sample-chip" href="/docs.html" style="text-decoration:none;">📖 使用文档</a>
-                            <a class="sample-chip" href="/status.html" style="text-decoration:none;">📡 服务状态</a>
+                        <div class="rp-actions u-mt6" >
+                            <a class="sample-chip" href="https://github.com/djjjjj12345/privacy-sentinel" target="_blank" rel="noopener" class="u-plain">⭐ GitHub 源码</a>
+                            <a class="sample-chip" href="https://github.com/djjjjj12345/privacy-sentinel/issues/new" target="_blank" rel="noopener" class="u-plain">🐛 提交反馈</a>
+                            <a class="sample-chip" href="/docs.html" class="u-plain">📖 使用文档</a>
+                            <a class="sample-chip" href="/status.html" class="u-plain">📡 服务状态</a>
                         </div>
                     </div>
                 </div>
@@ -1423,10 +1495,10 @@
         <div class="history-panel" id="historyPanel">
             <div class="header">
                 <button class="back-btn" id="historyBack">‹</button><span class="title" data-i18n="history.title">📋 预警历史</span>
-                <span style="margin-left:auto;display:flex;gap:4px;">
-                    <button id="historyExport" title="导出 JSON 备份" data-i18n-title="history.export" style="font-size:14px;padding:4px 8px;">⬇️</button>
-                    <button id="historyImportBtn" title="导入 JSON 备份" data-i18n-title="history.import" style="font-size:14px;padding:4px 8px;">⬆️</button>
-                    <button id="historyClear" style="font-size:13px;color:var(--gray);padding:4px 8px;" data-i18n="history.clear">清空</button>
+                <span class="u-row-right">
+                    <button id="historyExport" title="导出 JSON 备份" data-i18n-title="history.export" class="u-btn-sm">⬇️</button>
+                    <button id="historyImportBtn" title="导入 JSON 备份" data-i18n-title="history.import" class="u-btn-sm">⬆️</button>
+                    <button id="historyClear" class="u-btn-sm-muted" data-i18n="history.clear">清空</button>
                 </span>
             </div>
             <div class="body" id="historyBody"></div>
@@ -1500,7 +1572,7 @@
             <div class="header">
                 <button class="back-btn" id="batchBack">‹</button>
                 <span>📦 批量检测</span>
-                <span style="margin-left:auto;font-size:11.5px;color:var(--gray);" id="batchMeta">每行一条</span>
+                <span class="u-meta-right" id="batchMeta">每行一条</span>
             </div>
             <div class="body">
                 <div class="tool-hint">
@@ -1508,7 +1580,7 @@
                     号码类信息识别准确率与 AI 模式一致。
                 </div>
                 <textarea id="batchInput" placeholder="每行一条，例如：&#10;张三 身份证11010519491231002X&#10;李四 手机13800138000 邮箱 lisi@example.com&#10;aws_secret = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"></textarea>
-                <div class="rp-actions" style="margin-top:10px;">
+                <div class="rp-actions u-mt10" >
                     <button type="button" data-action="batch-run">▶ 开始批量检测</button>
                     <button type="button" data-action="batch-sample">✨ 填充示例</button>
                     <button type="button" data-action="batch-clear">清空</button>
@@ -1523,7 +1595,7 @@
             <div class="header">
                 <button class="back-btn" id="rulesBack">‹</button>
                 <span>🎛 检测规则</span>
-                <span style="margin-left:auto;font-size:11.5px;color:var(--gray);" id="rulesCount">全部</span>
+                <span class="u-meta-right" id="rulesCount">全部</span>
             </div>
             <div class="body">
                 <div class="tool-hint">
@@ -1536,7 +1608,7 @@
                     <button type="button" data-action="rules-reset">恢复默认</button>
                 </div>
                 <div class="rule-grid" id="ruleGrid"></div>
-                <div class="privacy-note" style="margin-top:14px;">
+                <div class="privacy-note u-mt14" >
                     L1 低风险 · L2 中风险 · L3 高风险 · L4 极高风险。等级为该类信息的<b>最低判定等级</b>，
                     实际等级会结合上下文上调。
                 </div>
@@ -1582,7 +1654,11 @@
         const AI_MEDIA_TIMEOUT_MS = 330000; // 音视频总超时：首轮上限 180s + 修复轮重试 120s，前端留足余量让服务端错误能透出
         const AI_TEXT_REVIEW_MS = 9000;  // 纯文本语义复检的等待上限，超时按本地结果放行
         const MEDIA_RAW_LIMIT = 22 * 1024 * 1024; // 音视频原文件上限（base64 后约 30MB，与服务端限制对齐）
-        const HISTORY_KEY = 'privacy-sentinel:history';
+        // v3.7.3：历史只允许存脱敏值。旧键里躺的是明文原文（身份证/银行卡），
+        // 换键做一次性迁移，读到旧数据先洗掉再转存。
+        const HISTORY_KEY = 'privacy-sentinel:history:v2';
+        const HISTORY_LEGACY_KEY = 'privacy-sentinel:history';
+        const HISTORY_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 天后自动过期
 
         // ================================================================
         //  STATE (原有)
@@ -1661,7 +1737,7 @@
             const div = document.createElement('div');
             div.className = `msg ${type}`;
             if (type === 'bot') {
-                div.innerHTML = `<div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span></div>${text}`;
+                div.innerHTML = `<div class="label">🛡️ 隐私哨兵 <span class="dot dot--on" ></span></div>${text}`;
             } else {
                 div.textContent = text;
             }
@@ -1810,7 +1886,23 @@
                 if (value.length === 2) return value.slice(0, 1) + '*';
                 return value.slice(0, 1) + '*'.repeat(Math.min(value.length - 1, 2));
             }
-            return value;
+            // 邮箱保留域名便于辨认，本地部分只留首字符
+            if (type === 'email') {
+                const at = value.indexOf('@');
+                if (at > 0) return value.slice(0, 1) + '***' + value.slice(at);
+                return value.slice(0, 1) + '***';
+            }
+            // 链接：域名留着，query 里的 token / code 全部隐去
+            if (type === 'url') {
+                const q = value.indexOf('?');
+                if (q > 0) return value.slice(0, q) + '?***';
+                return value;
+            }
+            // 其余类型（ip / mac / passport / uscc / apikey …）绝不能原样返回——
+            // 之前这里就是 `return value`，等于对一半的检测类型「假装脱敏」。
+            if (value.length <= 3) return '*'.repeat(Math.max(1, value.length));
+            const keep = Math.max(1, Math.floor(value.length / 4));
+            return value.slice(0, keep) + '*'.repeat(Math.max(1, value.length - keep * 2)) + value.slice(-keep);
         }
 
         function getLevelName(level) {
@@ -1861,10 +1953,14 @@
                 return idxB - idxA;
             });
             for (const d of sorted) {
-                const start = text.indexOf(d.value);
-                if (start === -1) continue;
-                const desensitized = desensitize(d.value, d.type);
-                result = result.replace(d.value, desensitized);
+                const raw = String(d.value || d.raw || '');
+                if (!raw) continue;
+                if (text.indexOf(raw) === -1) continue;
+                // 必须优先用引擎给的 masked：desensitize() 只认 7 类，
+                // 邮箱/IP/MAC/护照/信用代码/API Key/链接会走 default 原样返回，
+                // 结果就是「显示已脱敏、文本里还是明文」。
+                const safe = d.masked || desensitize(raw, d.type);
+                result = result.split(raw).join(safe);
             }
             return result;
         }
@@ -2030,7 +2126,7 @@
             }
 
             const warn = (analysis.warnings || []).map(function (w) {
-                return `<div style="margin-top:8px;font-size:12px;color:#e65100;">⚠️ ${escapeHtml(w)}</div>`;
+                return `<div class="u-warn-note">⚠️ ${escapeHtml(w)}</div>`;
             }).join('');
 
             return addMessage('', 'bot', {
@@ -2191,7 +2287,7 @@
             const reasonHtml = renderReasons(detections);
             const src = extra.analysis ? engineLabel(extra.analysis.source) : null;
             const sourceHtml = src
-                ? `<div class="ac-head" style="margin-bottom:6px;"><span class="engine-badge ${src.cls}">${src.text}</span></div>`
+                ? `<div class="ac-head u-mb6" ><span class="engine-badge ${src.cls}">${src.text}</span></div>`
                 : '';
 
             // ====== P3: 转写文本可读性增强 ======
@@ -2213,7 +2309,7 @@
             };
             // 用 data-action 代替内联 onclick：CSP 启用了 nonce，
             // 内联事件处理器会被拦掉，统一走 document 层的事件委托
-            const exportBtnHtml = `<div style="margin-top:10px;text-align:right;"><button type="button" class="btn outline" style="font-size:12px;" data-action="export-report">📄 ${i18n.t('report.button')}</button></div>`;
+            const exportBtnHtml = `<div class="u-mt10-right"><button type="button" class="btn outline u-fs12"  data-action="export-report">📄 ${i18n.t('report.button')}</button></div>`;
 
             if (maxLevel === 1) {
                 showToast(`🟢 ${levelName} · ${reason}`, 3000);
@@ -2232,7 +2328,7 @@
                     body: `
                         <p>您即将向联系人发送以下敏感信息：</p>
                         <div class="detected-items">${detailHtml}</div>
-                        <p style="color:#666;font-size:13px;">${escapeHtml(reason)}</p>
+                        <p class="u-subtle">${escapeHtml(reason)}</p>
                         ${transcriptHtml}
                         ${reasonHtml}
                         ${sourceHtml}
@@ -2263,7 +2359,7 @@
                         <div class="detected-items">${detailHtml}</div>
                         ${transcriptHtml}
                         ${reasonHtml}
-                        <p style="color:#e65100;font-weight:600;">⏳ 等待 <span id="countdownDisplay">8</span> 秒后可选择继续发送</p>
+                        <p class="u-orange-strong">⏳ 等待 <span id="countdownDisplay">8</span> 秒后可选择继续发送</p>
                         ${sourceHtml}
                         <div class="suggestion"><span class="label">💡 建议：</span>${escapeHtml(suggestion)}</div>
                         ${exportBtnHtml}
@@ -2293,10 +2389,10 @@
                     <div class="detected-items">${detailHtml}</div>
                     ${transcriptHtml}
                     ${reasonHtml}
-                    <p style="color:var(--danger);font-weight:600;">验证码泄露将直接导致账户被盗！</p>
+                    <p class="u-danger-strong">验证码泄露将直接导致账户被盗！</p>
                     ${sourceHtml}
                     <div class="suggestion"><span class="label">🔒 建议：</span>${escapeHtml(suggestion)}</div>
-                    <p style="font-size:13px;color:var(--gray);margin-top:8px;">📞 已建议通知紧急联系人</p>
+                    <p class="u-note-mt8">📞 已建议通知紧急联系人</p>
                     ${exportBtnHtml}
                 `,
                 actions: [
@@ -2343,14 +2439,14 @@
             const tail = long ? html.slice(FOLD_THRESHOLD) : '';
 
             let html2 = `
-                <div class="transcript-block" style="margin:12px 0;padding:12px;border-left:3px solid var(--primary);background:#f9fbff;border-radius:6px;">
-                    <div style="font-size:13px;color:var(--gray);margin-bottom:6px;">📝 转写文本（黄色高亮为敏感内容）</div>
-                    <div id="${foldId}-head" class="transcript-text" style="font-size:16px;line-height:1.7;color:#222;">${head}</div>
+                <div class="transcript-block u-tip-box" >
+                    <div class="u-note-mb6">📝 转写文本（黄色高亮为敏感内容）</div>
+                    <div id="${foldId}-head" class="transcript-text u-transcript" >${head}</div>
             `;
             if (long) {
                 html2 += `
-                    <div id="${foldId}-tail" class="transcript-text" style="font-size:16px;line-height:1.7;color:#222;display:none;">${tail}</div>
-                    <button type="button" data-action="expand-transcript" data-fold-id="${foldId}" style="margin-top:8px;background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;">展开全文 ↓</button>
+                    <div id="${foldId}-tail" class="transcript-text u-transcript is-hidden" >${tail}</div>
+                    <button type="button" data-action="expand-transcript" data-fold-id="${foldId}" class="u-link-btn">展开全文 ↓</button>
                 `;
             }
             html2 += `</div>`;
@@ -2566,13 +2662,48 @@
         // ================================================================
         //  HISTORY
         // ================================================================
+        /**
+         * 把旧版本留下的明文历史洗成脱敏值再转存。
+         * 旧版 addHistory 存的是 d.value（原文）和 content（原文前 50 字），
+         * 与首页「检测完成不留存原始数据」的宣传直接矛盾，必须清掉。
+         * 旧 content 没有位置信息，无法安全脱敏，只能丢弃；条目本身保留。
+         */
+        function scrubLegacyHistory() {
+            let raw = null;
+            try { raw = localStorage.getItem(HISTORY_LEGACY_KEY); } catch (e) { return; }
+            if (!raw) return;
+            try {
+                const arr = JSON.parse(raw);
+                const cleaned = (Array.isArray(arr) ? arr : []).map(e => ({
+                    level: e.level,
+                    detections: (e.detections || []).map(d => ({
+                        label: d.label,
+                        value: '***',
+                        level: d.level,
+                    })),
+                    action: e.action,
+                    content: '',
+                    time: e.time,
+                    date: e.date,
+                    savedAt: Date.now(),
+                }));
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(cleaned.slice(0, 50)));
+                localStorage.removeItem(HISTORY_LEGACY_KEY);
+            } catch (e) { /* 解析失败就丢掉旧键，宁可少历史也不留明文 */ }
+        }
+
         // 历史记录持久化：刷新页面不再丢失
         function loadHistory() {
+            scrubLegacyHistory();
             try {
                 const raw = localStorage.getItem(HISTORY_KEY);
                 if (!raw) return [];
                 const arr = JSON.parse(raw);
-                return Array.isArray(arr) ? arr.slice(0, 50) : [];
+                if (!Array.isArray(arr)) return [];
+                const now = Date.now();
+                return arr
+                    .filter(e => !e.savedAt || now - e.savedAt < HISTORY_TTL_MS)
+                    .slice(0, 50);
             } catch (e) {
                 return [];
             }
@@ -2580,19 +2711,43 @@
 
         function saveHistory() {
             try {
-                localStorage.setItem(HISTORY_KEY, JSON.stringify(STATE.history.slice(0, 50)));
+                const now = Date.now();
+                const keep = STATE.history
+                    .filter(e => !e.savedAt || now - e.savedAt < HISTORY_TTL_MS)
+                    .slice(0, 50);
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(keep));
             } catch (e) { /* 隐私模式下写入会失败，忽略即可 */ }
         }
 
         function addHistory(level, detections, action, content) {
             const text = String(content == null ? '' : content);
+            // 只存脱敏值：masked 由引擎给出，缺失时回退到 desensitize
+            const safeDets = detections.map(d => {
+                const raw = String(d.value || d.raw || '');
+                const masked = d.masked || (raw ? desensitize(raw, d.type) : '');
+                return { label: d.label, value: masked, level: d.level };
+            });
+            // 摘要也必须是脱敏后的：先在原文上按区间重建，位置对不上就逐个替换
+            let summary = '';
+            if (text) {
+                summary = buildMaskedText(text, detections, 'mask');
+                if (!summary) {
+                    summary = text;
+                    for (const d of detections) {
+                        const raw = String(d.value || d.raw || '');
+                        if (!raw) continue;
+                        summary = summary.split(raw).join(d.masked || desensitize(raw, d.type));
+                    }
+                }
+            }
             const entry = {
                 level,
-                detections: detections.map(d => ({ label: d.label, value: d.value })),
+                detections: safeDets,
                 action,
-                content: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
+                content: summary.slice(0, 50) + (summary.length > 50 ? '...' : ''),
                 time: getTime(),
                 date: new Date().toLocaleDateString(),
+                savedAt: Date.now(),
             };
             STATE.history.unshift(entry);
             if (STATE.history.length > 50) STATE.history.pop();
@@ -2611,6 +2766,28 @@
         // ================================================================
         //  v3.2：云端历史同步 / 备份
         // ================================================================
+        /**
+         * 云端可能还躺着旧版本上传的明文记录（旧版没有 savedAt 标记）。
+         * 有 savedAt 的是新版、本身已脱敏，直接放行；没有的一律洗掉原值。
+         */
+        function scrubEntry(e) {
+            if (!e || typeof e !== 'object') return null;
+            if (e.savedAt) return e;
+            return {
+                level: e.level,
+                detections: (e.detections || []).map(d => ({
+                    label: d.label,
+                    value: '***',
+                    level: d.level,
+                })),
+                action: e.action,
+                content: '',
+                time: e.time,
+                date: e.date,
+                savedAt: Date.now(),
+            };
+        }
+
         function mergeHistory(local, cloud) {
             // 以 content+time+level 作为指纹去重，合并后按云端在前排列
             const seen = new Set();
@@ -2630,7 +2807,8 @@
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data.success && Array.isArray(data.items)) {
-                    STATE.history = mergeHistory(STATE.history, data.items.map(({ id, ...e }) => e));
+                    const cleaned = data.items.map(({ id, ...e }) => scrubEntry(e)).filter(Boolean);
+                    STATE.history = mergeHistory(STATE.history, cleaned);
                     saveHistory();
                     renderHistory();
                 }
@@ -2789,10 +2967,10 @@
                     <span class="pr-brand">🛡️ ${i18n.t('report.title')}</span>
                     <span class="pr-time">${ctx.date} ${ctx.time}</span>
                 </div>
-                <span class="pr-level" style="background:${lvlColor};">${i18n.t('report.level')}：${escapeHtml(ctx.levelName)}</span>
+                <span class="pr-level bg-l${ctx.maxLevel || 0}">${i18n.t('report.level')}：${escapeHtml(ctx.levelName)}</span>
                 <div class="pr-section">
                     <table>
-                        <tr><th style="width:22%">${i18n.t('report.target')}</th><td>${escapeHtml(target)}</td></tr>
+                        <tr><th class="u-w22">${i18n.t('report.target')}</th><td>${escapeHtml(target)}</td></tr>
                         ${engine ? `<tr><th>${i18n.t('report.engine')}</th><td>${escapeHtml(engine)}</td></tr>` : ''}
                         <tr><th>${i18n.t('report.action')}</th><td>${escapeHtml(ctx.action || '-')}</td></tr>
                     </table>
@@ -2804,8 +2982,8 @@
                         ${rows}
                     </table>
                 </div>
-                <div class="pr-section"><h3>${i18n.t('report.reason')}</h3><p style="font-size:13px;">${escapeHtml(ctx.reason || '')}</p></div>
-                <div class="pr-section"><h3>💡 ${i18n.t('report.advice')}</h3><p style="font-size:13px;">${escapeHtml(ctx.suggestion || '')}</p></div>
+                <div class="pr-section"><h3>${i18n.t('report.reason')}</h3><p class="u-fs13">${escapeHtml(ctx.reason || '')}</p></div>
+                <div class="pr-section"><h3>💡 ${i18n.t('report.advice')}</h3><p class="u-fs13">${escapeHtml(ctx.suggestion || '')}</p></div>
                 ${transcript ? `<div class="pr-section"><h3>📝 ${i18n.t('report.transcript')}</h3><div class="pr-transcript">${escapeHtml(transcript)}…</div></div>` : ''}
                 <div class="pr-footer">
                     ${i18n.t('report.footer')}<br>
@@ -2828,7 +3006,7 @@
                     <div class="empty">
                         <div class="icon">📭</div>
                         <div data-i18n="history.empty">暂无预警记录</div>
-                        <div style="font-size:12px;color:#bbb;">发送含敏感信息的消息后将在此显示</div>
+                        <div class="u-faint">发送含敏感信息的消息后将在此显示</div>
                     </div>
                 `;
                 return;
@@ -2858,7 +3036,7 @@
         function makeStepCard(steps) {
             const div = document.createElement('div');
             div.className = 'msg bot';
-            div.innerHTML = `<div class="label">🛡️ 隐私哨兵 <span class="dot" style="background:#4caf50;"></span></div>
+            div.innerHTML = `<div class="label">🛡️ 隐私哨兵 <span class="dot dot--on" ></span></div>
                 <div class="steps">${steps.map(function (s, i) {
                     return `<div class="step ${i === 0 ? 'active' : ''}"><span class="dot"></span><span>${s}</span></div>`;
                 }).join('')}</div>`;
@@ -3610,7 +3788,7 @@
             const html = `<div class="err-card">
                 <div class="err-title">⚠️ ${escapeHtml(c.title)}</div>
                 <div class="err-msg">${escapeHtml(c.message)}</div>
-                ${detail && detail !== c.title ? `<div class="err-msg" style="margin-top:3px;font-size:11.5px;opacity:.8;">${escapeHtml(detail.slice(0, 120))}</div>` : ''}
+                ${detail && detail !== c.title ? `<div class="err-msg u-sub-meta" >${escapeHtml(detail.slice(0, 120))}</div>` : ''}
                 <div class="err-action">👉 ${escapeHtml(c.action)}</div>
                 ${c.retryable && retryFn ? '<button type="button" class="err-retry" data-action="err-retry">重试</button>' : ''}
             </div>`;
@@ -3775,15 +3953,15 @@
                 <div class="rp-score-num ${lv}">${score}</div>
                 <div class="rp-score-meta">
                     <div>风险评分（100 = 无风险）· <span class="${lv}">${LV_TEXT[maxLevel] || '安全'}</span></div>
-                    <div style="color:var(--gray);">共检出 ${detections.length} 处敏感信息</div>
-                    <div class="rp-score-bar"><i style="width:${score}%;background:${LV_COLOR[maxLevel] || '#43a047'};"></i></div>
+                    <div class="u-muted">共检出 ${detections.length} 处敏感信息</div>
+                    <div class="rp-score-bar"><i class="bg-l${maxLevel || 0}" data-pct="${score}"></i></div>
                 </div>
             </div>
             <div class="rp-legend">
-                <span><i style="background:#d32f2f;"></i>红 = 高危（L3/L4）</span>
-                <span><i style="background:#ef6c00;"></i>橙 = 中危（L2）</span>
-                <span><i style="background:#f9a825;"></i>黄 = 低危（L1）</span>
-                <span><i style="background:#43a047;"></i>绿 = 无风险</span>
+                <span><i class="bg-l4"></i>红 = 高危（L3/L4）</span>
+                <span><i class="bg-l2"></i>橙 = 中危（L2）</span>
+                <span><i class="bg-l1"></i>黄 = 低危（L1）</span>
+                <span><i class="bg-l0"></i>绿 = 无风险</span>
             </div>`;
 
             // ② 风险点逐条定位 + ③ 等级标色 + ④ 通俗解释 + ⑤ 整改建议
@@ -3824,6 +4002,11 @@
 
             const el = addMessage('', 'bot', { time: getTime(), html });
             if (el) {
+                // CSP 不允许内联 style 属性，动态数值只能通过 CSSOM 写入
+                el.querySelectorAll('[data-pct]').forEach((bar) => {
+                    const pct = Number(bar.getAttribute('data-pct'));
+                    if (Number.isFinite(pct)) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+                });
                 const payload = {
                     time: new Date().toISOString(),
                     score, maxLevel,

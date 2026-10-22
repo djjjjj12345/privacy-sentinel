@@ -6,6 +6,8 @@
 <title>隐私哨兵 · 选择你要用的工具</title>
 <meta name="description" content="隐私哨兵提供两个独立产品：完整检测工具（粘贴/文件/批量/报告）与输入守卫（发帖评论时实时提醒）。按需选用，互不依赖。">
 <link rel="canonical" href="https://privacy-sentinel.onrender.com/launch.html">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta property="og:title" content="隐私哨兵 · 两个独立工具">
 <meta property="og:description" content="要深度扫描用检测工具，要边写边防泄用输入守卫。">
 <meta property="og:image" content="/icons/og-cover.png">
@@ -59,12 +61,14 @@
   [data-theme="dark"] .local { background:#10331f; }
 
   footer.links { margin-top:22px; font-size:12.5px; color:var(--sub); display:flex; gap:14px; flex-wrap:wrap; }
+  /* 页脚链接原本只有 20px 高，移动端基本点不中 */
+  footer.links a { display:inline-block; padding:8px 4px; }
   .toggle { position:fixed; right:14px; top:14px; border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:10px; padding:7px 12px; font-size:13px; cursor:pointer; }
 </style>
 </head>
 <body>
 <button class="toggle" id="btnTheme" type="button">🌙 深色</button>
-<div class="wrap">
+<div class="wrap" role="main">
   <h1>隐私哨兵 · 选择你要用的工具</h1>
   <p class="lede">两个独立产品，各自能单独使用，也能配合：<b>一个负责「发之前想清楚」，一个负责「写的时候别手滑」。</b></p>
 

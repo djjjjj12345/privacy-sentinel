@@ -88,10 +88,12 @@
             display: inline-block; padding: 1px 8px; border-radius: 10px;
             font-size: 11.5px; font-weight: 600; color: #fff;
         }
-        .b-ok { background: var(--success); }
-        .b-warn { background: var(--warning); }
-        .b-down { background: var(--danger); }
-        .b-idle { background: var(--gray); }
+        /* 浅底彩色徽章上的白字普遍不够 4.5:1（绿 2.78、橙 2.5、灰 2.65），
+           统一改用深色文字：色块仍是原来的语义色，只是字变深 */
+        .b-ok { background: var(--success); color: #0e3418; }
+        .b-warn { background: var(--warning); color: #4a2c00; }
+        .b-down { background: var(--danger); color: #3d0808; }
+        .b-idle { background: var(--gray); color: #fff; }
 
         .rowline {
             display: flex; justify-content: space-between; gap: 10px;
@@ -108,7 +110,10 @@
             margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--gray-border);
             font-size: 12.5px; color: var(--gray);
         }
-        footer a { color: var(--primary); }
+        /* 正文与页脚链接统一用深蓝：#3b7cff 在白底仅 3.81:1，达不到 AA；
+           页脚链接原本只有 16px 高，移动端基本点不中 */
+        a { color: #2456c4; }
+        footer a { color: #2456c4; display: inline-block; padding: 8px 4px; }
         .spinner {
             width: 16px; height: 16px; border: 2px solid var(--gray-border);
             border-top-color: var(--primary); border-radius: 50%;
@@ -118,6 +123,19 @@
         @media (prefers-reduced-motion: reduce) {
             * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
         }
+        /* CSP 的 style-src 没有 unsafe-inline，HTML 里的 style="" 会被浏览器静默丢弃，
+           因此这里补一组工具类，替代原来写死在属性上的样式 */
+        .u-card-title { font-weight: 600; }
+        .u-card-title--lg { margin-bottom: 8px; }
+        .u-card-title--sm { margin-bottom: 6px; }
+        .u-hint-mt8 { margin-top: 8px; }
+        .u-btn-row { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .u-btn-sm {
+            font-size: 13px; padding: 9px 14px; border: 1px solid var(--gray-border);
+            border-radius: 8px; background: transparent; color: inherit;
+        }
+        a.u-btn-sm { text-decoration: none; }
+        .u-fs12 { font-size: 12px; }
     </style>
 </head>
 <body>
@@ -128,7 +146,7 @@
         <a href="/">← 回到检测</a>
     </header>
 
-    <div class="wrap">
+    <div class="wrap" role="main">
         <h1>服务状态</h1>
         <p class="sub">每 60 秒自动刷新一次，也可点下方按钮手动刷新。</p>
 
@@ -143,30 +161,30 @@
         <div class="grid" id="grid"></div>
 
         <div class="card">
-            <div style="font-weight:600;margin-bottom:8px;">部署信息</div>
+            <div class="u-card-title u-card-title--lg">部署信息</div>
             <div id="meta"></div>
         </div>
 
         <div class="card">
-            <div style="font-weight:600;margin-bottom:6px;">识别能力</div>
+            <div class="u-card-title u-card-title--sm">识别能力</div>
             <div id="caps" class="hint">—</div>
         </div>
 
         <div class="card">
-            <div style="font-weight:600;margin-bottom:6px;">这一页是给谁看的</div>
+            <div class="u-card-title u-card-title--sm">这一页是给谁看的</div>
             <p class="hint">
                 如果你只是想用这个工具检测内容，直接回首页即可——这一页是运维与自建部署时判断服务是否存活用的。
                 自建实例时，把 <code>/status.html</code> 配到健康检查或监控里，可以在实例异常时第一时间发现。
             </p>
-            <p class="hint" style="margin-top:8px;">
+            <p class="hint u-hint-mt8">
                 <b>「降级」不代表不可用</b>：识别引擎未配置 Key 时，文本检测仍可由本地规则引擎完成，
                 只是无法识别姓名这类无固定格式的信息。
             </p>
         </div>
 
-        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="btnRefresh" type="button" style="font-size:13px;padding:9px 14px;border:1px solid var(--gray-border);border-radius:8px;background:transparent;color:inherit;">🔄 立即刷新</button>
-            <a href="/docs.html" style="font-size:13px;padding:9px 14px;border:1px solid var(--gray-border);border-radius:8px;text-decoration:none;color:inherit;">📖 使用文档</a>
+        <div class="u-btn-row">
+            <button id="btnRefresh" type="button" class="u-btn-sm">🔄 立即刷新</button>
+            <a href="/docs.html" class="u-btn-sm">📖 使用文档</a>
         </div>
 
         <footer>
@@ -287,7 +305,7 @@
                 return names[k] + '：' + (c[k] ? '✅' : '❌');
             });
             caps.innerHTML = parts.join(' &nbsp;·&nbsp; ') +
-                '<br><span style="font-size:12px;">未开通的能力会在调用时返回明确提示，不会静默失败。</span>';
+                '<br><span class="u-fs12">未开通的能力会在调用时返回明确提示，不会静默失败。</span>';
         }
 
         document.getElementById('btnRefresh').addEventListener('click', load);
