@@ -20,6 +20,7 @@
     "test:huawei": "node scripts/test-huawei-cloud.js",
     "test:sis": "node scripts/test-huawei-sis.js",
     "probe:huawei": "node scripts/probe-huawei.js",
+    "probe:sis": "node scripts/probe-sis-interfaces.js",
     "verify:sis": "node scripts/verify-sis-live.js",
     "resolve:project": "node scripts/resolve-project-id.js",
     "check:agency": "node scripts/check-sis-agency.js",
