@@ -39,3 +39,6 @@ probe-report.json
 
 # 真实浏览器验收的调试截图（无输入框站点的空页面，仅本地排查用）
 docs/real-browser/*-0-noinput.*
+
+# 华为云码道 CodeArts 本地 IDE 产物（含本地设置，不入库）
+.arts/
