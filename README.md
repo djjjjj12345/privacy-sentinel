@@ -4,7 +4,7 @@
 
 **线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.8.0**
 
-![status](https://img.shields.io/badge/version-3.8.0-blue) ![tests](https://img.shields.io/badge/tests-603%2F603-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.8.0-blue) ![tests](https://img.shields.io/badge/tests-607%2F607-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## 〇、三个交付物，按需选用
 
@@ -30,7 +30,7 @@
 - **安全响应头**：CSP（nonce，非 `unsafe-inline`）/ HSTS / nosniff / X-Frame-Options / Permissions-Policy
 - **不局限于聊天框**：浏览器扩展（`extension/`）在任意网站的输入框、评论区实时提醒，命中即一键脱敏；扩展内另带「检测工具」页，粘贴文本即可出报告并复制/下载脱敏结果
 - **可嵌入**：`sdk/` 提供零依赖 SDK（Node CJS/ESM + 浏览器 UMD + TS 类型），**默认不回显原文**
-- **开箱即测**：603 项自动化测试（含 122 项 jsdom 前端交互 + 86 项守卫测试 + 64 项 SDK 测试），无外部依赖即可跑通全部
+- **开箱即测**：607 项自动化测试（含 122 项 jsdom 前端交互 + 90 项守卫测试 + 64 项 SDK 测试），无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -314,6 +314,9 @@ npm run build:extension    # 把 services/ 引擎同步到 extension/engine/
 
 > SDK 与扩展都不联网、不落盘，规则引擎与网页版是**同一份源码**（`services/schema.js`、`localDetector.js`、`guardCore.js`），
 > 构建脚本会自动复制并写入来源与 SHA256 头，`npm test` 会校验副本没有漂移。改规则只改 `services/`，然后重跑两个 build。
+>
+> **装不上排查**：浏览器对 manifest 很严格——写了 `default_locale` 就必须有 `_locales/<locale>/messages.json`，
+> 否则**整个扩展拒绝装载**（连 ID 都不注册，界面只报一句笼统的加载失败）。`npm test` 的守卫套件里有对应自检。
 
 ### 部署到生产环境
 
@@ -430,7 +433,7 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：603 通过 / 0 失败 / 603 项
+# 总计：607 通过 / 0 失败 / 607 项
 ```
 
 13 个独立套件：
@@ -448,7 +451,7 @@ npm test
 | 体验加固 | `scripts/test-ux-hardening.js` | 81 项 错误分类 / 安全头与 nonce / 规则过滤 / 批量检测 / API 密钥识别 |
 | 前端交互 | `scripts/test-frontend-dom.js` | 122 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、本地模式、脱敏导出、文档页、状态页 |
 | 隐私优先加固 | `scripts/test-v36-hardening.js` | 26 项 抗变形、双端同源一致性、位置回映射、SSRF 守卫 |
-| 输入守卫 | `scripts/test-guard.js` | 86 项 守卫核心逻辑、扩展引擎未漂移、manifest 契约、**jsdom 打字→提醒→脱敏→发布拦截**、弹窗检测页 |
+| 输入守卫 | `scripts/test-guard.js` | 90 项 守卫核心逻辑、扩展引擎未漂移、manifest 契约、**jsdom 打字→提醒→脱敏→发布拦截**、弹窗检测页 |
 | SDK | `scripts/test-sdk.js` | 64 项 产物一致性、Node CJS API、浏览器 UMD、ESM 具名导出、类型声明、隐私不变量 |
 
 > 前端交互套件用 jsdom 加载真实 `index.html` 并跑真实内联脚本——接口测试看不见的

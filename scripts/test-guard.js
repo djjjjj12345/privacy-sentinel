@@ -137,6 +137,40 @@ function testExtension() {
   const iconOk = Object.values(icons).every((p) => fs.existsSync(path.join(extDir, p)));
   log(iconOk, '图标文件齐备', Object.keys(icons).join('/'));
 
+  // 浏览器「真的能装上」的前置条件：manifest 声明的资源必须都在磁盘上。
+  // 这一段是 jsdom 测不出来的——jsdom 不解析 manifest，也不要求 _locales。
+  // 实测教训：写了 default_locale 却没建 _locales/zh_CN/messages.json，
+  // Chromium 直接拒绝装载整个扩展（连 ID 都不注册），而所有单测照样全绿。
+  if (mf.default_locale) {
+    const msgPath = path.join(extDir, '_locales', mf.default_locale, 'messages.json');
+    log(fs.existsSync(msgPath),
+      '声明了 default_locale 就必须有 _locales/' + mf.default_locale + '/messages.json',
+      fs.existsSync(msgPath) ? '存在' : '缺失会让浏览器拒绝加载整个扩展');
+  } else {
+    const strayMsg = /__MSG_[A-Za-z0-9_]+__/.test(JSON.stringify(mf));
+    log(!strayMsg, '未声明 default_locale 时不能使用 __MSG_ 占位符（无可替换的文案表）');
+  }
+
+  // manifest 里点名的文件逐个核对，避免改名后留下死链
+  const declared = []
+    .concat(cs.js || [], cs.css || [])
+    .concat([mf.action && mf.action.default_popup].filter(Boolean))
+    .concat(Object.values(mf.action && mf.action.default_icon || {}));
+  const missing = declared.filter((rel) => !fs.existsSync(path.join(extDir, rel)));
+  log(missing.length === 0, 'manifest 引用的文件全部存在',
+    missing.length ? '缺失：' + missing.join(',') : declared.length + ' 个');
+
+  const popupSrc = fs.existsSync(path.join(extDir, 'popup.html'))
+    ? fs.readFileSync(path.join(extDir, 'popup.html'), 'utf8') : '';
+  const popupScripts = (popupSrc.match(/<script[^>]+src="([^"]+)"/g) || [])
+    .map((tag) => tag.replace(/.*src="/, '').replace(/"$/, ''));
+  const popupMissing = popupScripts.filter((rel) => !fs.existsSync(path.join(extDir, rel)));
+  log(popupMissing.length === 0, 'popup.html 引用的脚本都存在（不是死链）',
+    popupMissing.length ? '缺失：' + popupMissing.join(',') : popupScripts.length + ' 个');
+  log(popupScripts.indexOf('engine/schema.js') === 0 &&
+      popupScripts[popupScripts.length - 1] === 'popup.js',
+    'popup 按「引擎 → popup.js」的顺序加载');
+
   // 引擎副本不得漂移：这是「两个产品同一套规则」的唯一保证
   const FILES = ['schema.js', 'localDetector.js', 'guardCore.js'];
   let drifted = [];
