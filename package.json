@@ -1,6 +1,6 @@
 {
   "name": "privacy-sentinel",
-  "version": "3.7.4",
+  "version": "3.8.0",
   "private": true,
   "description": "隐私哨兵 · 多模态敏感信息检测与预警",
   "main": "server.js",
@@ -29,8 +29,10 @@
     "test:frontend": "node scripts/test-frontend-dom.js",
     "test:privacy": "node scripts/test-v36-hardening.js",
     "test:guard": "node scripts/test-guard.js",
+    "test:sdk": "node scripts/test-sdk.js",
     "backup": "node scripts/backup-db.js",
     "build:extension": "node scripts/build-extension.js",
+    "build:sdk": "node scripts/build-sdk.js",
     "verify:real": "node scripts/verify-real-browser.js",
     "verify:capability": "node scripts/verify-capability.js",
     "audit:ui": "node scripts/audit-frontend.js",

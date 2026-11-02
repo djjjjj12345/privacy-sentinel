@@ -1,0 +1,44 @@
+{
+  "name": "privacy-sentinel",
+  "version": "1.0.0",
+  "description": "敏感信息检测与脱敏 SDK：零依赖、纯本地运行、默认不回显原文",
+  "main": "src/index.js",
+  "module": "dist/privacy-sentinel.esm.mjs",
+  "browser": "dist/privacy-sentinel.js",
+  "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "browser": "./dist/privacy-sentinel.js",
+      "import": "./dist/privacy-sentinel.esm.mjs",
+      "require": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "types",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "privacy",
+    "pii",
+    "desensitize",
+    "mask",
+    "敏感信息",
+    "脱敏",
+    "个人信息保护"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "node ../scripts/build-sdk.js",
+    "check": "node ../scripts/build-sdk.js --check",
+    "test": "node ../scripts/test-sdk.js"
+  }
+}

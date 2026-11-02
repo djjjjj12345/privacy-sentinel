@@ -305,6 +305,135 @@ function testLaunch() {
   });
 }
 
+/* ============================ E. 弹窗检测页 ============================ */
+
+/** 把 popup.html 里的外部脚本换成内联，jsdom 才能在不联网的情况下执行 */
+function inlinePopup() {
+  const map = {
+    'engine/schema.js': 'services/schema.js',
+    'engine/localDetector.js': 'services/localDetector.js',
+    'engine/guardCore.js': 'services/guardCore.js',
+    'popup.js': 'extension/popup.js',
+  };
+  let html = fs.readFileSync(path.join(ROOT, 'extension', 'popup.html'), 'utf8');
+  Object.keys(map).forEach((src) => {
+    const code = fs.readFileSync(path.join(ROOT, map[src]), 'utf8');
+    html = html.replace(
+      new RegExp('<script src="' + src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"></script>'),
+      () => '<script>' + code + '</script>'
+    );
+  });
+  return html;
+}
+
+/** chrome.* 最小可用桩：storage 用内存对象模拟，tabs 固定返回一个页面 */
+function mockChrome(win) {
+  const store = {};
+  const pick = (defaults) => {
+    const out = {};
+    if (defaults && typeof defaults === 'object') {
+      Object.keys(defaults).forEach((k) => {
+        out[k] = store[k] !== undefined ? store[k] : defaults[k];
+      });
+    }
+    return out;
+  };
+  win.chrome = {
+    storage: {
+      local: {
+        get(defaults, cb) { cb(pick(defaults)); },
+        set(obj, cb) { Object.assign(store, obj); if (cb) cb(); },
+      },
+    },
+    tabs: {
+      query(_q, cb) { cb([{ id: 1, url: 'https://example.com/post/1' }]); },
+      sendMessage(_id, _msg, cb) { if (cb) cb(); },
+    },
+    runtime: { lastError: null },
+  };
+  return store;
+}
+
+async function testPopupDetect() {
+  section('E. 扩展弹窗「检测工具」页');
+
+  const { JSDOM, VirtualConsole } = require('jsdom');
+  const vc = new VirtualConsole();
+  vc.on('jsdomError', (e) => console.log('  [jsdom] ' + e.message));
+
+  let store = {};
+  let copied = '';
+  const dom = new JSDOM(inlinePopup(), {
+    url: 'chrome-extension://abc/popup.html',
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    virtualConsole: vc,
+    beforeParse(w) {
+      store = mockChrome(w);
+      Object.defineProperty(w.navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText(t) { copied = t; return Promise.resolve(); } },
+      });
+    },
+  });
+
+  await new Promise((r) => setTimeout(r, 150));
+  const win = dom.window;
+  const doc = win.document;
+  const click = (el) => el.dispatchEvent(new win.Event('click', { bubbles: true }));
+  const type = (el, v) => {
+    el.value = v;
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+  };
+
+  log(!!doc.getElementById('tabDetect'), '弹窗有两个标签页');
+  log(doc.getElementById('pageDetect').hidden === true, '默认停在守卫页，检测页隐藏');
+  log(doc.getElementById('enabled').checked === true, '守卫配置仍正常加载');
+
+  click(doc.getElementById('tabDetect'));
+  await new Promise((r) => setTimeout(r, 30));
+  log(doc.getElementById('pageDetect').hidden === false, '点「检测工具」切到检测页');
+  log(doc.getElementById('tabDetect').classList.contains('active'), '当前标签高亮');
+  log(store.psPopupTab === 'pageDetect', '标签页选择被记住');
+
+  const raw = '客户王五，手机 13700137000，身份证 11010519491231002X，邮箱 w5@example.com';
+  type(doc.getElementById('detectInput'), raw);
+  await new Promise((r) => setTimeout(r, 40));
+
+  const items = doc.querySelectorAll('#detectList .item');
+  log(items.length >= 3, '粘贴文本后立即命中', items.length + ' 条');
+  const listText = doc.getElementById('detectList').textContent;
+  log(listText.indexOf('13700137000') < 0 && listText.indexOf('11010519491231002X') < 0,
+    '结果列表只显示脱敏值，不回显原文');
+  log(/\*{3,}/.test(listText), '脱敏结果是打码形式');
+  log(/检测到/.test(doc.getElementById('detectSummary').textContent), '摘要说明命中了什么',
+    doc.getElementById('detectSummary').textContent);
+  log(doc.getElementById('detectExport').hidden === false, '有命中时才出现导出区');
+
+  click(doc.getElementById('detectCopy'));
+  await new Promise((r) => setTimeout(r, 40));
+  log(copied.length > 0 && copied.indexOf('13700137000') < 0, '复制的是脱敏文本，不含原文');
+  log(copied.indexOf('客户王五') >= 0, '非敏感文案被保留');
+
+  doc.getElementById('detectStrategy').value = 'label';
+  doc.getElementById('detectStrategy').dispatchEvent(new win.Event('change', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 40));
+  click(doc.getElementById('detectCopy'));
+  await new Promise((r) => setTimeout(r, 40));
+  log(copied.indexOf('[手机号]') >= 0, '切到「替换」策略后按标签替换', copied.slice(0, 40));
+
+  click(doc.getElementById('detectClear'));
+  await new Promise((r) => setTimeout(r, 30));
+  log(doc.querySelectorAll('#detectList .item').length === 0, '清空后列表归零');
+  log(doc.getElementById('detectSummary').hidden === true, '清空后摘要隐藏');
+
+  click(doc.getElementById('tabGuard'));
+  await new Promise((r) => setTimeout(r, 30));
+  log(doc.getElementById('pageGuard').hidden === false, '可切回守卫页');
+
+  win.close();
+}
+
 /* ============================ 运行 ============================ */
 
 (async function main() {
@@ -313,6 +442,7 @@ function testLaunch() {
   testExtension();
   await testGuardPage();
   testLaunch();
+  await testPopupDetect();
 
   const total = pass + fail;
   console.log('\n' + '='.repeat(48));

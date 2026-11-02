@@ -10,15 +10,21 @@
     <div class="brand">
       <span class="logo">🛡</span>
       <div>
-        <h1>隐私哨兵 · 输入守卫</h1>
-        <p>在任意网站输入时实时提醒</p>
+        <h1>隐私哨兵</h1>
+        <p>输入守卫 · 检测工具</p>
       </div>
     </div>
   </header>
 
+  <nav class="tabs" role="tablist">
+    <button class="tab active" id="tabGuard" data-page="pageGuard" role="tab" aria-selected="true">输入守卫</button>
+    <button class="tab" id="tabDetect" data-page="pageDetect" role="tab" aria-selected="false">检测工具</button>
+  </nav>
+
   <div class="badge-local">🔒 检测全程在本机完成，原文不上传</div>
 
-  <section>
+  <!-- ============ 页 1：输入守卫（原有配置） ============ -->
+  <section id="pageGuard" role="tabpanel">
     <label class="row switch">
       <span>
         <b>启用守卫</b>
@@ -59,18 +65,60 @@
       </span>
       <input type="checkbox" id="muteHost">
     </label>
+
+    <section class="stats">
+      <div><b id="statAlerted">0</b><span>累计提醒</span></div>
+      <div><b id="statMasked">0</b><span>已脱敏</span></div>
+    </section>
   </section>
 
-  <section class="stats">
-    <div><b id="statAlerted">0</b><span>累计提醒</span></div>
-    <div><b id="statMasked">0</b><span>已脱敏</span></div>
+  <!-- ============ 页 2：检测工具（粘贴 → 报告 → 脱敏） ============ -->
+  <section id="pageDetect" role="tabpanel" hidden>
+    <label class="row">
+      <span>
+        <b>待检测文本</b>
+        <em>粘贴聊天记录、表格内容、待发布的正文</em>
+      </span>
+    </label>
+    <textarea id="detectInput" placeholder="把要检查的文字粘贴到这里…（不会离开这台设备）"></textarea>
+
+    <label class="row">
+      <span>
+        <b>脱敏方式</b>
+        <em>只影响「复制/下载」的结果</em>
+      </span>
+      <select id="detectStrategy">
+        <option value="mask">打码（138****8000）</option>
+        <option value="label">替换（[手机号]）</option>
+        <option value="remove">直接删除</option>
+      </select>
+    </label>
+
+    <p class="actions">
+      <button id="detectRun" class="btn primary">检测</button>
+      <button id="detectClear" class="btn">清空</button>
+    </p>
+
+    <p id="detectSummary" class="summary" hidden></p>
+    <ul id="detectList" class="list"></ul>
+
+    <p class="actions" id="detectExport" hidden>
+      <button id="detectCopy" class="btn">复制脱敏文本</button>
+      <button id="detectDownload" class="btn">下载 .txt</button>
+    </p>
+
+    <p class="tip">结果只显示脱敏值，不回显原文。复制/下载的都是按命中区间重建后的文本。</p>
   </section>
 
   <footer>
-    <a id="openTool" href="#" target="_blank">打开完整检测工具 →</a>
+    <a id="openTool" href="#" target="_blank">打开网页版检测工具 →</a>
     <p class="tip">规则与网页版同源，改规则只需改一份引擎。</p>
   </footer>
 
+  <!-- 检测引擎（本地文件，扩展不能 require，只能随包带） -->
+  <script src="engine/schema.js"></script>
+  <script src="engine/localDetector.js"></script>
+  <script src="engine/guardCore.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

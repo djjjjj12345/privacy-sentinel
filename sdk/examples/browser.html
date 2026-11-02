@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>privacy-sentinel SDK · 浏览器示例</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif; margin: 24px; color: #222; }
+  textarea { width: 100%; height: 120px; font-size: 14px; padding: 8px; }
+  button { margin-right: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+  .out { background: #f6f6f6; padding: 12px; white-space: pre-wrap; margin-top: 12px; border-radius: 6px; }
+  .item { display: inline-block; margin: 4px 6px 0 0; padding: 2px 8px; background: #eef2ff; border-radius: 4px; font-size: 13px; }
+  .tip { color: #666; font-size: 13px; margin-top: 12px; }
+</style>
+</head>
+<body>
+  <h2>privacy-sentinel SDK · 浏览器（UMD 单文件）</h2>
+
+  <textarea id="src">我叫王五，手机 13700137000，身份证 11010519491231002X，邮箱 wangwu@example.com</textarea>
+  <p>
+    <button id="run">检测并脱敏</button>
+    <button id="copy">复制脱敏文本</button>
+  </p>
+
+  <div id="items"></div>
+  <div class="out" id="masked"></div>
+
+  <p class="tip">整个页面不发起任何请求：把网络面板打开也看不到上报。检测在浏览器本地完成，原文不会离开这台设备。</p>
+
+  <!-- 唯一需要引入的文件 -->
+  <script src="../dist/privacy-sentinel.js"></script>
+  <script src="browser.js"></script>
+</body>
+</html>

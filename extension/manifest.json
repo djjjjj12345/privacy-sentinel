@@ -1,16 +1,31 @@
 {
   "manifest_version": 3,
   "name": "隐私哨兵 · 输入守卫",
-  "version": "1.0.0",
-  "description": "在任意网站发帖、评论、填表时实时提醒隐私泄露，一键脱敏。检测全程在浏览器本地完成，原文不上传。",
+  "version": "1.1.0",
+  "description": "在任意网站发帖、评论、填表时实时提醒隐私泄露并一键脱敏；内置检测工具可粘贴文本出报告。检测全程在浏览器本地完成，原文不上传。",
   "default_locale": "zh_CN",
-  "permissions": ["storage"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["engine/schema.js", "engine/localDetector.js", "engine/guardCore.js", "content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "engine/schema.js",
+        "engine/localDetector.js",
+        "engine/guardCore.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }

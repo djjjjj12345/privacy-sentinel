@@ -2,18 +2,19 @@
 
 > **敏感信息检测与预警**工具。在内容发出去之前判断其中是否包含隐私信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.7.2**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.8.0**
 
-![status](https://img.shields.io/badge/version-3.7.2-blue) ![tests](https://img.shields.io/badge/tests-507%2F507-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/version-3.8.0-blue) ![tests](https://img.shields.io/badge/tests-603%2F603-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
-## 〇、两个独立产品，按需选用
+## 〇、三个交付物，按需选用
 
-| 产品 | 入口 | 形态 | 什么时候用 |
+| 交付物 | 入口 | 形态 | 什么时候用 |
 |---|---|---|---|
 | **检测工具** | [/](https://privacy-sentinel.onrender.com/) | 网页，粘贴/上传 | 写完一大段要发的内容、查配置文件、批量排查 |
-| **输入守卫** | [/guard.html](https://privacy-sentinel.onrender.com/guard.html) | 网页试用 + 浏览器扩展 | 在微博/知乎/闲鱼/招聘网站**打字时**自动提醒 |
+| **输入守卫** | [/guard.html](https://privacy-sentinel.onrender.com/guard.html) | 网页试用 + 浏览器扩展 | 在微博/知乎/闲鱼/招聘网站**打字时**自动提醒；扩展里另有「检测工具」页，可粘贴出报告 |
+| **SDK** | [`sdk/`](sdk/README.md) | npm 包 / 浏览器单文件 | 想把检测能力接进自己的系统：Node 后端、Electron、CI 脚本、任意网页 |
 
-两者共用同一套本地引擎，但**互不依赖**：只想要一个就只用那个。入口页 <code>/launch.html</code> 可切换。
+三者共用同一套本地引擎（`services/`），但**互不依赖**：只想要一个就只用那个。入口页 <code>/launch.html</code> 可切换。
 
 ---
 
@@ -27,8 +28,9 @@
 - **中英双语**：UI 文案与弹窗支持一键切换
 - **冷启动友好**：免费档休眠被唤醒时提示「服务正在唤醒，请等待 15~30 秒」，不再抛原生 502 页
 - **安全响应头**：CSP（nonce，非 `unsafe-inline`）/ HSTS / nosniff / X-Frame-Options / Permissions-Policy
-- **不局限于聊天框**：浏览器扩展（`extension/`）在任意网站的输入框、评论区实时提醒，命中即一键脱敏
-- **开箱即测**：507 项自动化测试（含 107 项 jsdom 前端交互 + 69 项守卫测试），无外部依赖即可跑通全部
+- **不局限于聊天框**：浏览器扩展（`extension/`）在任意网站的输入框、评论区实时提醒，命中即一键脱敏；扩展内另带「检测工具」页，粘贴文本即可出报告并复制/下载脱敏结果
+- **可嵌入**：`sdk/` 提供零依赖 SDK（Node CJS/ESM + 浏览器 UMD + TS 类型），**默认不回显原文**
+- **开箱即测**：603 项自动化测试（含 122 项 jsdom 前端交互 + 86 项守卫测试 + 64 项 SDK 测试），无外部依赖即可跑通全部
 
 ## 二、检测能力
 
@@ -66,7 +68,7 @@
 | 银行卡过 Luhn 校验 | true | 1.0 |
 | 格式像但校验不过 | false | 0.6（仍上报，标「存疑」） |
 
-## 三、版本演进（v3.0 - v3.7）
+## 三、版本演进（v3.0 - v3.8）
 
 | 版本 | 能力 | 价值 |
 |---|---|---|
@@ -173,6 +175,24 @@ v3.7 把检测前移到输入现场，并且做成**与主站完全独立的第�
 
 **刻意不做**：不检测密码框（输入密码是正常行为）、不记录输入内容、content script 内零网络请求。
 
+### v3.8 新增能力（可嵌入 + 插件内检测）
+
+**1. SDK（`sdk/`）** —— 零依赖，Node CJS/ESM 与浏览器 UMD 双端，附 TS 类型：
+
+```js
+const PS = require('privacy-sentinel');
+PS.detect('手机 13800138000');        // 命中项（默认不含原文）
+PS.mask('手机 13800138000');          // '手机 138****8000'
+PS.analyzeAndMask(text);              // 摘要 + 命中 + 脱敏文本，一步到位
+```
+
+三个设计决定：**默认不返回 `raw`**（要原文必须显式 `includeRaw: true`，避免 SDK 被用来把敏感信息又存进日志）、
+**零依赖不联网**（测试会扫源码里不许出现 `fetch`/`localStorage`）、**规则单源**（引擎副本由脚本从 `services/` 复制，测试校验未漂移）。
+
+**2. 扩展内「检测工具」页** —— 同一个插件，两个用法：
+守卫管「打字时提醒」，检测页管「粘贴一段文字出报告」。
+结果列表只显示脱敏值，可一键复制/下载；全程不联网、不上传原文。
+
 ## 四、能力实证验证（101 条用例）
 
 宣称的能力不等于生效的能力。`npm run verify:capability` 给每一项能力都配了
@@ -269,6 +289,31 @@ npm start
 # 5. 跑测试
 npm test
 ```
+
+### 想用另外两个形态？
+
+```bash
+# A. 嵌入到自己的项目里（SDK，零依赖）
+npm run build:sdk          # 由 services/ 生成 sdk/dist/（UMD + ESM）
+node sdk/examples/node.js  # 看 7 个用法示例
+```
+```js
+// 自己的代码里
+const ps = require('./sdk');          // 或 import ps from './sdk/dist/privacy-sentinel.mjs'
+const { items } = ps.detect('联系 13800138000');
+const { text } = ps.analyzeAndMask('联系 13800138000');   // 默认 mask 策略
+```
+浏览器直接用 `sdk/dist/privacy-sentinel.js`，全局变量 `window.PrivacySentinel`。
+
+```bash
+# B. 装成浏览器插件（Chrome / Edge，Manifest V3）
+npm run build:extension    # 把 services/ 引擎同步到 extension/engine/
+```
+打开 `chrome://extensions` → 右上「开发者模式」→「加载已解压的扩展程序」→ 选 `extension/` 目录。
+插件里两个标签页：**实时守卫**（任意网站输入框即时提醒，可一键脱敏）· **检测工具**（粘贴文本出报告、复制/下载脱敏结果）。
+
+> SDK 与扩展都不联网、不落盘，规则引擎与网页版是**同一份源码**（`services/schema.js`、`localDetector.js`、`guardCore.js`），
+> 构建脚本会自动复制并写入来源与 SHA256 头，`npm test` 会校验副本没有漂移。改规则只改 `services/`，然后重跑两个 build。
 
 ### 部署到生产环境
 
@@ -385,10 +430,10 @@ PWA 配置：name / icons / theme_color / start_url
 
 ```bash
 npm test
-# 总计：507 通过 / 0 失败 / 507 项
+# 总计：603 通过 / 0 失败 / 603 项
 ```
 
-12 个独立套件：
+13 个独立套件：
 
 | 套件 | 文件 | 覆盖 |
 |---|---|---|
@@ -401,9 +446,10 @@ npm test
 | 华为云适配 | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis |
 | SIS 音频转写 | `scripts/test-huawei-sis.js` | 52 项 极速版/普通版双通道、音频转码、多轮轮询、失败路径、analyzeAudio 集成 |
 | 体验加固 | `scripts/test-ux-hardening.js` | 81 项 错误分类 / 安全头与 nonce / 规则过滤 / 批量检测 / API 密钥识别 |
-| 前端交互 | `scripts/test-frontend-dom.js` | 107 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、本地模式、脱敏导出、文档页、状态页 |
+| 前端交互 | `scripts/test-frontend-dom.js` | 122 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、本地模式、脱敏导出、文档页、状态页 |
 | 隐私优先加固 | `scripts/test-v36-hardening.js` | 26 项 抗变形、双端同源一致性、位置回映射、SSRF 守卫 |
-| 输入守卫 | `scripts/test-guard.js` | 69 项 守卫核心逻辑、扩展引擎未漂移、manifest 契约、**jsdom 打字→提醒→脱敏→发布拦截** |
+| 输入守卫 | `scripts/test-guard.js` | 86 项 守卫核心逻辑、扩展引擎未漂移、manifest 契约、**jsdom 打字→提醒→脱敏→发布拦截**、弹窗检测页 |
+| SDK | `scripts/test-sdk.js` | 64 项 产物一致性、Node CJS API、浏览器 UMD、ESM 具名导出、类型声明、隐私不变量 |
 
 > 前端交互套件用 jsdom 加载真实 `index.html` 并跑真实内联脚本——接口测试看不见的
 > 「按钮点了没反应」「弹窗没弹出来」这类问题，由它兜住。

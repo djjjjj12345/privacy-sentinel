@@ -10,18 +10,44 @@
  */
 
 const http = require('http');
+const net = require('net');
 const path = require('path');
 
-const MOCK_PORT = 49871;
-const APP_PORT = 49872;
+// 端口不能写死：Windows 上 49xxx 段常被 Hyper-V/WSL 预留，
+// bind 时直接 EACCES（不是 EADDRINUSE，很容易误判成权限问题）。
+// 所以启动前真实试绑一次，挑一个能用的。
+let MOCK_PORT = 49871;
+let APP_PORT = 49872;
 
-// 必须在 require server.js 之前注入，server.js 顶部会读这些变量
-process.env.ARK_API_KEY = 'self-test-key';
-process.env.ARK_BASE_URL = `http://127.0.0.1:${MOCK_PORT}/api/v3`;
-process.env.ARK_VISION_MODEL = 'mock-vision-model';
-process.env.ARK_TEXT_MODEL = 'mock-text-model';
-process.env.PORT = String(APP_PORT);
-process.env.RATE_LIMIT_PER_MINUTE = '0'; // 自检期间关闭限流
+/** 从 start 开始找第一个能 bind 的端口 */
+function findPort(start, host = '127.0.0.1') {
+  return new Promise((resolve, reject) => {
+    let port = start;
+    const tryOnce = () => {
+      if (port > start + 40) { reject(new Error('连续 40 个端口都不可用（起始 ' + start + '）')); return; }
+      const srv = net.createServer();
+      srv.once('error', (e) => {
+        if (e.code === 'EADDRINUSE' || e.code === 'EACCES') { port++; tryOnce(); return; }
+        reject(e);
+      });
+      srv.listen(port, host, () => {
+        const p = srv.address().port;
+        srv.close(() => resolve(p));
+      });
+    };
+    tryOnce();
+  });
+}
+
+/** 必须在 require server.js 之前注入，server.js 顶部会读这些变量 */
+function configureEnv() {
+  process.env.ARK_API_KEY = 'self-test-key';
+  process.env.ARK_BASE_URL = `http://127.0.0.1:${MOCK_PORT}/api/v3`;
+  process.env.ARK_VISION_MODEL = 'mock-vision-model';
+  process.env.ARK_TEXT_MODEL = 'mock-text-model';
+  process.env.PORT = String(APP_PORT);
+  process.env.RATE_LIMIT_PER_MINUTE = '0'; // 自检期间关闭限流
+}
 
 const VALID_ID = '110105199003071239';
 const VALID_CARD = '6228480012345671';
@@ -436,8 +462,12 @@ async function run() {
 //  启动与收尾
 // ------------------------------------------------------------------
 (async function main() {
+  MOCK_PORT = await findPort(49871);
+  APP_PORT = await findPort(MOCK_PORT + 1);
+  configureEnv();
+
   await new Promise((resolve) => mockServer.listen(MOCK_PORT, '127.0.0.1', resolve));
-  console.log(`假方舟服务已启动: http://127.0.0.1:${MOCK_PORT}`);
+  console.log(`假方舟服务已启动: http://127.0.0.1:${MOCK_PORT}（应用端口 ${APP_PORT}）`);
 
   require(path.join(__dirname, '..', 'server.js'));
   // 等 express 完成监听

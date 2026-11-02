@@ -82,6 +82,109 @@ footer a { color: #1570ef; font-size: 12px; text-decoration: none; }
 footer a:hover { text-decoration: underline; }
 footer .tip { margin: 6px 0 0; font-size: 11px; color: #98a2b3; }
 
+/* ---------- 标签页 ---------- */
+
+.tabs { display: flex; gap: 6px; margin: 10px 16px 0; }
+.tab {
+  flex: 1;
+  padding: 7px 0;
+  font: inherit;
+  font-size: 12px;
+  color: #475467;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tab.active {
+  color: #fff;
+  background: #1570ef;
+  border-color: #1570ef;
+}
+
+/* ---------- 检测工具 ---------- */
+
+#detectInput {
+  width: 100%;
+  height: 96px;
+  padding: 8px 10px;
+  margin: 8px 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #1f2430;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  resize: vertical;
+}
+
+.actions { display: flex; gap: 8px; margin: 8px 0 0; }
+.btn {
+  flex: 1;
+  padding: 8px 0;
+  font: inherit;
+  font-size: 12px;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn:hover { border-color: #1570ef; color: #1570ef; }
+.btn.primary { color: #fff; background: #1570ef; border-color: #1570ef; }
+.btn.primary:hover { background: #0b4fb5; color: #fff; }
+
+.summary {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+}
+.summary.hit { color: #b42318; background: #fef3f2; border-color: #fda29b; }
+.summary.err { color: #b42318; background: #fef3f2; border-color: #fda29b; }
+
+.list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 168px; overflow-y: auto; }
+.list .item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-left: 3px solid #98a2b3;
+  border-radius: 8px;
+}
+.list .item.lv2 { border-left-color: #f79009; }
+.list .item.lv3 { border-left-color: #f04438; }
+.list .item.lv4 { border-left-color: #b42318; }
+.list .item b { font-size: 12px; font-weight: 600; }
+.list .item code {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #475467;
+  word-break: break-all;
+}
+
+.lv-badge {
+  flex: none;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: #fff;
+  background: #98a2b3;
+  border-radius: 4px;
+}
+.item.lv2 .lv-badge { background: #f79009; }
+.item.lv3 .lv-badge { background: #f04438; }
+.item.lv4 .lv-badge { background: #b42318; }
+
+.tip { margin: 10px 0 0; font-size: 11px; color: #98a2b3; line-height: 1.5; }
+
 @media (prefers-color-scheme: dark) {
   body { background: #14161c; color: #e7e9ee; }
   .badge-local { background: #10331f; color: #6ce9a6; }
@@ -89,4 +192,12 @@ footer .tip { margin: 6px 0 0; font-size: 11px; color: #98a2b3; }
   .row em, .stats span, footer .tip { color: #9aa1af; }
   select { background: #2a2e39; border-color: #3a3f4d; color: #d6d9e0; }
   footer a { color: #6ea8fe; }
+  .tab { background: #1d2029; border-color: #333846; color: #c3c8d4; }
+  .tab.active { background: #1570ef; border-color: #1570ef; color: #fff; }
+  #detectInput { background: #1d2029; border-color: #333846; color: #e7e9ee; }
+  .btn { background: #1d2029; border-color: #3a3f4d; color: #d6d9e0; }
+  .summary { background: #1d2029; border-color: #333846; color: #c3c8d4; }
+  .summary.hit, .summary.err { background: #2c1416; border-color: #6b2320; color: #fda29b; }
+  .list .item { background: #1d2029; border-color: #333846; }
+  .list .item code { color: #9aa1af; }
 }
