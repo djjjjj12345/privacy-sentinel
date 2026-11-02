@@ -216,6 +216,7 @@ PS.analyzeAndMask(text);              // 摘要 + 命中 + 脱敏文本，一步
 - 华为云与 SIS 的 84 项测试**全部保留**（纯 mock，不联网），`npm test` 仍是 607 项全绿
 - 账号恢复后按归档文档补 `HW_*` 环境变量即可接回，切换是运行时的，不需要改代码
 - 新增独立部署文档，原华为云部署/配置/赛题材料移入 `docs/archive/` 并标注暂停原因
+- 版本记录见 **[CHANGELOG.md](CHANGELOG.md)**，也可在 [Releases](https://github.com/djjjjj12345/privacy-sentinel/releases) 页看带验证数据的里程碑说明
 
 ## 四、能力实证验证（101 条用例）
 
