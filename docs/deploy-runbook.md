@@ -1,6 +1,10 @@
-# 隐私哨兵 · 生产部署运行手册（v3.7.4）
+# 隐私哨兵 · 生产部署运行手册（v3.9）
 
-> 适用版本：`3.7.4`（在 `a7a12f7` / v3.7.3 基础上增加部署就绪改动）
+> **v3.9 起与云厂商解绑**：本手册的步骤是**通用 Linux 服务器**步骤，任意云厂商 VPS / 物理机 / 开发板都能照做，
+> 不依赖任何一家云的产品。原华为云专属内容（ECS 购买、RDS、DCS、SIS）已移到 [archive/huawei-deploy.md](archive/huawei-deploy.md)，当前已暂停。
+> 只想快速上线的话，先看更短的 [standalone-deploy.md](standalone-deploy.md)。
+
+> 适用版本：`3.9`（独立部署版）
 > 目标读者：第一次部署的人。所有命令可**逐条复制执行**，每步都标了「作用」和「风险」。
 > 本手册基于**代码实测**写成，不是通用模板：文中的端口、体积上限、超时时间、环境变量都来自仓库里的真实实现。
 
@@ -8,11 +12,11 @@
 
 ## 〇、先选路线：两条路，别混着走
 
-| | 方案 A：华为云 ECS 自建（推荐） | 方案 B：Render（现在已经在跑） |
+| | 方案 A：自建服务器（推荐，任意云厂商） | 方案 B：Render（现在已经在跑） |
 |---|---|---|
 | 适合 | 比赛现场演示、长期对外、要控数据 | 快速验证、临时分享 |
 | 运维量 | 中（一台机器，你全权负责） | 低（平台托管） |
-| 成本 | ECS 2C4G 约 ¥100–150/月（学生认证更便宜） | 免费档有睡眠与磁盘限制 |
+| 成本 | 2C4G VPS 约 ¥50–150/月（各家不同，学生机更便宜） | 免费档有睡眠与磁盘限制 |
 | 数据持久 | ✅ 本地盘 / 云硬盘，重启不丢 | ❌ 免费档磁盘**每次部署清空** |
 | 冷启动 | 无 | 15 分钟无访问即休眠，**唤醒 30–60s** |
 | 大文件（图片/音视频） | ✅ 可承载 | ⚠️ 512MB 内存，45MB 请求易 OOM |
@@ -26,10 +30,10 @@
 
 | # | 要确认的 | 为什么必须先定 | 默认假设（按此执行） | 若不同，改哪里 |
 |---|---|---|---|---|
-| 1 | 部署到哪 | 决定后面所有步骤 | 华为云 ECS，Ubuntu 22.04，2C4G | 换平台看附录 B |
-| 2 | 域名 + 是否已 ICP 备案 | 大陆 ECS 上 80/443 绑域名**必须备案**，否则会被拦截 | 有已备案域名 `ps.example.com` | 无备案：走 `http://<公网IP>:8080`（比赛够用），或选香港节点 |
-| 3 | AI 供应商与 Key | 不配 Key，图片/音视频全不可用，只有本地文本规则 | 火山方舟（`AI_PROVIDER=ark`），你提供 `ARK_API_KEY` | 华为云 MaaS：见 `docs/huawei-deploy.md` 第 6 节 |
-| 4 | 数据库 | 决定备份与扩容方式 | **SQLite**（零依赖、单机足够） | 多人并发/多实例：RDS MySQL（`docs/huawei-deploy.md` 第 1 节） |
+| 1 | 部署到哪 | 决定后面所有步骤 | 任意厂商 VPS，Ubuntu 22.04，2C4G | 换平台看附录 B |
+| 2 | 域名 + 是否已 ICP 备案 | 大陆 ECS 上 80/443 绑域名**必须备案**，否则会被拦截 | 有已备案域名 `ps.example.com` | 无备案：走 `http://<公网IP>:8080`（内网/比赛够用），或选境外节点 |
+| 3 | AI 供应商与 Key | 不配 Key，图片/音视频全不可用，只有本地文本规则 | 火山方舟（`AI_PROVIDER=ark`），你提供 `ARK_API_KEY`；不填也能跑本地引擎 | 华为云 MaaS：**已暂停**，见 `docs/archive/huawei-deploy.md` |
+| 4 | 数据库 | 决定备份与扩容方式 | **SQLite**（零依赖、单机足够） | 多人并发/多实例：MySQL（`DB_DRIVER=mysql`） |
 | 5 | 是否开放注册 | 公开站会被脚本刷账号 | 开放（`/api/auth/register` 无白名单） | 需要邀请制时告诉我，加 `ALLOW_REGISTER=false` |
 | 6 | 备份放哪 | 只有本机备份 = 机器挂了全没 | 本机 `data/backups` 保留 14 天 | 需要异地：加 OBS 或另一台机器（见 3.12 备注） |
 
@@ -70,7 +74,7 @@
 
 **C. 按需**
 
-`AI_PROVIDER`、`ARK_VISION_MODEL`、`DB_DRIVER`、`MYSQL_*`、`REDIS_URL`、`HW_*`（华为云全栈才需要，详见 `.env.example` 与 `docs/huawei-deploy.md`）。
+`AI_PROVIDER`、`ARK_VISION_MODEL`、`DB_DRIVER`、`MYSQL_*`、`REDIS_URL`、`HW_*`（华为云通道才需要，**当前已暂停**，见 `.env.example` 末尾与 `docs/archive/huawei-deploy.md`）。
 
 > ⚠️ **注意**：`.env.example` 里 `ARK_API_KEY=your-ark-api-key-here` 是占位符。**不要**直接 `cp` 后忘了改——服务会启动成功，但每次 AI 调用都报鉴权失败，日志里看起来像「模型服务故障」。
 
@@ -98,7 +102,7 @@
 
 **网络层**
 
-- [ ] 华为云安全组入方向仅 22/80/443，来源尽量限自己的 IP（22 端口）
+- [ ] 防火墙（云安全组 / `ufw`）入方向仅 22/80/443，来源尽量限自己的 IP（22 端口）
 - [ ] HTTPS 强制（80 → 301）
 - [ ] Nginx 隐藏版本号：`server_tokens off;`
 
@@ -122,7 +126,7 @@
 ### 2.5 上线前本机预检（5 分钟，别跳）
 
 ```bash
-# 1) 全套测试必须 522 通过 / 0 失败
+# 1) 全套测试必须 607 通过 / 0 失败
 npm test
 
 # 2) 前端多分辨率 + 可访问性审计，必须 严重 0 / 中等 0 / 轻微 0
@@ -144,12 +148,14 @@ git tag -a v3.7.4 -m "生产部署 v3.7.4" && git push origin v3.7.4
 
 ## 三、部署步骤（逐条执行）
 
-> 约定：`ps.example.com` 换成你的域名；`<公网IP>` 换成 ECS 弹性公网 IP。
+> 约定：`ps.example.com` 换成你的域名；`<公网IP>` 换成服务器的公网 IP。
 > 命令默认在**你自己的 Windows 电脑（Git Bash）**或**服务器 SSH 会话**中执行，每段开头会标明。
 
 ### 3.1 创建服务器与安全组（控制台操作）
 
-1. 华为云 → 弹性云服务器 ECS → 购买：Ubuntu 22.04，2 核 4G，系统盘 40G，按需/包年。
+1. 任选一家云厂商（或本地物理机）开一台：Ubuntu 22.04，2 核 4G，系统盘 40G。
+   > 原来写的是华为云 ECS，因账号冻结已暂停，步骤见 [archive/huawei-deploy.md](archive/huawei-deploy.md)；
+   > 换成别家只是控制台不同，系统与后面的命令完全一致。
 2. 安全组入方向规则：
 
 | 协议 | 端口 | 源地址 | 用途 |
@@ -481,7 +487,7 @@ ls -lh /srv/privacy-sentinel/data/backups/
 
 **作用**：用 SQLite 的 `VACUUM INTO` 生成一致性快照，**服务不用停**；保留最近 14 份，自动清理。
 **风险**：只备份在本机 = 磁盘坏就全丢。异地备份任选其一：
-- 华为云 OBS + `obsutil cp`（配一个桶，cron 里加一条）
+- 对象存储（任意一家）+ 一条 cron（例：`rclone copy data/backups remote:ps-backup`）
 - 另一台机器 `rsync -az /srv/.../backups/ user@backup-host:/backup/ps/`
 - 低频场景也可用前端「历史导出 JSON」，但**不能替代**数据库备份（不含账号）
 
@@ -562,7 +568,7 @@ sudo logrotate -d /etc/logrotate.d/privacy-sentinel
 
 | 指标 | 怎么看 | 告警阈值 |
 |---|---|---|
-| 存活 | 华为云 CES「URL 监控」或 UptimeRobot 探 `GET /api/health` 每 1 分钟 | 连续 2 次非 200 |
+| 存活 | UptimeRobot（或任意探活服务）探 `GET /api/health` 每 1 分钟 | 连续 2 次非 200 |
 | 错误率 | `grep -c '"lv":"ERROR"' /var/log/privacy-sentinel/err.log` | 5 分钟内 > 10 条 |
 | 内存 | `pm2 status` 的 memory 列 / `free -m` | 常驻 > 600MB 或 swap 持续占用 |
 | 磁盘 | `df -h /` | > 80% |
@@ -600,7 +606,7 @@ sudo -u psapp pm2 status && free -m && df -h / && curl -s localhost:8080/api/hea
 
 ```bash
 # ① 本地：测试全绿 + 打标签（在你自己电脑上）
-npm test                                  # 必须 522 通过 / 0 失败
+npm test                                  # 必须 607 通过 / 0 失败
 git tag -a v3.7.5 -m "release v3.7.5" && git push origin master --tags   # 本机无凭证时由你在终端执行
 
 # ② 服务器：先备份（关键！先备份再改代码）
@@ -675,7 +681,7 @@ curl -s localhost:8080/api/health                # db 应为 ok
 ## 六、上线检查表（打印出来逐项打勾）
 
 **部署前**
-- [ ] `npm test` 522/0
+- [ ] `npm test` 607/0
 - [ ] `npm run audit:ui` 严重/中等/轻微 全 0
 - [ ] `git check-ignore .env` 有输出
 - [ ] 标签已打并推送

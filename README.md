@@ -2,9 +2,13 @@
 
 > **敏感信息检测与预警**工具。在内容发出去之前判断其中是否包含隐私信息，并按风险等级给出拦截、脱敏与建议。
 
-**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.8.0**
+**线上 Demo**：[https://privacy-sentinel.onrender.com](https://privacy-sentinel.onrender.com) · 当前版本 **v3.9.0**
 
-![status](https://img.shields.io/badge/version-3.8.0-blue) ![tests](https://img.shields.io/badge/tests-607%2F607-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
+> **v3.9 起为独立版**：本项目不依赖任何云厂商，一台能跑 Node 22 的机器 + SQLite 即可完整部署，
+> 不配任何 Key 也能用本地引擎完成全部文本检测。**原华为云通道（MaaS / SIS / OBS / RDS / DCS）已暂停**，
+> 代码与测试保留在仓库里，账号恢复后补几个环境变量即可原样接回，见 [docs/archive/](docs/archive/)。
+
+![status](https://img.shields.io/badge/version-3.9.0-blue) ![tests](https://img.shields.io/badge/tests-607%2F607-success) ![real-sites](https://img.shields.io/badge/real--sites-24%2F24-success) ![capability](https://img.shields.io/badge/capability-99%2F101-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## 〇、三个交付物，按需选用
 
@@ -22,7 +26,7 @@
 
 - **四模态检测**：文本 / 图片 / 音频 / 视频全通道
 - **双引擎融合**：本地正则（确定性兜底）+ 豆包多模态大模型（语义层），结果按 `raw` 去重、`level` 取高
-- **国产化双通道**：`AI_PROVIDER=ark|huawei` 一键切换；华为云 MaaS（OpenAI 兼容）+ RDS MySQL + DCS Redis，能力不足时自动降级
+- **模型通道可插拔**：`AI_PROVIDER=ark|huawei` 一键切换，默认火山方舟；不配任何 Key 时自动退化为纯本地正则引擎，功能不断只是少了语义层
 - **隐私零留存**：服务端日志 100% 脱敏，身份证/银行卡/手机/邮箱/IP/Bearer/api_key 一律不落盘
 - **离线可用**：PWA 已配置，断网仍能浏览历史；可装到桌面/手机主屏
 - **中英双语**：UI 文案与弹窗支持一键切换
@@ -38,8 +42,8 @@
 |---|---|---|---|
 | 文本消息 | 本地正则 + 大模型语义复检 | ✅ | 12,000 字 |
 | 图片（PNG / JPG / WebP） | 多模态模型识别 + 框选 | ✅ | 14MB |
-| 音频（MP3 / WAV / AAC / M4A） | SIS 转写 + 识别 | ✅（华为云走 SIS 两级流水线；未配置 SIS 时回退方舟） | 25MB |
-| 视频（MP4） | 模型转写 + 识别 | ✅（同上） | 25MB |
+| 音频（MP3 / WAV / AAC / M4A） | 多模态模型直传识别 | ✅（默认走方舟 `ARK_AUDIO_MODEL`） | 25MB |
+| 视频（MP4） | 多模态模型直传识别 | ✅（默认走方舟 `ARK_VIDEO_MODEL`） | 25MB |
 
 ### 检测的隐私字段（共 14 类）
 
@@ -68,7 +72,7 @@
 | 银行卡过 Luhn 校验 | true | 1.0 |
 | 格式像但校验不过 | false | 0.6（仍上报，标「存疑」） |
 
-## 三、版本演进（v3.0 - v3.8）
+## 三、版本演进（v3.0 - v3.9）
 
 | 版本 | 能力 | 价值 |
 |---|---|---|
@@ -193,6 +197,26 @@ PS.analyzeAndMask(text);              // 摘要 + 命中 + 脱敏文本，一步
 守卫管「打字时提醒」，检测页管「粘贴一段文字出报告」。
 结果列表只显示脱敏值，可一键复制/下载；全程不联网、不上传原文。
 
+### v3.9 定位调整（与云厂商解绑 · 独立部署）
+
+**起因**：华为云账号被冻结——`npm run probe:sis` 敲三个接口全部返回 `SIS.0101 RESTRICTED / frozen`
+（账号级，不是某个接口没开通），同一轮 OBS 上传/列举/删除全过，说明凭证没问题。云上链路无法继续验收。
+
+**做法：代码一行不删，只把主线换掉。**
+
+| 项 | 现在（独立版） | 华为云通道 |
+|---|---|---|
+| 模型通道 | 默认 `AI_PROVIDER=ark`（方舟） | `huawei`（MaaS），**已暂停** |
+| 零配置可用 | ✅ 一个 Key 不填也能跑，纯本地正则引擎 | — |
+| 存储 | SQLite（`node:sqlite`，零依赖） | MySQL，**可选** |
+| 限流/会话 | 内存计数 | Redis，**可选，连不上自动降级** |
+| 音频 | 方舟多模态直传 | SIS 转写，**已暂停** |
+| 部署 | [docs/standalone-deploy.md](docs/standalone-deploy.md)：任意 Node 22 主机 | [docs/archive/](docs/archive/) |
+
+- 华为云与 SIS 的 84 项测试**全部保留**（纯 mock，不联网），`npm test` 仍是 607 项全绿
+- 账号恢复后按归档文档补 `HW_*` 环境变量即可接回，切换是运行时的，不需要改代码
+- 新增独立部署文档，原华为云部署/配置/赛题材料移入 `docs/archive/` 并标注暂停原因
+
 ## 四、能力实证验证（101 条用例）
 
 宣称的能力不等于生效的能力。`npm run verify:capability` 给每一项能力都配了
@@ -249,17 +273,17 @@ PS.analyzeAndMask(text);              // 摘要 + 命中 + 脱敏文本，一步
 │       │             │                        │
 │  ┌────▼─────┐  ┌────▼──────────────────┐     │
 │  │ 本地正则  │  │ providers/index.js    │     │
-│  │ 13 类字段 │  │  AI_PROVIDER 路由     │     │
-│  │ 国标校验  │  │   ├─ ark.js（方舟）   │     │
-│  └────┬─────┘  │   └─ huawei.js（MaaS） │     │
+│  │ 14 类字段 │  │  AI_PROVIDER 路由     │     │
+│  │ 国标校验  │  │   ├─ ark.js（默认）   │     │
+│  └────┬─────┘  │   └─ huawei.js（可选） │     │
 │       │        └───────────┬───────────┘     │
 │       └────────┬───────────┘                 │
 │                ▼                              │
 │  services/analyzer.js（fuse 去重 · L1-L4）    │
 │                                              │
 │  services/auth.js                            │
-│    ├─ services/store（sqlite | RDS MySQL）   │
-│    └─ services/redis（DCS 会话缓存 · 可降级） │
+│    ├─ services/store（sqlite 默认）           │
+│    └─ services/redis（可选 · 连不上降级内存）  │
 └──────────────────┬───────────────────────────┘
                    │ JSON 响应
                    ▼
@@ -320,14 +344,22 @@ npm run build:extension    # 把 services/ 引擎同步到 extension/engine/
 
 ### 部署到生产环境
 
-上线（域名 / HTTPS / PM2 / 备份 / 回滚）看 **[docs/deploy-runbook.md](docs/deploy-runbook.md)**，含逐步命令、风险标注与冒烟清单。
-华为云 RDS / DCS / SIS 等资源开通看 **[docs/huawei-deploy.md](docs/huawei-deploy.md)**。
+**独立部署（推荐，零云依赖）**：一台 Node 22 主机 + SQLite，看 **[docs/standalone-deploy.md](docs/standalone-deploy.md)**，
+从装依赖到 HTTPS / PM2 / 备份 / 回滚 / 冒烟清单都在里面，全程不需要开通任何云服务。
+更完整的上线流程与风险标注看 **[docs/deploy-runbook.md](docs/deploy-runbook.md)**。
 
 ```bash
 npm run backup   # SQLite 一致性快照（VACUUM INTO），服务无需停机
 ```
 
-### 火山方舟 API Key 获取
+> **不配 Key 也能跑**：`.env` 里一个变量都不填，启动后纯文本检测照常工作（本地正则引擎 + 国标校验），
+> 只是没有大模型的语义层，图片/音视频这类需要多模态模型的通道会提示「未配置」。
+> 想启用语义层就只填 `ARK_API_KEY` 一项。
+>
+> 原华为云通道（MaaS / SIS / OBS / RDS / DCS）的代码与测试都保留在仓库里，当前**已暂停**，
+> 文档归档在 [docs/archive/](docs/archive/)，账号恢复后按文档补环境变量即可接回。
+
+### 火山方舟 API Key 获取（可选）
 
 1. 打开 https://console.volcengine.com/ark
 2. 开通「方舟」服务 → API Key 管理 → 创建 Key
@@ -446,8 +478,8 @@ npm test
 | HTTP 层 | `scripts/test-server.js` | 12 项 API 行为 |
 | 端到端 AI | `scripts/test-end-to-end.js` | 11 项模型流程 |
 | 账号与历史 | `scripts/test-auth-history.js` | 22 项注册/登录/云同步 |
-| 华为云适配 | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis |
-| SIS 音频转写 | `scripts/test-huawei-sis.js` | 52 项 极速版/普通版双通道、音频转码、多轮轮询、失败路径、analyzeAudio 集成 |
+| 华为云适配 *（可选通道 · 已暂停）* | `scripts/test-huawei-cloud.js` | 32 项 Provider / RDS / Redis，纯 mock 不联网 |
+| SIS 音频转写 *（可选通道 · 已暂停）* | `scripts/test-huawei-sis.js` | 52 项 极速版/普通版双通道、音频转码、多轮轮询、失败路径、analyzeAudio 集成 |
 | 体验加固 | `scripts/test-ux-hardening.js` | 81 项 错误分类 / 安全头与 nonce / 规则过滤 / 批量检测 / API 密钥识别 |
 | 前端交互 | `scripts/test-frontend-dom.js` | 122 项 **jsdom 真实点击**：主题、隐私弹窗、示例样本、规则过滤、批量、分层报告、错误卡片、本地缓存、本地模式、脱敏导出、文档页、状态页 |
 | 隐私优先加固 | `scripts/test-v36-hardening.js` | 26 项 抗变形、双端同源一致性、位置回映射、SSRF 守卫 |
@@ -467,27 +499,18 @@ npm test
 4. Environment: 添加 `ARK_API_KEY=...`
 5. 免费档会休眠，访问后约 30-60 秒唤醒
 
-### 华为云（MaaS + RDS + DCS）
+### 华为云（MaaS + RDS + DCS）—— 已暂停
 
-完整步骤见 **[docs/huawei-deploy.md](docs/huawei-deploy.md)**：区域选择、RDS 建库、DCS 连接串、Node 22 安装、PM2 守护、验收清单与回滚方式。
-
-```ini
-AI_PROVIDER=huawei
-HW_MAAS_BASE_URL=<控制台复制的地址>/v1
-HW_MAAS_API_KEY=<Key>
-DB_DRIVER=mysql
-MYSQL_HOST=<RDS 内网地址>
-REDIS_URL=redis://:<密码>@<DCS 内网地址>:6379/0
-```
-
-切换是**运行时**的：`AI_PROVIDER` 改回 `ark`、`DB_DRIVER` 改回 `sqlite`，即刻回到原架构，无需改代码。
+> 因华为云账号被冻结，这条链路当前**不可用**。代码、测试与文档都保留在仓库里（文档见
+> [docs/archive/](docs/archive/)），账号恢复后按文档补 `HW_*` 环境变量即可接回，**不需要改代码**——
+> 切换本来就是运行时的：`AI_PROVIDER` 改 `huawei`、`DB_DRIVER` 改 `mysql` 即刻生效，改回 `ark` / `sqlite` 就回到独立架构。
+>
+> 当前要走的是 **[独立部署](docs/standalone-deploy.md)**。
 
 ### Docker（自托管）
 
-```bash
-docker build -t privacy-sentinel .
-docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
-```
+> 仓库暂未内置 `Dockerfile`。需要容器化的话，**[docs/standalone-deploy.md](docs/standalone-deploy.md)** 第三节
+> 给了一份最小镜像可自建（本机无 Docker 环境，未做构建验证，用前先 build 一次）。
 
 ## 十、隐私承诺
 
@@ -520,7 +543,9 @@ docker run -p 8080:8080 -e ARK_API_KEY=xxx privacy-sentinel
 - [x] **v3.5** 冷启动提示 / 隐私声明 / 错误分类 / 安全头 / 分层报告 / 批量检测 / 规则自定义 / 文档页 / 状态页 / 398 项测试
 - [x] **v3.6** 本地离线检测（原文不上传）/ 抗变形归一化 / 脱敏文本三策略导出 / 置信度标记 / SSRF 守卫 / 438 项测试
 - [x] **v3.7** 浏览器扩展「输入守卫」（任意网站输入时实时提醒）/ 网页版守卫 / 统一入口页 / 507 项测试
-- [ ] **v3.8** PDF·Word 文档解析（目前需先转文本）/ 视频抽帧本地化
+- [x] **v3.8** 可嵌入 SDK（Node/浏览器双端 + TS 类型）/ 扩展内「检测工具」页 / 607 项测试
+- [x] **v3.9** 与云厂商解绑：独立部署文档 / 零配置可用（不填 Key 也能跑）/ 华为云通道归档（代码与 84 项测试保留）
+- [ ] **v3.10** PDF·Word 文档解析（目前需先转文本）/ 视频抽帧本地化
 - [ ] **v4.0**（产品级）团队空间 / 更细的权限 / 自定义正则规则导入
 - [ ] **v5.0**（商业级）SaaS 多租户 / 计费 / 管理后台
 

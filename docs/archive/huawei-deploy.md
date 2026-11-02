@@ -1,3 +1,16 @@
+> ## 已暂停（v3.9 起 · 与华为云解绑）
+>
+> **原因**：华为云账号被冻结。`npm run probe:sis` 敲三个接口全部返回 `SIS.0101 RESTRICTED / frozen`
+> （三个接口同因 = 账号级，不是某个服务没开通；同期 OBS 上传/列举/删除全过，凭证本身没问题）。
+> 本文档描述的链路当前无法验收，故归档。
+>
+> **代码没删**：`services/providers/huawei.js`、`huawei-sis.js` 与 84 项测试（纯 mock，不联网）全部保留。
+> 账号恢复后按本文档补齐 `HW_*` 环境变量，设 `AI_PROVIDER=huawei`、`DB_DRIVER=mysql` 即可接回，**不用改代码**。
+>
+> 当前主线是独立部署：**[../standalone-deploy.md](../standalone-deploy.md)**。
+
+---
+
 # 华为云部署指南（v3.3）
 
 > 目标：把隐私哨兵从 Render 迁到华为云，跑通「**码道 CodeArts 开发 + 华为云部署 + RDS/Redis**」这条链路。
