@@ -468,6 +468,71 @@ async function testPopupDetect() {
   win.close();
 }
 
+async function testPrivateReview() {
+  section('F. 先脱敏，再交给 AI');
+  const { JSDOM } = require('jsdom');
+  const html = fs.readFileSync(path.join(ROOT, '前端', 'private-review.html'), 'utf8');
+  const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'http://localhost/private-review.html' });
+  const { window: win } = dom;
+  try {
+    const el = (id) => win.document.getElementById(id);
+    const requests = [];
+    let respond;
+    win.fetch = (url, options) => {
+      requests.push({ url, body: JSON.parse(options.body) });
+      return new Promise((resolve) => { respond = resolve; });
+    };
+    for (const file of ['services/schema.js', 'services/localDetector.js', 'services/guardCore.js', '前端/services/private-review.js']) {
+      win.eval(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+    }
+    const enter = (text) => {
+      el('original').value = text;
+      el('original').dispatchEvent(new win.Event('input', { bubbles: true }));
+    };
+    const tick = () => new Promise((resolve) => setImmediate(resolve));
+    const result = (items) => ({ ok: true, json: async () => ({ success: true, source: 'ai', items }) });
+    const sample = '🔒 周星禾负责报名，联系电话：138（0013）8000。王小雨和王小雨一起值班。';
+    enter(sample);
+    el('inspect').click();
+    const preview = el('outgoing').textContent;
+    log(requests.length === 0 && preview.includes('【已隐藏：手机号】') && !preview.includes('138（0013）8000'),
+      '生成预览仅在本地，隐藏完整号码');
+    el('send').click();
+    log(requests.length === 1 && requests[0].url === '/api/analyze' && requests[0].body.mode === 'full' &&
+      requests[0].body.text === preview && !JSON.stringify(requests[0]).includes('138（0013）8000'), '确认后只上传预览文本');
+    respond(result([
+      { engine: 'ai', type: 'name', raw: '周星禾', start: 0, end: 1 },
+      { engine: 'ai', type: 'name', raw: '王小雨' },
+      { engine: 'ai', type: 'name', raw: '不存在的姓名' },
+      { engine: 'ai', type: 'phone', raw: '【已隐藏：手机号】' },
+    ]));
+    await tick();
+    log(el('masked').textContent === sample.replace('周星禾', '[姓名]').replace('138（0013）8000', '[手机号]'),
+      '唯一命中映射回原文，跳过重复、虚构和占位符命中');
+    log(el('status').textContent.includes('AI 新增 1 处') && el('status').textContent.includes('3 条'),
+      '界面区分 AI 新增和未定位条目');
+
+    el('send').click();
+    enter('改了一段内容。');
+    el('send').click();
+    respond(result([{ engine: 'ai', type: 'name', raw: '周星禾' }]));
+    await tick();
+    log(requests.length === 2 && el('send').disabled && el('result').hidden,
+      '修改原文使旧预览失效，过期 AI 回包不能改写界面');
+
+    enter(sample);
+    el('inspect').click();
+    const localResult = el('masked').textContent;
+    el('send').click();
+    respond({ ok: true, json: async () => ({ success: true, source: 'local', items: [] }) });
+    await tick();
+    log(el('masked').textContent === localResult && el('status').textContent.includes('暂不可用'),
+      '云端退化时保留本机结果并标明状态');
+  } finally {
+    win.close();
+  }
+}
+
 /* ============================ 运行 ============================ */
 
 (async function main() {
@@ -477,6 +542,7 @@ async function testPopupDetect() {
   await testGuardPage();
   testLaunch();
   await testPopupDetect();
+  await testPrivateReview();
 
   const total = pass + fail;
   console.log('\n' + '='.repeat(48));

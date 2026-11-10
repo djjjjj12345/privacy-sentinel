@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>隐私哨兵 · 先脱敏，再交给 AI</title>
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <style>
+    :root { color-scheme: light dark; font: 16px/1.55 system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: light-dark(#f3f7fb, #111827); color: light-dark(#172a42, #e6edf6); }
+    main { max-width: 1040px; padding: 28px 18px 48px; margin: auto; }
+    a { color: light-dark(#165db4, #93c5fd); }
+    h1 { margin: .4rem 0; font-size: clamp(1.7rem, 5vw, 2.5rem); }
+    h2 { font-size: 1.15rem; margin: 0 0 12px; }
+    .intro { max-width: 75ch; margin: 0 0 20px; }
+    .stages { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    section { min-width: 0; border: 1px solid light-dark(#c5d4e5, #45556b); border-radius: 14px; padding: 16px; background: light-dark(white, #1f2937); }
+    textarea, pre { width: 100%; min-height: 12rem; margin: 0 0 12px; padding: 12px; border: 1px solid light-dark(#9caec4, #6b7280); border-radius: 8px; font: inherit; background: light-dark(#f8fbff, #111827); color: inherit; }
+    textarea { resize: vertical; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    button { padding: 9px 14px; min-height: 44px; border: 1px solid #2461a4; border-radius: 8px; background: #165db4; color: white; font: inherit; cursor: pointer; }
+    button.secondary { background: transparent; color: inherit; }
+    button:disabled { opacity: .55; cursor: default; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .note { font-size: .9rem; margin: 0 0 12px; }
+    #result { margin-top: 14px; }
+    #status { min-height: 1.5em; }
+    @media (max-width: 720px) { .stages { grid-template-columns: 1fr; } }
+  </style>
+  <script src="/engine/schema.js" defer></script>
+  <script src="/engine/localDetector.js" defer></script>
+  <script src="/engine/guardCore.js" defer></script>
+  <script src="/services/private-review.js" defer></script>
+</head>
+<body>
+  <main>
+    <a href="/launch.html">← 产品总览</a>
+    <h1>先脱敏，再交给 AI</h1>
+    <p class="intro">浏览器先把识别出的敏感字段替换成类型标签。你可以检查将要发送的内容，再决定是否让云端 AI 复检。AI 新发现的字段只有在原文中能唯一定位，才会加入脱敏结果。</p>
+    <div class="stages">
+      <section aria-labelledby="input-title">
+        <h2 id="input-title"><label for="original">1. 在本机准备原文</label></h2>
+        <textarea id="original" maxlength="12000" spellcheck="false" autocomplete="off" placeholder="粘贴一段待检测文本，或载入合成示例。"></textarea>
+        <div class="actions">
+          <button id="inspect" type="button">本地检测并生成预览</button>
+          <button id="example" class="secondary" type="button">载入合成示例</button>
+        </div>
+      </section>
+      <section aria-labelledby="outgoing-title">
+        <h2 id="outgoing-title">2. 检查即将发送的文本</h2>
+        <p class="note" id="notice">云端只收到下方预览中的文本。规则可能漏检，请先确认预览里没有你希望留在本机的信息。</p>
+        <pre id="outgoing" aria-labelledby="outgoing-title">生成预览后在这里检查。</pre>
+        <button id="send" type="button" aria-describedby="notice" disabled>确认发送预览给 AI</button>
+      </section>
+    </div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="result" aria-labelledby="result-title" hidden>
+      <h2 id="result-title">3. 在本机查看脱敏结果</h2>
+      <pre id="masked" aria-labelledby="result-title"></pre>
+    </section>
+  </main>
+</body>
+</html>
