@@ -89,8 +89,21 @@ console.log('\n--- A. 抗变形 ---');
     log(buildMaskedText(input, hits) === `🔒 前文：${hit?.masked}。后文`, `分组 ${type} 脱敏保留周边正文`);
   }
 
+  const labeledCases = [
+    ['手机号写成了 １３８（００１３）８０００', '１３８（００１３）８０００'],
+    ['联系电话是幺三八零零幺三八零零零', '幺三八零零幺三八零零零'],
+  ];
+  for (const [input, grouped] of labeledCases) {
+    const hits = localDetector.detect(input);
+    const hit = hits[0];
+    log(hits.length === 1 && hit.type === 'phone' && hit.raw === '13800138000' &&
+      input.slice(hit.start, hit.end) === grouped && !buildMaskedText(input, hits).includes(grouped),
+    '明确手机语境中的变形号码可识别并脱敏');
+  }
+
   const harmless = ['价格 138.00138000', '版本 v138.0013.8000', '链接 https://138.0013.8000.example',
-    '普通值 4111.1111.1111.1112', '第一段 138\n\n0013\n8000'];
+    '普通值 4111.1111.1111.1112', '第一段 138\n\n0013\n8000', '编号 138（0013）8000',
+    '序列 幺三八零零幺三八零零零', '手机号是一三八零零一三八零零零一'];
   for (const input of harmless) {
     log(localDetector.detect(input).length === 0, `排除歧义数字 ${JSON.stringify(input)}`);
   }

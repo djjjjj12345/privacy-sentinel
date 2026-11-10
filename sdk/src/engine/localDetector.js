@@ -1,6 +1,6 @@
 /**
  * ⚠️ 本文件由 scripts/build-sdk.js 自动生成，请勿直接修改。
- * 来源：services/localDetector.js（哈希 fe1c92eeef11）
+ * 来源：services/localDetector.js（哈希 97ced5a92b1b）
  * 改规则请改 services/ 下的源文件，然后重新运行：node scripts/build-sdk.js
  */
 /**
@@ -193,6 +193,19 @@ function collectMatches(text) {
   const phoneRe = /(?<!\d)(1[3-9]\d{9})(?!\d)/g;
   for (const m of text.matchAll(phoneRe)) {
     push('phone', m[1], m.index, m.index + m[1].length, true);
+  }
+
+  // 中文口述数字和括号分组只在明确的手机语境中解析，避免拼接普通数字与编号。
+  const phoneLabel = /(?:手机号(?:码)?|联系电话|电话号码)\s*(?:是|为|写成了?)?\s*:?\s*/;
+  const groupedPhone = /1[3-9]\d *\( *\d{4} *\) *\d{4}(?!\d)/;
+  const spokenPhone = /[一幺][三四五六七八九][零〇一幺二三四五六七八九]{9}(?![零〇一幺二三四五六七八九\d])/;
+  const labeledPhoneRe = new RegExp(`${phoneLabel.source}(${groupedPhone.source}|${spokenPhone.source})`, 'g');
+  const spokenDigits = { 零: '0', 〇: '0', 一: '1', 幺: '1', 二: '2', 三: '3', 四: '4', 五: '5', 六: '6', 七: '7', 八: '8', 九: '9' };
+  for (const m of text.matchAll(labeledPhoneRe)) {
+    const grouped = m[1];
+    const start = m.index + m[0].lastIndexOf(grouped);
+    const value = grouped.replace(/[ ()]/g, '').replace(/[零〇一幺二三四五六七八九]/g, (digit) => spokenDigits[digit]);
+    push('phone', value, start, start + grouped.length, true);
   }
 
   // ---- 密码 ----
