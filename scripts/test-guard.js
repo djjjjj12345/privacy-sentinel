@@ -321,7 +321,7 @@ function testLaunch() {
   log(/href="index\.html"/.test(src), '入口页链到检测工具');
   log(/href="guard\.html"/.test(src), '入口页链到输入守卫');
   log(/href="docs\.html#guard"/.test(src), '提供扩展安装说明入口');
-  log(/两个独立产品|独立/.test(src), '明确说明两个产品相互独立');
+  log(/href="simulator\/index\.html"/.test(src), '产品总览可打开独立发布沙盘');
 
   const indexSrc = fs.readFileSync(path.join(ROOT, '前端', 'index.html'), 'utf8');
   log(/href="\/guard\.html"/.test(indexSrc), '检测工具主页可跳到守卫（不是单向孤岛）');
@@ -533,6 +533,84 @@ async function testPrivateReview() {
   }
 }
 
+async function testRehearsal() {
+  section('G. 跨帖发布沙盘');
+  const { JSDOM } = require('jsdom');
+  const pathOf = (file) => path.join(ROOT, '前端', 'simulator', file);
+  const model = require(pathOf('engine.js'));
+  const [campus, training] = model.scenarios;
+  const state = model.initialState(campus);
+  state.clip.audience = 'followers';
+  const stranger = model.evaluate(campus, state, 'stranger');
+  const follower = model.evaluate(campus, state, 'follower');
+  const member = model.evaluate(campus, state, 'member');
+  log(stranger.findings.length === 0 && follower.findings[0]?.value === '138 0013 8000' &&
+    member.findings[0]?.sources[2][0].id === 'reminder', '同一次可见范围调整在三种视角下产生不同结果');
+  const recipient = model.evaluate(campus, model.initialState(campus), 'recipient');
+  log(recipient.findings[0]?.value === '138 0013 8000' && recipient.conflicts.length === 0,
+    '来自另一个主体的私信片段不参与拼接');
+  const groupState = model.initialState(training);
+  const conflicting = model.evaluate(training, groupState, 'member');
+  groupState.oldtime.hidden = true;
+  log(conflicting.conflicts.length === 1 && conflicting.findings.length === 0 &&
+    model.evaluate(training, groupState, 'member').findings.length === 1, '同一主体的冲突被保留，隐藏一条会重新计算推断');
+
+  const repeated = {
+    ...campus,
+    cards: campus.cards.concat(campus.cards.slice(0, 3).map((card) => ({ ...card, id: `${card.id}-duplicate` }))),
+  };
+  const redundantState = model.initialState(repeated);
+  const repair = model.suggest(repeated, redundantState, 'stranger');
+  for (const id of repair) redundantState[id].hidden = true;
+  log(repair.length === 2 && model.evaluate(repeated, redundantState, 'stranger').findings.length === 0,
+    '每个字段都有公开副本时，最少需要遮挡两条才能阻断推断');
+
+  // 模拟解压后双击打开的入口，确认核心演练不依赖服务或模型。
+  const html = fs.readFileSync(pathOf('index.html'), 'utf8');
+  const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'file:///simulator/index.html' });
+  try {
+    const { window: win } = dom;
+    const el = (id) => win.document.getElementById(id);
+    for (const file of ['engine.js', 'app.js']) win.eval(fs.readFileSync(pathOf(file), 'utf8'));
+    log(el('home').hidden && el('after-count').textContent === '1' &&
+      el('findings').querySelectorAll('a[href^="#seen-"]').length === 3, '离线入口可运行且给出三条证据跳转');
+    const change = (element, value) => {
+      element.value = value;
+      element.dispatchEvent(new win.Event('change', { bubbles: true }));
+    };
+    change(el('editor').querySelector('select[aria-label="招新视频的置顶字幕的可见范围"]'), 'followers');
+    log(el('before-count').textContent === '1' && el('after-count').textContent === '0' &&
+      !el('seen-clip'), '修改发布范围会即时刷新对照和时间线');
+    change(el('observer'), 'follower');
+    const before = el('timeline').querySelectorAll('.entry').length;
+    el('repair').click();
+    log(el('before-count').textContent === '1' && el('after-count').textContent === '0' &&
+      el('timeline').querySelectorAll('.entry').length === before && el('editor').querySelectorAll('.repaired').length === 1,
+    '应用最少遮挡后保留可见正文并标出修改');
+    el('reset').click();
+    log(el('after-count').textContent === '1' && !el('editor').querySelector('.repaired'), '重置可回放初始状态');
+  } finally { dom.window.close(); }
+
+  const manifest = JSON.parse(fs.readFileSync(pathOf('manifest.webmanifest'), 'utf8'));
+  log(manifest.display === 'standalone' && manifest.scope === './' && fs.existsSync(pathOf(manifest.start_url)) &&
+    manifest.icons.every(({ src }) => fs.existsSync(pathOf(src))), 'PWA 声明使用独立窗口和自有路径范围');
+  const handlers = {};
+  const scope = 'https://example.test/simulator/';
+  let cached = [], installed, offline;
+  const cache = { addAll: async (urls) => { cached = urls; }, match: async (url) => cached.includes(url) ? url : null };
+  require('node:vm').runInNewContext(fs.readFileSync(pathOf('sw.js'), 'utf8'), {
+    URL, self: { registration: { scope }, addEventListener: (event, handler) => { handlers[event] = handler; }, skipWaiting() {} },
+    caches: { open: async () => cache }, fetch: () => { throw new Error('offline'); },
+  });
+  handlers.install({ waitUntil: (task) => { installed = task; } });
+  await installed;
+  handlers.fetch({ request: { url: scope, method: 'GET' }, respondWith: (task) => { offline = task; } });
+  const shell = await offline;
+  handlers.fetch({ request: { url: 'https://example.test/api/analyze', method: 'POST' }, respondWith: () => { offline = null; } });
+  log(shell === `${scope}index.html` && cached.length === 8 && offline !== null,
+    '离线时可从静态壳打开，沙盘 Service Worker 不处理检测 API');
+}
+
 /* ============================ 运行 ============================ */
 
 (async function main() {
@@ -543,6 +621,7 @@ async function testPrivateReview() {
   testLaunch();
   await testPopupDetect();
   await testPrivateReview();
+  await testRehearsal();
 
   const total = pass + fail;
   console.log('\n' + '='.repeat(48));

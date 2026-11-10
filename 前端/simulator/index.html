@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f4ef">
+  <title>发布沙盘 · 隐私哨兵</title>
+  <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <script src="engine.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="wrap">
+    <header class="topbar">
+      <a id="home" href="../launch.html">← 隐私哨兵</a>
+      <button id="install" type="button" class="secondary" hidden>安装发布沙盘</button>
+    </header>
+    <div class="hero">
+      <p class="eyebrow">社交隐私演练</p>
+      <h1>发布沙盘</h1>
+      <p>单看都只是片段，放在一起会暴露什么？在虚构的社交场景里，先换成旁观者的视角，再试着切断线索。</p>
+    </div>
+
+    <div class="controls" aria-label="演练控制">
+      <label>场景 <select id="scenario"></select></label>
+      <label>观察者 <select id="observer"></select></label>
+      <button id="reset" type="button" class="secondary">重置演练</button>
+    </div>
+    <p class="brief" id="brief"></p>
+
+    <div class="workspace">
+      <section class="panel" aria-labelledby="timeline-title">
+        <p class="eyebrow">01 · 观察者</p>
+        <h2 id="timeline-title">他能看到的时间线</h2>
+        <p id="visible-count" class="muted"></p>
+        <div id="timeline" class="timeline"></div>
+      </section>
+
+      <section class="panel findings-panel" aria-labelledby="findings-title">
+        <p class="eyebrow">02 · 线索关联</p>
+        <h2 id="findings-title">拼起来会暴露什么</h2>
+        <div class="comparison" aria-live="polite">
+          <div><span>原始可推断项</span><strong id="before-count"></strong></div>
+          <div><span>调整后可推断项</span><strong id="after-count"></strong></div>
+        </div>
+        <div id="findings"></div>
+        <button id="repair" type="button" class="primary">应用最少遮挡方案</button>
+        <p id="repair-note" class="muted" role="status"></p>
+      </section>
+    </div>
+
+    <section class="panel editor-panel" aria-labelledby="editor-title">
+      <p class="eyebrow">03 · 发布者</p>
+      <h2 id="editor-title">改一处，再回看</h2>
+      <p class="muted">试着把短视频字幕改成仅关注者可见，再切换观察者。你也可以只隐藏线索，保留正文。</p>
+      <div id="editor" class="editor"></div>
+    </section>
+    <footer>场景、人物和线索均为合成示例。推断使用场景预设的关联关系与可见范围，所有操作都在当前设备内模拟。</footer>
+  </main>
+</body>
+</html>
