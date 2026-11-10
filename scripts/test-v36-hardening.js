@@ -67,6 +67,35 @@ console.log('\n--- A. 抗变形 ---');
 
   const r8 = localDetector.detect('订单号 202503190000000123');
   log(r8.length === 0, '订单号仍不被误判为身份证');
+
+  const splitCases = [
+    ['phone', '138\r\n0013\n8000', '13800138000'],
+    ['phone', '１３８\t００１３\u202f８０００', '13800138000'],
+    ['phone', '138 — 0013‑8000', '13800138000'],
+    ['phone', '138.0013.8000', '13800138000'],
+    ['id', '110105\n19491231\t002-X', '11010519491231002X'],
+    ['id', '11010519491231002-X', '11010519491231002X'],
+    ['id', '110105.19491231.002X', '11010519491231002X'],
+    ['bankcard', '4111.1111.1111.1111', '4111111111111111'],
+    ['bankcard', '4111—1111\n1111\t1111', '4111111111111111'],
+  ];
+  const { buildMaskedText } = require('../services/guardCore');
+  for (const [type, grouped, raw] of splitCases) {
+    const input = `🔒 前文：${grouped}。后文`;
+    const hits = localDetector.detect(input);
+    const hit = hits[0];
+    log(hits.length === 1 && hit.type === type && hit.raw === raw && hit.verified &&
+      input.slice(hit.start, hit.end) === grouped, `分组 ${type} 命中并定位原文`, JSON.stringify(grouped));
+    log(buildMaskedText(input, hits) === `🔒 前文：${hit?.masked}。后文`, `分组 ${type} 脱敏保留周边正文`);
+  }
+
+  const harmless = ['价格 138.00138000', '版本 v138.0013.8000', '链接 https://138.0013.8000.example',
+    '普通值 4111.1111.1111.1112', '第一段 138\n\n0013\n8000'];
+  for (const input of harmless) {
+    log(localDetector.detect(input).length === 0, `排除歧义数字 ${JSON.stringify(input)}`);
+  }
+  const adjacent = localDetector.detect('13800138000\n13900139000');
+  log(adjacent.length === 2 && adjacent.every((item) => item.type === 'phone'), '保留相邻两行的独立完整手机号');
 }
 
 // ================= B. 双端同源 =================
@@ -92,6 +121,7 @@ console.log('\n--- B. 浏览器加载与后端同源 ---');
   const corpus = [
     '我叫张三，身份证11010519491231002X，手机号13800138000',
     '手机 138 0013 8000，邮箱 zhangsan@example.com',
+    '手机 138\n0013\t8000，卡号 4111.1111.1111.1111',
     'key: sk-abcdefghijklmnop123456',
     '服务器 10.0.0.8，卡号 4111111111111111',
     '普通文本，没有任何敏感信息',
@@ -221,7 +251,7 @@ const srv = app.listen(0, '127.0.0.1', async () => {
 
   {
     // 本地模式：纯文本检测走本地引擎，不需要模型
-    const r = await post(port, { kind: 'text', text: '手机号 138 0013 8000', mode: 'local' });
+    const r = await post(port, { kind: 'text', text: '手机号 138\n0013\t8000', mode: 'local' });
     log(r.status === 200 && r.json && r.json.success, '本地模式文本检测可用');
     log(r.json && r.json.items && r.json.items[0] && r.json.items[0].raw === '13800138000',
       '本地模式同样抗变形', r.json && r.json.items && r.json.items[0] && r.json.items[0].masked);

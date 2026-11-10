@@ -1,6 +1,6 @@
 /**
  * ⚠️ 本文件由 scripts/build-extension.js 自动生成，请勿直接修改。
- * 来源：services/localDetector.js（哈希 c8492dddb4e5）
+ * 来源：services/localDetector.js（哈希 fe1c92eeef11）
  * 改规则请改 services/ 下的源文件，然后重新运行：node scripts/build-extension.js
  */
 /**
@@ -44,7 +44,7 @@ const ZERO_WIDTH_RE = /[\u200B-\u200D\uFEFF\u2060]/;
  * 处理三类常见的绕过手法：
  *   1. 零宽字符插入：13​800138000
  *   2. 全角字符：１３８００１３８０００
- *   3. 数字间分隔符：138 0013-8000 / 4111.1111.1111.1111
+ *   3. 数字间的空格、连字符、下划线：138 0013-8000
  *
  * 只折叠「数字与数字之间」的分隔符——否则 "hello world" 会被粘成 "helloworld"，
  * 破坏「密码 是 xxx」这类上下文规则。
@@ -66,8 +66,7 @@ function normalizeForScan(text) {
     map.push(i);
   }
 
-  // 只折叠空格/连字符/下划线：点号不能折叠，否则 192.168.1.100 会被粘成 1921681100，
-  // IP 直接漏检。分组的点号（4111.1111.1111.1111）比 IP 罕见得多，取舍很明确。
+  // 点号留给 IP、域名等规则。号码分组的点号由独立的候选规则处理。
   const SEP = /[ \-_]/;
   const out = [];
   const outMap = [];
@@ -418,6 +417,55 @@ function resolveOverlaps(matches) {
   return result.sort((a, b) => a.start - b.start);
 }
 
+/** 在原有规则的结果之外，补查被排版字符拆开的完整号码。 */
+function findSplitNumbers(text, existing) {
+  const separator = /[ \t\u00A0\u2000-\u200A\u202F_\-\u2010-\u2015\u2212]/.source;
+  const gap = `(?:${separator}{1,8}|${separator}{0,8}\\r?\\n${separator}{0,8}|\\.)`;
+  const splitRe = new RegExp(`(?<![\\d.])\\d+(?:${gap}\\d+)+|(?<!\\d)\\d{17}${gap}[Xx](?!\\w)`, 'g');
+  const idSuffix = new RegExp(`^(?:${gap})?[Xx](?!\\w)`);
+  const matches = [];
+  let previous = 0;
+
+  for (const match of text.matchAll(splitRe)) {
+    let grouped = match[0];
+    const start = match.index;
+    let value = grouped.replace(/[^\dXx]/g, '');
+    if (value.length === 17) {
+      const suffix = idSuffix.exec(text.slice(start + grouped.length));
+      if (suffix) {
+        grouped += suffix[0];
+        value += suffix[0].slice(-1);
+      }
+    }
+    const end = start + grouped.length;
+
+    // 连续小数点、域名和版本号不能当成分组号码。
+    const dotted = grouped.includes('.');
+    if (dotted && (/[\w.]/.test(text[start - 1] || '') || /^\w|^\.[\w.]/.test(text.slice(end, end + 2)))) continue;
+
+    // 原有规则已识别的字段优先，例如 IP、密码和敏感链接。
+    while (previous < existing.length && existing[previous].end <= start) previous++;
+    if (previous < existing.length && existing[previous].start < end) continue;
+
+    if (/^1[3-9]\d{9}$/.test(value) && (!dotted || /^\d{3}\.\d{4}\.\d{4}$/.test(grouped))) {
+      matches.push({ type: 'phone', value, start, end, verified: true });
+      continue;
+    }
+
+    // 对点号分组要求明确的分组格式和校验通过，避免把数值列识别成证件或银行卡。
+    const id = checkIdCard(value);
+    if (id && (!dotted || (id === 'valid' && /^\d{6}\.\d{8}\.\d{3}[\dXx]$/.test(grouped)))) {
+      matches.push({ type: 'id', value, start, end, verified: id === 'valid' });
+      continue;
+    }
+    const card = checkBankCard(value);
+    if (card && (!dotted || (card === 'valid' && /^\d{4}(?:\.\d{4}){3}$/.test(grouped)))) {
+      matches.push({ type: 'bankcard', value, start, end, verified: card === 'valid' });
+    }
+  }
+  return matches;
+}
+
 /**
  * 对文本执行本地检测。
  * @param {string} text
@@ -429,6 +477,8 @@ function detect(text) {
   // 在归一化文本上匹配，再把命中区间映射回原文，保证脱敏/定位不串位
   const norm = normalizeForScan(text);
   const matches = resolveOverlaps(collectMatches(norm.text));
+  matches.push(...findSplitNumbers(norm.text, matches));
+  matches.sort((a, b) => a.start - b.start);
 
   return matches
     .map((m) => {
