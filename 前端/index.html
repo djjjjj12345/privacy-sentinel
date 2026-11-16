@@ -2075,6 +2075,7 @@
                     confidence: typeof it.confidence === 'number' ? it.confidence : null,
                     verified: typeof it.verified === 'boolean' ? it.verified : null,
                     bbox: Array.isArray(it.bbox) ? it.bbox : null,
+                    boxes: Array.isArray(it.boxes) ? it.boxes : null,
                     engine: it.engine || 'ai',
                 };
             });
@@ -2135,6 +2136,63 @@
             });
         }
 
+        function imageBoxes(detection) {
+            const boxes = detection.boxes || (detection.bbox ? [detection.bbox] : []);
+            return boxes.filter(function (box) {
+                return Array.isArray(box) && box.length === 4 &&
+                    box.every(function (n) { return Number.isFinite(n) && n >= 0 && n <= 1; }) &&
+                    box[0] < 1 && box[1] < 1 && box[2] > 0 && box[3] > 0;
+            });
+        }
+
+        function addMaskedImageDownload(anchor, preview, detections) {
+            if (!detections.length) return;
+            const regions = detections.map(imageBoxes);
+            if (regions.some(function (boxes) { return !boxes.length; })) {
+                addMessage('部分检测结果没有可用的图像坐标，请手动遮盖后再外发。', 'bot', { time: getTime() });
+                return;
+            }
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'download-masked-image';
+            button.textContent = '复核框选后下载遮盖 PNG';
+            anchor.appendChild(button);
+            button.addEventListener('click', async function () {
+                if (!window.confirm('请确认红框覆盖了全部敏感文字。仅红框内的像素会被遮盖，下载后请再次检查。')) return;
+                button.disabled = true;
+                try {
+                    const image = preview.querySelector('img');
+                    await image.decode();
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.naturalWidth;
+                    canvas.height = image.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(image, 0, 0);
+                    ctx.fillStyle = '#000';
+                    for (const [x, y, width, height] of regions.flat()) {
+                        const left = Math.floor(x * canvas.width);
+                        const top = Math.floor(y * canvas.height);
+                        const right = Math.ceil(Math.min(1, x + width) * canvas.width);
+                        const bottom = Math.ceil(Math.min(1, y + height) * canvas.height);
+                        ctx.fillRect(left, top, right - left, bottom - top);
+                    }
+                    const blob = await new Promise(function (resolve) { canvas.toBlob(resolve, 'image/png'); });
+                    if (!blob) throw new Error('PNG 编码失败');
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = '隐私哨兵-遮盖截图.png';
+                    link.click();
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+                } catch {
+                    showToast('图片导出失败，请重新上传后再试。', 2500);
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        }
+
         /** 按模型返回的归一化坐标，在图片上画出敏感区域 */
         function renderImageWithBoxes(dataUrl, detections) {
             const wrap = document.createElement('div');
@@ -2144,25 +2202,24 @@
             img.alt = '待检测图片';
             wrap.appendChild(img);
 
-            const boxes = detections.filter(function (d) { return d.bbox && d.bbox.length === 4; });
+            const boxes = detections.flatMap(function (d) {
+                return imageBoxes(d).map(function (bbox) { return { bbox: bbox, label: d.label }; });
+            });
             function paint() {
                 wrap.querySelectorAll('.sensitive-box').forEach(function (el) { el.remove(); });
-                const w = wrap.clientWidth;
-                const h = wrap.clientHeight;
-                if (!w || !h) return;
                 boxes.forEach(function (d) {
                     const box = document.createElement('div');
                     box.className = 'sensitive-box';
                     box.dataset.label = d.label;
-                    box.style.left = (d.bbox[0] * w) + 'px';
-                    box.style.top = (d.bbox[1] * h) + 'px';
-                    box.style.width = Math.max(12, d.bbox[2] * w) + 'px';
-                    box.style.height = Math.max(12, d.bbox[3] * h) + 'px';
+                    box.style.boxSizing = 'border-box';
+                    box.style.left = (d.bbox[0] * 100) + '%';
+                    box.style.top = (d.bbox[1] * 100) + '%';
+                    box.style.width = (Math.min(1 - d.bbox[0], d.bbox[2]) * 100) + '%';
+                    box.style.height = (Math.min(1 - d.bbox[1], d.bbox[3]) * 100) + '%';
                     wrap.appendChild(box);
                 });
             }
             if (img.complete) paint(); else img.addEventListener('load', paint);
-            window.addEventListener('resize', paint);
             return wrap;
         }
 
@@ -3089,10 +3146,15 @@
                 const detections = toLocalDetections(res.items);
 
                 // 模型给了坐标就把敏感区域直接框在图上
-                if (opts.anchor && detections.some(function (d) { return d.bbox; })) {
+                if (opts.anchor && detections.length) {
                     const old = opts.anchor.querySelector('.img-with-box');
                     if (old && old.parentNode) {
-                        old.parentNode.replaceChild(renderImageWithBoxes(source, detections), old);
+                        const preview = renderImageWithBoxes(source, detections);
+                        old.replaceWith(preview);
+                        opts.anchor.querySelector('.download-masked-image')?.remove();
+                        if (/^data:image\//i.test(source)) {
+                            addMaskedImageDownload(opts.anchor, preview, detections);
+                        }
                     }
                 }
 

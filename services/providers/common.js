@@ -123,7 +123,30 @@ function toItems(parsed) {
     }
   }
   if (!arr) return [];
-  return arr.map((raw) => normalizeItem(raw, 'ai')).filter(Boolean);
+  return arr.map((raw) => {
+    if (!raw || raw.phoneParts === undefined) return normalizeItem(raw, 'ai');
+    if (raw.type !== 'phone' || !Array.isArray(raw.phoneParts) ||
+        raw.phoneParts.length < 2 || raw.phoneParts.length > 11) return null;
+
+    const digits = [];
+    const boxes = [];
+    for (const part of raw.phoneParts) {
+      if (!part || typeof part.text !== 'string' || !/^[0-9０-９]+$/.test(part.text)) return null;
+      digits.push(part.text.normalize('NFKC'));
+      const box = part.bbox;
+      if (!Array.isArray(box) || box.length !== 4 ||
+          !box.every((n) => Number.isFinite(n) && n >= 0 && n <= 1)) continue;
+      const [x, y, width, height] = box;
+      if (!width || !height || x + width > 1 || y + height > 1) continue;
+      boxes.push(box);
+    }
+    const phone = digits.join('');
+    if (!/^1[3-9][0-9]{9}$/.test(phone)) return null;
+    return {
+      ...normalizeItem({ ...raw, raw: phone, bbox: null, verified: null }, 'ai'),
+      boxes: boxes.length === digits.length ? boxes : null,
+    };
+  }).filter(Boolean);
 }
 
 /**
